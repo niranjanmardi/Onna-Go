@@ -9,7 +9,6 @@ import {
   Calendar,
   ChevronRight,
   AlertCircle,
-  Sparkles,
 } from 'lucide-react';
 import { api } from '@/lib/api-client';
 import { Trip } from '@/types';
@@ -53,19 +52,19 @@ export const TripsListPage: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 p-5 md:p-8 max-w-7xl mx-auto w-full space-y-6">
+    <div className="flex-1 p-5 md:p-8 max-w-6xl mx-auto w-full space-y-6">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900 font-['Plus_Jakarta_Sans']">
-              Trips & Rides
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-[#171717] font-['Plus_Jakarta_Sans']">
+              Trips &amp; Rides
             </h1>
-            <span className="text-xs font-bold text-orange-500 bg-orange-50 px-2 py-0.5 rounded-full border border-orange-200">
+            <span className="text-[11px] font-semibold text-[#16834A] bg-[#DDF5E5] px-2 py-0.5 rounded-md border border-[#C6ECCF]">
               ஒண்ணா போ
             </span>
           </div>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-[#737373] mt-1">
             Manage your motorcycle tours, road journeys, weekend getaways, and shared expenses.
           </p>
         </div>
@@ -73,15 +72,15 @@ export const TripsListPage: React.FC = () => {
         <div className="flex items-center gap-2.5">
           <button
             onClick={() => setIsJoinOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-xl shadow-sm transition-all"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium text-[#171717] bg-white hover:bg-[#F4F4F2] border border-[#E8E8E5] rounded-xl shadow-xs transition-colors"
           >
-            <KeyRound className="w-4 h-4 text-orange-500" />
+            <KeyRound className="w-4 h-4 text-[#737373]" />
             <span>Join with Code</span>
           </button>
 
           <button
             onClick={() => setIsCreateOpen(true)}
-            className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md shadow-indigo-600/25 transition-all active:scale-95"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-[#16834A] hover:bg-[#136F3F] rounded-xl shadow-xs transition-all active:scale-[0.98]"
           >
             <Plus className="w-4 h-4" />
             <span>Create Trip</span>
@@ -90,40 +89,40 @@ export const TripsListPage: React.FC = () => {
       </div>
 
       {error && (
-        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 flex-shrink-0" />
+        <div className="p-4 rounded-xl bg-[#FFE4E6] border border-[#FDA4AF] text-[#E11D48] text-sm flex items-center gap-3">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
       {loading ? (
         <div className="py-20 flex flex-col items-center justify-center">
-          <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm font-medium text-slate-500 mt-3">Loading your trips...</p>
+          <div className="w-8 h-8 border-2 border-[#E8E8E5] border-t-[#16834A] rounded-full animate-spin mb-3" />
+          <p className="text-sm text-[#737373]">Loading trips...</p>
         </div>
       ) : trips.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-12 text-center space-y-4">
-          <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
-            <Compass className="w-8 h-8" />
+        <div className="bg-white rounded-2xl border border-[#E8E8E5] p-12 text-center max-w-lg mx-auto shadow-xs">
+          <div className="w-12 h-12 bg-[#FAFAF8] border border-[#E8E8E5] text-[#737373] rounded-xl flex items-center justify-center mx-auto mb-4">
+            <Compass className="w-6 h-6" />
           </div>
-          <h3 className="text-lg font-bold text-slate-900">No trips recorded yet</h3>
-          <p className="text-sm text-slate-500 max-w-md mx-auto">
-            Ready to ride together and split smarter? Create a new trip or join your friends with an invite code.
+          <h2 className="text-lg font-bold text-[#171717]">No trips found</h2>
+          <p className="text-sm text-[#737373] mt-1.5 leading-relaxed">
+            Ready to hit the road? Create a trip now to invite friends and start tracking your shared travel expenses.
           </p>
-          <div className="pt-2 flex items-center justify-center gap-3">
+          <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
             <button
               onClick={() => setIsCreateOpen(true)}
-              className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm py-2.5 px-5 rounded-xl shadow-sm transition-all"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-[#16834A] hover:bg-[#136F3F] text-white px-5 py-2.5 rounded-xl font-medium text-sm transition-colors"
             >
               <Plus className="w-4 h-4" />
-              <span>New Trip</span>
+              <span>Create Your First Trip</span>
             </button>
             <button
               onClick={() => setIsJoinOpen(true)}
-              className="inline-flex items-center gap-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-semibold text-sm py-2.5 px-5 rounded-xl shadow-sm transition-all"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-white border border-[#E8E8E5] text-[#171717] hover:bg-[#F4F4F2] px-4 py-2.5 rounded-xl font-medium text-sm transition-colors"
             >
-              <KeyRound className="w-4 h-4 text-orange-500" />
-              <span>Join Trip</span>
+              <KeyRound className="w-4 h-4 text-[#737373]" />
+              <span>Join with Invite Code</span>
             </button>
           </div>
         </div>
@@ -133,49 +132,53 @@ export const TripsListPage: React.FC = () => {
             <div
               key={trip.id}
               onClick={() => navigate(`/trips/${trip.id}`)}
-              className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm hover:border-indigo-400/80 hover:shadow-md cursor-pointer transition-all duration-200 flex flex-col justify-between group"
+              className="bg-white rounded-2xl border border-[#E8E8E5] p-5 shadow-xs hover:border-[#16834A]/50 hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col justify-between"
             >
               <div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold tracking-wide uppercase px-2.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-md bg-[#FAFAF8] text-[#737373] border border-[#E8E8E5]">
                     {trip.currency}
                   </span>
-                  <span className="text-xs font-medium text-slate-500 flex items-center gap-1.5">
-                    <Users className="w-3.5 h-3.5 text-slate-400" />
-                    <span>{trip.members_count} members</span>
+                  <span className="text-xs text-[#737373] flex items-center gap-1">
+                    <Users className="w-3.5 h-3.5 text-[#A3A3A3]" />
+                    <span>{trip.members_count || 1} members</span>
                   </span>
                 </div>
 
-                <h3 className="text-lg font-bold text-slate-900 mt-3 group-hover:text-indigo-600 transition-colors truncate">
+                <h3 className="text-lg font-bold text-[#171717] mt-3 tracking-tight truncate">
                   {trip.name}
                 </h3>
 
                 {trip.destination && (
-                  <p className="text-xs text-slate-600 font-medium flex items-center gap-1 mt-1">
-                    <MapPin className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" />
-                    <span className="truncate">{trip.destination}</span>
+                  <p className="text-xs text-[#737373] mt-1 flex items-center gap-1.5 truncate">
+                    <MapPin className="w-3.5 h-3.5 text-[#16834A] flex-shrink-0" />
+                    <span>{trip.destination}</span>
                   </p>
                 )}
 
-                {trip.description && (
-                  <p className="text-xs text-slate-500 mt-2 line-clamp-2 leading-relaxed">
+                {trip.description && !trip.destination && (
+                  <p className="text-xs text-[#737373] mt-1 line-clamp-1">
                     {trip.description}
+                  </p>
+                )}
+
+                {trip.start_date && (
+                  <p className="text-[11px] text-[#A3A3A3] mt-2 flex items-center gap-1">
+                    <Calendar className="w-3 h-3" />
+                    <span>{formatDate(trip.start_date)} {trip.end_date ? `— ${formatDate(trip.end_date)}` : ''}</span>
                   </p>
                 )}
               </div>
 
-              <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
+              <div className="mt-6 pt-3.5 border-t border-[#F4F4F2] flex items-center justify-between">
                 <div>
-                  <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">
-                    Total Pool
-                  </span>
-                  <span className="text-base font-black font-mono text-slate-900">
+                  <span className="text-[10px] text-[#A3A3A3] uppercase font-semibold block">Total Expenses</span>
+                  <span className="text-base font-bold font-mono text-[#171717] tabular-nums">
                     {formatPaise(trip.total_expenses_paise, trip.currency)}
                   </span>
                 </div>
-
-                <div className="flex items-center gap-1 text-xs font-bold text-indigo-600 group-hover:translate-x-1 transition-transform">
-                  <span>Open</span>
+                <div className="text-[#16834A] text-xs font-semibold flex items-center gap-0.5">
+                  <span>View Trip</span>
                   <ChevronRight className="w-4 h-4" />
                 </div>
               </div>

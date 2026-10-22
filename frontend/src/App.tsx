@@ -21,9 +21,9 @@ const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white">
-        <Logo size="lg" showTagline={true} theme="dark" />
-        <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mt-6" />
+      <div className="min-h-screen bg-[#FAFAF8] flex flex-col items-center justify-center text-[#171717]">
+        <Logo size="lg" showTagline={true} theme="light" />
+        <div className="w-7 h-7 border-2 border-[#E8E8E5] border-t-[#16834A] rounded-full animate-spin mt-6" />
       </div>
     );
   }
@@ -41,9 +41,9 @@ const RedirectIfAuth: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white">
-        <Logo size="lg" showTagline={true} theme="dark" />
-        <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mt-6" />
+      <div className="min-h-screen bg-[#FAFAF8] flex flex-col items-center justify-center text-[#171717]">
+        <Logo size="lg" showTagline={true} theme="light" />
+        <div className="w-7 h-7 border-2 border-[#E8E8E5] border-t-[#16834A] rounded-full animate-spin mt-6" />
       </div>
     );
   }
@@ -58,16 +58,16 @@ const RedirectIfAuth: React.FC<{ children: React.ReactNode }> = ({ children }) =
 // 404 Page
 const NotFoundPage: React.FC = () => {
   return (
-    <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-6 text-center">
-      <Logo size="lg" showTagline={false} theme="dark" />
-      <h1 className="text-6xl font-black text-orange-400 mt-6 font-mono">404</h1>
-      <h2 className="text-xl font-bold mt-2">Ride Off Route</h2>
-      <p className="text-slate-400 text-sm mt-1 max-w-sm">
-        The page you are looking for has taken an off-road detour.
+    <div className="min-h-screen bg-[#FAFAF8] text-[#171717] flex flex-col items-center justify-center p-6 text-center">
+      <Logo size="lg" showTagline={false} theme="light" />
+      <h1 className="text-5xl font-bold text-[#171717] mt-6 font-mono tabular-nums">404</h1>
+      <h2 className="text-lg font-bold mt-2">Route Not Found</h2>
+      <p className="text-[#737373] text-sm mt-1 max-w-sm">
+        The page you are looking for does not exist or has been moved.
       </p>
       <a
         href="/dashboard"
-        className="mt-6 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm rounded-xl"
+        className="mt-6 px-5 py-2.5 bg-[#16834A] hover:bg-[#136F3F] text-white font-medium text-sm rounded-xl shadow-xs transition-colors"
       >
         Back to Dashboard
       </a>

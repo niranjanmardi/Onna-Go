@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api-client';
 import { Logo } from '@/components/brand/Logo';
-import { Mail, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Mail, Lock, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export const ForgotPasswordPage: React.FC = () => {
   const navigate = useNavigate();
@@ -24,7 +24,7 @@ export const ForgotPasswordPage: React.FC = () => {
       );
       if (res.dev_reset_token) {
         setDevToken(res.dev_reset_token);
-        setSuccess('Reset token generated! Enter your new password below.');
+        setSuccess('Reset token generated. Enter your new password below.');
       } else {
         setSuccess(res.message);
       }
@@ -55,40 +55,43 @@ export const ForgotPasswordPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 text-white relative">
+    <div className="min-h-screen bg-[#FAFAF8] flex flex-col justify-center py-12 sm:px-6 lg:px-8 text-[#171717]">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
         <div className="inline-block cursor-pointer mb-2" onClick={() => navigate('/')}>
-          <Logo size="lg" showTagline={true} theme="dark" />
+          <Logo size="lg" showTagline={true} theme="light" />
         </div>
-        <h2 className="mt-6 text-2xl font-bold tracking-tight text-white font-['Plus_Jakarta_Sans']">
-          Password Recovery
+        <h2 className="mt-6 text-2xl font-bold tracking-tight text-[#171717] font-['Plus_Jakarta_Sans']">
+          Reset Your Password
         </h2>
+        <p className="mt-1 text-sm text-[#737373]">
+          Enter your registered email address to receive password reset instructions.
+        </p>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md px-4 sm:px-0">
-        <div className="bg-slate-800/90 border border-slate-700/80 py-8 px-6 sm:px-10 rounded-2xl shadow-2xl backdrop-blur-md">
+      <div className="mt-7 sm:mx-auto sm:w-full sm:max-w-md px-4 sm:px-0">
+        <div className="bg-white border border-[#E8E8E5] py-8 px-6 sm:px-10 rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.04)]">
           {error && (
-            <div className="mb-6 p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-sm flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 flex-shrink-0 text-rose-400 mt-0.5" />
+            <div className="mb-5 p-3.5 rounded-xl bg-[#FFE4E6] border border-[#FDA4AF] text-[#E11D48] text-xs flex items-start gap-2.5">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 text-[#E11D48] mt-0.5" />
               <span>{error}</span>
             </div>
           )}
 
           {success && (
-            <div className="mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-sm flex items-start gap-3">
-              <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-emerald-400 mt-0.5" />
+            <div className="mb-5 p-3.5 rounded-xl bg-[#DDF5E5] border border-[#C6ECCF] text-[#16834A] text-xs flex items-start gap-2.5">
+              <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-[#16834A] mt-0.5" />
               <span>{success}</span>
             </div>
           )}
 
           {!devToken ? (
-            <form onSubmit={handleRequestToken} className="space-y-4">
+            <form className="space-y-4" onSubmit={handleRequestToken}>
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-                  Your Account Email
+                <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1">
+                  Email Address
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#A3A3A3]">
                     <Mail className="w-4 h-4" />
                   </div>
                   <input
@@ -97,7 +100,7 @@ export const ForgotPasswordPage: React.FC = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="rider@example.com"
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-indigo-500"
+                    className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl pl-10 pr-4 py-2.5 text-[#171717] placeholder-[#A3A3A3] text-sm focus:outline-none focus:border-[#16834A] focus:ring-2 focus:ring-[#16834A]/10 transition-colors"
                   />
                 </div>
               </div>
@@ -105,44 +108,49 @@ export const ForgotPasswordPage: React.FC = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-500 to-cyan-500 hover:from-indigo-600 hover:to-cyan-600 text-white font-bold py-3 rounded-xl shadow-lg shadow-indigo-500/25 active:scale-[0.98] transition-all disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-2 bg-[#16834A] hover:bg-[#136F3F] text-white font-semibold py-2.5 px-4 rounded-xl shadow-xs active:scale-[0.98] transition-all disabled:opacity-50 mt-2"
               >
-                <span>{loading ? 'Sending...' : 'Get Reset Token'}</span>
+                <span>{loading ? 'Sending...' : 'Request Reset Token'}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </form>
           ) : (
-            <form onSubmit={handleConfirmReset} className="space-y-4">
+            <form className="space-y-4" onSubmit={handleConfirmReset}>
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-                  New Password (min 8 chars)
+                <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1">
+                  New Password
                 </label>
-                <input
-                  type="password"
-                  required
-                  minLength={8}
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="New secure password"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500"
-                />
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#A3A3A3]">
+                    <Lock className="w-4 h-4" />
+                  </div>
+                  <input
+                    type="password"
+                    required
+                    minLength={8}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="At least 8 characters"
+                    className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl pl-10 pr-4 py-2.5 text-[#171717] placeholder-[#A3A3A3] text-sm focus:outline-none focus:border-[#16834A] focus:ring-2 focus:ring-[#16834A]/10 transition-colors"
+                  />
+                </div>
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg active:scale-[0.98] transition-all disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-2 bg-[#16834A] hover:bg-[#136F3F] text-white font-semibold py-2.5 px-4 rounded-xl shadow-xs active:scale-[0.98] transition-all disabled:opacity-50 mt-2"
               >
-                <span>{loading ? 'Saving...' : 'Set New Password'}</span>
+                <span>{loading ? 'Updating...' : 'Set New Password'}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </form>
           )}
 
-          <div className="mt-6 text-center text-sm text-slate-400">
-            Remembered your password?{' '}
-            <Link to="/login" className="font-semibold text-indigo-400 hover:text-indigo-300">
-              Back to Sign in
+          <div className="mt-6 text-center text-sm text-[#737373]">
+            Remember your password?{' '}
+            <Link to="/login" className="font-semibold text-[#16834A] hover:underline">
+              Back to Sign In
             </Link>
           </div>
         </div>

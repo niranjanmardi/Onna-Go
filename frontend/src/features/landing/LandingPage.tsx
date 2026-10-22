@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Compass,
   ArrowRight,
-  Shield,
+  ShieldCheck,
   Zap,
   Users,
   CheckCircle2,
@@ -13,8 +13,11 @@ import {
   ChevronRight,
   TrendingDown,
   Sparkles,
-  Music,
   MapPin,
+  Calendar,
+  Wallet,
+  ArrowUpRight,
+  ArrowDownLeft,
 } from 'lucide-react';
 import { Logo } from '@/components/brand/Logo';
 import { formatPaise } from '@/lib/currency';
@@ -29,95 +32,292 @@ export const LandingPage: React.FC = () => {
   const demoPerPerson = Math.floor((demoAmount * 100) / demoPeople);
   const demoRemainder = (demoAmount * 100) % demoPeople;
 
-  const scrollToFeatures = () => {
-    document.getElementById('features-section')?.scrollIntoView({ behavior: 'smooth' });
+  const scrollToSection = (id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white selection:bg-indigo-500 selection:text-white">
-      {/* --- Navbar --- */}
-      <nav className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50 px-6 py-4 flex items-center justify-between max-w-7xl mx-auto">
-        <Logo size="md" showTagline={false} showTamil={true} theme="dark" />
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/login')}
-            className="text-sm font-semibold text-slate-300 hover:text-white px-4 py-2 rounded-lg hover:bg-slate-800 transition-colors"
-          >
-            Sign In
-          </button>
-          <button
-            onClick={() => navigate('/register')}
-            className="text-sm font-semibold bg-gradient-to-r from-indigo-500 via-indigo-600 to-orange-500 hover:from-indigo-600 hover:to-orange-600 text-white px-5 py-2.5 rounded-xl shadow-md shadow-indigo-500/20 active:scale-95 transition-all"
-          >
-            Get Started
-          </button>
+    <div className="min-h-screen bg-[#FAFAF8] text-[#171717] selection:bg-[#DDF5E5] selection:text-[#16834A]">
+      {/* --- Minimal Navigation Bar --- */}
+      <header className="sticky top-0 z-50 bg-[#FAFAF8]/85 backdrop-blur-md border-b border-[#E8E8E5] transition-all">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-2">
+          <Logo size="md" showTagline={false} showTamil={true} tamilClassName="hidden sm:inline-flex" theme="light" />
+
+          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-[#737373]">
+            <button
+              onClick={() => scrollToSection('how-it-works')}
+              className="hover:text-[#171717] transition-colors"
+            >
+              How It Works
+            </button>
+            <button
+              onClick={() => scrollToSection('features')}
+              className="hover:text-[#171717] transition-colors"
+            >
+              Features
+            </button>
+            <button
+              onClick={() => scrollToSection('calculator-demo')}
+              className="hover:text-[#171717] transition-colors"
+            >
+              Split Demo
+            </button>
+          </nav>
+
+          <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
+            <button
+              onClick={() => navigate('/login')}
+              className="text-sm font-medium text-[#171717] hover:text-[#16834A] px-2.5 sm:px-3.5 py-2 rounded-lg transition-colors whitespace-nowrap"
+            >
+              Sign In
+            </button>
+            <button
+              onClick={() => navigate('/register')}
+              className="text-xs sm:text-sm font-semibold bg-[#171717] hover:bg-[#262626] text-white px-3.5 sm:px-4 py-2 rounded-xl transition-all shadow-[0_1px_2px_rgba(0,0,0,0.06)] active:scale-[0.98] whitespace-nowrap"
+            >
+              Plan a Trip
+            </button>
+          </div>
         </div>
-      </nav>
+      </header>
 
       {/* --- Hero Section --- */}
-      <section className="relative overflow-hidden pt-16 pb-24 px-6 max-w-7xl mx-auto text-center">
-        {/* Ambient glow background */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[650px] h-[380px] bg-gradient-to-tr from-indigo-600/25 via-purple-600/20 to-orange-500/20 rounded-full blur-3xl -z-10 pointer-events-none" />
-
-        {/* Tamil Badge */}
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-800/80 border border-slate-700/80 text-xs font-semibold text-orange-400 mb-8 backdrop-blur-sm">
-          <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-          <span>ஒண்ணா போ • The All-In-One Trip & Expense Platform</span>
+      <section className="pt-20 pb-16 px-6 max-w-5xl mx-auto text-center">
+        {/* Subtle Tamil Badge */}
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#DDF5E5] border border-[#C6ECCF] text-xs font-semibold text-[#16834A] mb-8">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#16834A]" />
+          <span>ஒண்ணா போ • The All-In-One Travel &amp; Expense Hub</span>
         </div>
 
-        <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight font-['Plus_Jakarta_Sans'] leading-tight sm:leading-none max-w-4xl mx-auto">
-          Ride Together. Vibe Together. <br className="hidden sm:inline" />
-          <span className="bg-gradient-to-r from-indigo-400 via-amber-400 to-orange-400 bg-clip-text text-transparent">
-            Split Together.
-          </span>
+        {/* Hero Headline */}
+        <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold tracking-tight text-[#171717] leading-[1.08] max-w-4xl mx-auto font-['Plus_Jakarta_Sans']">
+          Good trips. Great friends. <br className="hidden sm:inline" />
+          <span className="text-[#16834A]">No awkward splits.</span>
         </h1>
 
-        <p className="mt-6 text-lg sm:text-xl text-slate-300 max-w-2xl mx-auto font-normal leading-relaxed">
-          Plan trips, organize rides, share experiences, and split expenses with your friends — all in one place.
+        {/* Supporting Copy */}
+        <p className="mt-6 text-lg sm:text-xl text-[#737373] max-w-2xl mx-auto font-normal leading-relaxed">
+          Plan trips, organize rides, track shared expenses, and settle balances with friends in one calm, transparent place.
         </p>
 
-        {/* Clear Action Buttons */}
-        <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+        {/* Primary & Secondary CTAs */}
+        <div className="mt-9 flex flex-col sm:flex-row items-center justify-center gap-3.5">
           <button
             onClick={() => navigate('/register')}
-            className="w-full sm:w-auto flex items-center justify-center gap-2.5 bg-gradient-to-r from-indigo-500 via-indigo-600 to-orange-500 hover:from-indigo-600 hover:to-orange-600 text-white text-base font-bold py-3.5 px-8 rounded-xl shadow-lg shadow-indigo-500/25 active:scale-95 transition-all"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-[#16834A] hover:bg-[#136F3F] text-white text-base font-semibold py-3.5 px-7 rounded-xl shadow-sm transition-all active:scale-[0.98]"
           >
-            <span>Get Started</span>
-            <ArrowRight className="w-5 h-5" />
+            <span>Plan a Trip</span>
+            <ArrowRight className="w-4 h-4" />
           </button>
 
           <button
-            onClick={() => navigate('/trips/new')}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 border border-slate-700 hover:border-slate-500 py-3.5 px-7 rounded-xl font-semibold transition-all bg-slate-800/60 text-white"
+            onClick={() => scrollToSection('how-it-works')}
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-white hover:bg-[#F4F4F2] text-[#171717] border border-[#E8E8E5] text-base font-semibold py-3.5 px-6 rounded-xl transition-all shadow-[0_1px_2px_rgba(0,0,0,0.03)]"
           >
-            <Compass className="w-4 h-4 text-orange-400" />
-            <span>Create a Trip</span>
-          </button>
-
-          <button
-            onClick={scrollToFeatures}
-            className="w-full sm:w-auto text-slate-400 hover:text-white py-3.5 px-5 rounded-xl font-medium transition-colors text-sm"
-          >
-            Explore Features
+            <span>Explore How It Works</span>
           </button>
         </div>
+      </section>
 
-        {/* --- Interactive Live Split Calculator Demo --- */}
-        <div className="mt-16 max-w-3xl mx-auto bg-slate-800/80 border border-slate-700/80 rounded-2xl p-6 sm:p-8 backdrop-blur-md shadow-2xl text-left">
-          <div className="flex items-center justify-between pb-4 border-b border-slate-700">
-            <div>
-              <span className="text-xs uppercase font-bold tracking-wider text-orange-400">Live Mathematical Precision Demo</span>
-              <h3 className="text-lg font-bold text-white mt-0.5">Highway Fuel & Stay Split</h3>
+      {/* --- Refined Product Preview Composition --- */}
+      <section className="px-6 pb-24 max-w-5xl mx-auto">
+        <div className="bg-white border border-[#E8E8E5] rounded-2xl p-6 sm:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+          {/* Mock Browser/Window Header */}
+          <div className="flex items-center justify-between pb-6 border-b border-[#E8E8E5]">
+            <div className="flex items-center gap-3">
+              <div className="flex gap-1.5">
+                <div className="w-3 h-3 rounded-full bg-[#E8E8E5]" />
+                <div className="w-3 h-3 rounded-full bg-[#E8E8E5]" />
+                <div className="w-3 h-3 rounded-full bg-[#E8E8E5]" />
+              </div>
+              <span className="text-xs font-semibold text-[#737373] font-mono ml-2">
+                onna-go.app/trips/western-ghats
+              </span>
             </div>
-            <div className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-semibold flex items-center gap-1.5 border border-emerald-500/20">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#DDF5E5] text-[#16834A] text-xs font-semibold">
               <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Zero-Sum Invariant</span>
+              <span>Zero-Sum Verified</span>
+            </div>
+          </div>
+
+          {/* Trip Header Preview */}
+          <div className="mt-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 text-xs font-semibold text-[#737373] mb-1">
+                <span>📍 Western Ghats Monsoon Ride</span>
+                <span>•</span>
+                <span>4 Riders</span>
+              </div>
+              <h3 className="text-2xl font-bold text-[#171717] tracking-tight">
+                Chikmagalur to Ooty Expedition
+              </h3>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#737373]">Total Pool</span>
+              <span className="text-2xl font-bold font-mono text-[#171717] tabular-nums">
+                ₹24,800.00
+              </span>
+            </div>
+          </div>
+
+          {/* Cards Grid Inside Preview */}
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Balance Pill 1 */}
+            <div className="p-4 rounded-xl bg-[#FAFAF8] border border-[#E8E8E5]">
+              <span className="text-xs text-[#737373] block mb-1">Alice Sharma (Paid Stay &amp; Fuel)</span>
+              <span className="text-lg font-bold font-mono text-[#16834A] tabular-nums">
+                +₹6,200.00
+              </span>
+              <span className="text-[11px] text-[#16834A] block mt-0.5 font-medium">To receive from group</span>
+            </div>
+
+            {/* Balance Pill 2 */}
+            <div className="p-4 rounded-xl bg-[#FAFAF8] border border-[#E8E8E5]">
+              <span className="text-xs text-[#737373] block mb-1">Bob Verma (Fuel Share)</span>
+              <span className="text-lg font-bold font-mono text-[#B45309] tabular-nums">
+                -₹2,100.00
+              </span>
+              <span className="text-[11px] text-[#B45309] block mt-0.5 font-medium">Owes to Alice via UPI</span>
+            </div>
+
+            {/* Balance Pill 3 */}
+            <div className="p-4 rounded-xl bg-[#FAFAF8] border border-[#E8E8E5]">
+              <span className="text-xs text-[#737373] block mb-1">Settlement Efficiency</span>
+              <span className="text-lg font-bold font-mono text-[#171717]">
+                2 Transfers
+              </span>
+              <span className="text-[11px] text-[#737373] block mt-0.5">Optimized down from 6 debts</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* --- 3-Step "How It Works" Section --- */}
+      <section id="how-it-works" className="py-20 px-6 max-w-5xl mx-auto border-t border-[#E8E8E5]">
+        <div className="text-center max-w-xl mx-auto mb-16">
+          <h2 className="text-3xl font-bold tracking-tight text-[#171717] font-['Plus_Jakarta_Sans']">
+            How ONNA-GO Works
+          </h2>
+          <p className="text-[#737373] mt-2 text-base">
+            Simple, transparent group spending in three effortless steps.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {/* Step 1 */}
+          <div className="p-6 rounded-2xl bg-white border border-[#E8E8E5] relative shadow-sm">
+            <div className="w-9 h-9 rounded-xl bg-[#171717] text-white flex items-center justify-center font-bold text-sm mb-4">
+              1
+            </div>
+            <h3 className="text-lg font-bold text-[#171717]">Create trip &amp; invite</h3>
+            <p className="mt-2 text-sm text-[#737373] leading-relaxed">
+              Start a road trip or weekend hangout in seconds. Share an instant 6-character code with your friends to join on web or mobile.
+            </p>
+          </div>
+
+          {/* Step 2 */}
+          <div className="p-6 rounded-2xl bg-white border border-[#E8E8E5] relative shadow-sm">
+            <div className="w-9 h-9 rounded-xl bg-[#16834A] text-white flex items-center justify-center font-bold text-sm mb-4">
+              2
+            </div>
+            <h3 className="text-lg font-bold text-[#171717]">Record rides &amp; stays</h3>
+            <p className="mt-2 text-sm text-[#737373] leading-relaxed">
+              Log highway fuel, stays, and food as you go. Split equally, by exact rupees, percentage, or custom weights with zero paise discrepancy.
+            </p>
+          </div>
+
+          {/* Step 3 */}
+          <div className="p-6 rounded-2xl bg-white border border-[#E8E8E5] relative shadow-sm">
+            <div className="w-9 h-9 rounded-xl bg-[#171717] text-white flex items-center justify-center font-bold text-sm mb-4">
+              3
+            </div>
+            <h3 className="text-lg font-bold text-[#171717]">Settle with one tap</h3>
+            <p className="mt-2 text-sm text-[#737373] leading-relaxed">
+              Our automated min-cash-flow algorithm simplifies debts into the minimum number of payments. Pay via UPI and confirm with two taps.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* --- Features Section --- */}
+      <section id="features" className="py-20 px-6 max-w-5xl mx-auto border-t border-[#E8E8E5]">
+        <div className="text-center max-w-xl mx-auto mb-16">
+          <h2 className="text-3xl font-bold tracking-tight text-[#171717] font-['Plus_Jakarta_Sans']">
+            Designed for Travelers. Engineered for Trust.
+          </h2>
+          <p className="text-[#737373] mt-2 text-base">
+            Everything your travel group needs to stay organized without the awkward balance disputes.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Feature 1 */}
+          <div className="p-6 rounded-2xl bg-white border border-[#E8E8E5] shadow-sm">
+            <div className="w-10 h-10 rounded-xl bg-[#DDF5E5] text-[#16834A] flex items-center justify-center mb-4">
+              <Compass className="w-5 h-5" />
+            </div>
+            <h3 className="text-base font-bold text-[#171717]">Trip Planning &amp; Itineraries</h3>
+            <p className="mt-1.5 text-sm text-[#737373] leading-relaxed">
+              Organize multiple rides and sub-activities under a single trip. Set destination coordinates, currencies, and budget targets.
+            </p>
+          </div>
+
+          {/* Feature 2 */}
+          <div className="p-6 rounded-2xl bg-white border border-[#E8E8E5] shadow-sm">
+            <div className="w-10 h-10 rounded-xl bg-[#DDF5E5] text-[#16834A] flex items-center justify-center mb-4">
+              <Zap className="w-5 h-5" />
+            </div>
+            <h3 className="text-base font-bold text-[#171717]">4 Precision Split Engines</h3>
+            <p className="mt-1.5 text-sm text-[#737373] leading-relaxed">
+              Equal splits with deterministic remainder distribution, exact rupee shares, percentages, and custom weights. Calculated in integer minor units.
+            </p>
+          </div>
+
+          {/* Feature 3 */}
+          <div className="p-6 rounded-2xl bg-white border border-[#E8E8E5] shadow-sm">
+            <div className="w-10 h-10 rounded-xl bg-[#DDF5E5] text-[#16834A] flex items-center justify-center mb-4">
+              <TrendingDown className="w-5 h-5" />
+            </div>
+            <h3 className="text-base font-bold text-[#171717]">Debt Simplification</h3>
+            <p className="mt-1.5 text-sm text-[#737373] leading-relaxed">
+              Greedy bipartite min-cash-flow algorithm turns complex webs of mutual debts into the smallest set of direct payments.
+            </p>
+          </div>
+
+          {/* Feature 4 */}
+          <div className="p-6 rounded-2xl bg-white border border-[#E8E8E5] shadow-sm">
+            <div className="w-10 h-10 rounded-xl bg-[#DDF5E5] text-[#16834A] flex items-center justify-center mb-4">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <h3 className="text-base font-bold text-[#171717]">Verified Settlement Tracking</h3>
+            <p className="mt-1.5 text-sm text-[#737373] leading-relaxed">
+              Payments are recorded with UPI transaction IDs and confirmed by the recipient before balances are updated. Full audit integrity.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* --- Interactive Live Split Calculator Demo --- */}
+      <section id="calculator-demo" className="py-20 px-6 max-w-5xl mx-auto border-t border-[#E8E8E5]">
+        <div className="bg-white border border-[#E8E8E5] rounded-2xl p-6 sm:p-10 shadow-sm max-w-3xl mx-auto">
+          <div className="flex items-center justify-between pb-6 border-b border-[#E8E8E5]">
+            <div>
+              <span className="text-xs font-semibold text-[#16834A] uppercase tracking-wider">
+                Live Precision Calculator
+              </span>
+              <h3 className="text-xl font-bold text-[#171717] mt-0.5">
+                Test Integer-Paise Mathematical Accuracy
+              </h3>
+            </div>
+            <div className="px-2.5 py-1 rounded-full bg-[#DDF5E5] text-[#16834A] text-xs font-semibold flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>∑ Net = 0</span>
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-6">
             <div>
-              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-2">
+              <label className="text-xs font-semibold text-[#737373] uppercase tracking-wider block mb-2">
                 Total Bill Amount (₹)
               </label>
               <input
@@ -125,11 +325,11 @@ export const LandingPage: React.FC = () => {
                 min="1"
                 value={demoAmount}
                 onChange={(e) => setDemoAmount(Math.max(1, parseInt(e.target.value) || 0))}
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white font-mono text-lg focus:outline-none focus:border-indigo-500"
+                className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-4 py-2.5 text-[#171717] font-mono text-lg tabular-nums focus:outline-none focus:border-[#16834A] transition-colors"
               />
             </div>
             <div>
-              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-2">
+              <label className="text-xs font-semibold text-[#737373] uppercase tracking-wider block mb-2">
                 Number of Friends / Riders
               </label>
               <div className="flex items-center gap-2">
@@ -137,10 +337,10 @@ export const LandingPage: React.FC = () => {
                   <button
                     key={num}
                     onClick={() => setDemoPeople(num)}
-                    className={`flex-1 py-2 rounded-xl text-sm font-bold transition-colors ${
+                    className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-colors ${
                       demoPeople === num
-                        ? 'bg-indigo-600 text-white shadow-sm'
-                        : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-700'
+                        ? 'bg-[#171717] text-white shadow-xs'
+                        : 'bg-[#FAFAF8] text-[#737373] hover:text-[#171717] border border-[#E8E8E5]'
                     }`}
                   >
                     {num}
@@ -151,21 +351,21 @@ export const LandingPage: React.FC = () => {
           </div>
 
           {/* Split Output Card */}
-          <div className="mt-6 p-4 rounded-xl bg-slate-900/90 border border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="mt-6 p-4 rounded-xl bg-[#FAFAF8] border border-[#E8E8E5] flex flex-col sm:flex-row items-center justify-between gap-4">
             <div>
-              <p className="text-xs text-slate-400">Base Share per Person</p>
-              <p className="text-2xl font-bold font-mono text-orange-400">
+              <p className="text-xs text-[#737373]">Base Share per Person</p>
+              <p className="text-2xl font-bold font-mono text-[#171717] tabular-nums">
                 {formatPaise(demoPerPerson)}
               </p>
             </div>
             {demoRemainder > 0 && (
-              <div className="text-xs text-amber-300 bg-amber-500/10 px-3 py-2 rounded-lg border border-amber-500/20">
-                ⚠️ Remainder: {demoRemainder} paise deterministically distributed +₹0.01 to the first {demoRemainder} friends. Reconciles to ₹{demoAmount}.00 exactly.
+              <div className="text-xs text-[#B45309] bg-[#FEF3C7] px-3 py-2 rounded-lg border border-[#FDE68A] max-w-sm">
+                Deterministic Remainder: +₹0.01 assigned to the first {demoRemainder} friend(s). Total reconciles to exactly ₹{demoAmount}.00.
               </div>
             )}
             <div className="text-right">
-              <span className="text-xs text-slate-400 block">Total Reconciled</span>
-              <span className="text-lg font-bold text-emerald-400 font-mono">
+              <span className="text-xs text-[#737373] block">Total Reconciled</span>
+              <span className="text-xl font-bold text-[#16834A] font-mono tabular-nums">
                 {formatPaise(demoAmount * 100)}
               </span>
             </div>
@@ -173,85 +373,30 @@ export const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* --- Features Grid --- */}
-      <section id="features-section" className="py-20 px-6 max-w-7xl mx-auto border-t border-slate-800">
-        <div className="text-center max-w-2xl mx-auto mb-16">
-          <h2 className="text-3xl font-extrabold tracking-tight font-['Plus_Jakarta_Sans']">
-            Everything You Need For Unforgettable Adventures
-          </h2>
-          <p className="text-slate-400 mt-3 text-base">
-            From road trips and bike rides to weekend hangouts, ONNA-GO keeps everything transparent.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="p-6 rounded-2xl bg-slate-800/60 border border-slate-700/70 hover:border-indigo-500/50 transition-colors">
-            <div className="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 mb-5">
-              <Compass className="w-6 h-6" />
-            </div>
-            <h3 className="text-lg font-bold text-white">Trips & Hangouts</h3>
-            <p className="mt-2 text-sm text-slate-400 leading-relaxed">
-              Create trips with custom currencies, set destinations, invite friends with 1-click codes, and group expenses by activity.
-            </p>
-          </div>
-
-          <div className="p-6 rounded-2xl bg-slate-800/60 border border-slate-700/70 hover:border-orange-500/50 transition-colors">
-            <div className="w-12 h-12 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-400 mb-5">
-              <Zap className="w-6 h-6" />
-            </div>
-            <h3 className="text-lg font-bold text-white">4 Precision Split Methods</h3>
-            <p className="mt-2 text-sm text-slate-400 leading-relaxed">
-              Equal, exact rupee amounts, percentage shares, and custom weights. Calculated strictly in integer paise with zero floating-point errors.
-            </p>
-          </div>
-
-          <div className="p-6 rounded-2xl bg-slate-800/60 border border-slate-700/70 hover:border-amber-500/50 transition-colors">
-            <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 mb-5">
-              <TrendingDown className="w-6 h-6" />
-            </div>
-            <h3 className="text-lg font-bold text-white">Debt Simplification</h3>
-            <p className="mt-2 text-sm text-slate-400 leading-relaxed">
-              Automated min-cash-flow algorithm simplifies multi-party debts into the minimum number of direct transfers.
-            </p>
-          </div>
-
-          <div className="p-6 rounded-2xl bg-slate-800/60 border border-slate-700/70 hover:border-emerald-500/50 transition-colors">
-            <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mb-5">
-              <Shield className="w-6 h-6" />
-            </div>
-            <h3 className="text-lg font-bold text-white">Settlement Verification</h3>
-            <p className="mt-2 text-sm text-slate-400 leading-relaxed">
-              Track settlement status from initiated to verified. Only recipient-confirmed transfers update effective group balances.
-            </p>
-          </div>
-
-          <div className="p-6 rounded-2xl bg-slate-800/60 border border-slate-700/70 hover:border-purple-500/50 transition-colors">
-            <div className="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 mb-5">
-              <FileSpreadsheet className="w-6 h-6" />
-            </div>
-            <h3 className="text-lg font-bold text-white">Sanitized CSV & PDF</h3>
-            <p className="mt-2 text-sm text-slate-400 leading-relaxed">
-              Export comprehensive PDF summaries and CSV reports equipped with spreadsheet formula injection protection.
-            </p>
-          </div>
-
-          <div className="p-6 rounded-2xl bg-slate-800/60 border border-slate-700/70 hover:border-rose-500/50 transition-colors">
-            <div className="w-12 h-12 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 mb-5">
-              <Lock className="w-6 h-6" />
-            </div>
-            <h3 className="text-lg font-bold text-white">Private & Secure</h3>
-            <p className="mt-2 text-sm text-slate-400 leading-relaxed">
-              Argon2id password hashing, private receipt access control, role-based authorization, and strict session management.
-            </p>
-          </div>
+      {/* --- Closing CTA Banner --- */}
+      <section className="py-20 px-6 max-w-5xl mx-auto text-center border-t border-[#E8E8E5]">
+        <h2 className="text-3xl sm:text-4xl font-bold text-[#171717] tracking-tight font-['Plus_Jakarta_Sans']">
+          Ready for your next journey?
+        </h2>
+        <p className="text-[#737373] mt-3 max-w-md mx-auto text-base">
+          Create your trip in seconds. Invite friends with one code. Settle up with confidence.
+        </p>
+        <div className="mt-8">
+          <button
+            onClick={() => navigate('/register')}
+            className="inline-flex items-center gap-2 bg-[#16834A] hover:bg-[#136F3F] text-white text-base font-semibold py-3.5 px-8 rounded-xl shadow-sm transition-all active:scale-[0.98]"
+          >
+            <span>Get Started Free</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
         </div>
       </section>
 
-      {/* --- Footer --- */}
-      <footer className="border-t border-slate-800 py-12 px-6 max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6 text-slate-400 text-sm">
-        <Logo size="sm" showTagline={true} showTamil={true} theme="dark" />
-        <p className="text-slate-500 text-xs">
-          ONNA-GO (ஒண்ணா போ) — Ride Together. Vibe Together. Split Together.
+      {/* --- Minimal Footer --- */}
+      <footer className="border-t border-[#E8E8E5] py-12 px-6 max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6 text-[#737373] text-sm">
+        <Logo size="sm" showTagline={true} showTamil={true} theme="light" />
+        <p className="text-xs text-[#737373]">
+          ONNA-GO (ஒண்ணா போ) — Plan Together. Spend Smarter. Settle Fairly.
         </p>
       </footer>
     </div>

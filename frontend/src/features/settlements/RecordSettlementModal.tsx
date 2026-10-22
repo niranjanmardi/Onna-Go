@@ -76,30 +76,30 @@ export const RecordSettlementModal: React.FC<RecordSettlementModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full p-6 relative">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/25 backdrop-blur-xs">
+      <div className="bg-white rounded-2xl border border-[#E8E8E5] shadow-xl max-w-md w-full p-6 relative">
+        <div className="flex items-center justify-between pb-4 border-b border-[#E8E8E5]">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600">
+            <div className="w-9 h-9 rounded-xl bg-[#DDF5E5] text-[#16834A] flex items-center justify-center">
               <HandCoins className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-slate-900 font-['Plus_Jakarta_Sans']">
+              <h3 className="text-lg font-bold text-[#171717] font-['Plus_Jakarta_Sans']">
                 Record Payment / Settlement
               </h3>
-              <p className="text-xs text-slate-500">Record an off-app payment to settle balances</p>
+              <p className="text-xs text-[#737373]">Record an off-app payment to settle balances</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
+            className="p-1.5 text-[#737373] hover:text-[#171717] rounded-lg hover:bg-[#F4F4F2] transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {error && (
-          <div className="mt-4 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2.5">
+          <div className="mt-4 p-3 rounded-xl bg-[#FFE4E6] border border-[#FDA4AF] text-[#E11D48] text-xs flex items-center gap-2">
             <AlertCircle className="w-4 h-4 flex-shrink-0" />
             <span>{error}</span>
           </div>
@@ -108,13 +108,13 @@ export const RecordSettlementModal: React.FC<RecordSettlementModalProps> = ({
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1">
                 Sender (Paid by) *
               </label>
               <select
                 value={payerId}
                 onChange={(e) => setPayerId(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white"
+                className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-3 py-2 text-xs font-medium text-[#171717] focus:outline-none focus:border-[#16834A] transition-colors"
               >
                 {members.map((m) => (
                   <option key={m.user_id} value={m.user_id}>
@@ -125,13 +125,13 @@ export const RecordSettlementModal: React.FC<RecordSettlementModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1">
                 Receiver (Paid to) *
               </label>
               <select
                 value={payeeId}
                 onChange={(e) => setPayeeId(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white"
+                className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-3 py-2 text-xs font-medium text-[#171717] focus:outline-none focus:border-[#16834A] transition-colors"
               >
                 {members.map((m) => (
                   <option key={m.user_id} value={m.user_id}>
@@ -143,7 +143,7 @@ export const RecordSettlementModal: React.FC<RecordSettlementModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1">
               Amount (₹) *
             </label>
             <input
@@ -154,19 +154,19 @@ export const RecordSettlementModal: React.FC<RecordSettlementModalProps> = ({
               value={amountRupees}
               onChange={(e) => setAmountRupees(e.target.value)}
               placeholder="0.00"
-              className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-base font-bold font-mono text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white"
+              className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-4 py-2.5 text-base font-bold font-mono text-[#171717] tabular-nums focus:outline-none focus:border-[#16834A] transition-colors"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1">
                 Payment Mode
               </label>
               <select
                 value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white"
+                className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-3 py-2 text-xs font-medium text-[#171717] focus:outline-none focus:border-[#16834A] transition-colors"
               >
                 <option value="UPI">UPI (GPay / PhonePe / Paytm)</option>
                 <option value="CASH">Cash</option>
@@ -176,7 +176,7 @@ export const RecordSettlementModal: React.FC<RecordSettlementModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1">
                 Reference ID (UPI Ref)
               </label>
               <input
@@ -184,13 +184,13 @@ export const RecordSettlementModal: React.FC<RecordSettlementModalProps> = ({
                 value={referenceId}
                 onChange={(e) => setReferenceId(e.target.value)}
                 placeholder="e.g. 402919293123"
-                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white font-mono"
+                className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-3 py-2 text-xs text-[#171717] focus:outline-none focus:border-[#16834A] font-mono transition-colors"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1">
               Notes
             </label>
             <input
@@ -198,32 +198,32 @@ export const RecordSettlementModal: React.FC<RecordSettlementModalProps> = ({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Settled after dinner, hotel deposit return..."
-              className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white"
+              className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-4 py-2 text-xs text-[#171717] focus:outline-none focus:border-[#16834A] transition-colors"
             />
           </div>
 
-          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 text-[11px] space-y-1">
-            <div className="flex items-center gap-1.5 font-semibold text-slate-800">
-              <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
+          <div className="p-3 rounded-xl bg-[#FAFAF8] border border-[#E8E8E5] text-[#737373] text-[11px] space-y-1">
+            <div className="flex items-center gap-1.5 font-semibold text-[#171717]">
+              <ShieldCheck className="w-3.5 h-3.5 text-[#16834A]" />
               <span>Settlement Verification Policy</span>
             </div>
             <p>
-              This payment starts in <strong>Pending Confirmation</strong> status. Once the receiver confirms receiving the amount, the group balance will automatically update.
+              This payment begins in <strong>Pending Confirmation</strong> status. Once the recipient confirms receipt, effective group balances are updated.
             </p>
           </div>
 
-          <div className="pt-3 flex items-center justify-end gap-3 border-t border-slate-100">
+          <div className="pt-3 flex items-center justify-end gap-3 border-t border-[#E8E8E5]">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors"
+              className="px-4 py-2 text-xs font-medium text-[#737373] hover:text-[#171717] rounded-xl hover:bg-[#F4F4F2] transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs py-2 px-5 rounded-xl shadow-md shadow-emerald-600/25 active:scale-95 transition-all disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 bg-[#16834A] hover:bg-[#136F3F] text-white font-semibold text-xs py-2 px-5 rounded-xl shadow-xs transition-all active:scale-[0.98] disabled:opacity-50"
             >
               <span>{loading ? 'Recording...' : 'Record Payment'}</span>
               <ArrowRight className="w-3.5 h-3.5" />

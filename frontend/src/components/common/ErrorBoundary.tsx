@@ -40,25 +40,25 @@ export class ErrorBoundary extends Component<Props, State> {
   public render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-6 text-center selection:bg-indigo-500 selection:text-white">
-          <div className="max-w-md w-full bg-slate-800/90 border border-slate-700/80 rounded-2xl p-8 shadow-2xl backdrop-blur-md">
+        <div className="min-h-screen bg-[#FAFAF8] text-[#171717] flex flex-col items-center justify-center p-6 text-center">
+          <div className="max-w-md w-full bg-white border border-[#E8E8E5] rounded-2xl p-8 shadow-sm">
             <div className="flex justify-center mb-6">
-              <Logo size="lg" showTagline={false} theme="dark" />
+              <Logo size="lg" showTagline={false} theme="light" />
             </div>
 
-            <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 mb-4">
-              <AlertTriangle className="w-8 h-8" />
+            <div className="w-12 h-12 mx-auto rounded-xl bg-[#FEF3C7] text-[#B45309] flex items-center justify-center mb-4">
+              <AlertTriangle className="w-6 h-6" />
             </div>
 
-            <h1 className="text-xl font-bold text-white font-['Plus_Jakarta_Sans']">
-              Something went off-road
+            <h1 className="text-xl font-bold text-[#171717] font-['Plus_Jakarta_Sans']">
+              Something went wrong
             </h1>
-            <p className="text-slate-400 text-sm mt-2 leading-relaxed">
-              An unexpected display error occurred while rendering the page. Don't worry, your trip and expense data is safe.
+            <p className="text-[#737373] text-sm mt-2 leading-relaxed">
+              An unexpected display error occurred while rendering the page. Your trip and expense data is safe.
             </p>
 
             {this.state.error && (
-              <div className="mt-4 p-3 rounded-xl bg-slate-900/80 border border-slate-700 text-left font-mono text-xs text-rose-300 max-h-24 overflow-y-auto">
+              <div className="mt-4 p-3 rounded-xl bg-[#FAFAF8] border border-[#E8E8E5] text-left font-mono text-xs text-[#E11D48] max-h-24 overflow-y-auto">
                 {this.state.error.message || String(this.state.error)}
               </div>
             )}
@@ -66,7 +66,7 @@ export class ErrorBoundary extends Component<Props, State> {
             <div className="mt-6 flex flex-col sm:flex-row gap-3">
               <button
                 onClick={this.handleReload}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm rounded-xl transition-colors shadow-md shadow-indigo-600/30"
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-[#16834A] hover:bg-[#136F3F] text-white font-medium text-sm rounded-xl transition-colors shadow-xs"
               >
                 <RefreshCw className="w-4 h-4" />
                 <span>Reload Page</span>
@@ -74,10 +74,10 @@ export class ErrorBoundary extends Component<Props, State> {
 
               <button
                 onClick={this.handleClearAndReset}
-                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-700/60 hover:bg-slate-700 text-slate-300 hover:text-white font-medium text-sm rounded-xl border border-slate-600 transition-colors"
+                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-[#F4F4F2] text-[#737373] hover:text-[#171717] font-medium text-sm rounded-xl border border-[#E8E8E5] transition-colors"
                 title="Clears local browser cache and returns to landing"
               >
-                <Trash2 className="w-4 h-4 text-slate-400" />
+                <Trash2 className="w-4 h-4 text-[#A3A3A3]" />
                 <span>Reset Cache</span>
               </button>
             </div>

@@ -6,15 +6,15 @@ import {
   ArrowUpRight,
   ArrowDownLeft,
   Wallet,
-  TrendingUp,
   Receipt,
   Users,
   AlertCircle,
-  Calendar,
   ChevronRight,
   CheckCircle2,
   Clock,
-  ExternalLink,
+  KeyRound,
+  MapPin,
+  Calendar,
 } from 'lucide-react';
 import { api } from '@/lib/api-client';
 import { DashboardSummary } from '@/types';
@@ -46,38 +46,46 @@ export const DashboardPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex-1 p-6 md:p-10 flex items-center justify-center min-h-[60vh]">
+      <div className="flex-1 p-6 md:p-12 flex items-center justify-center min-h-[60vh]">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm font-medium text-slate-500">Loading your ONNA-GO balances...</p>
+          <div className="w-8 h-8 border-2 border-[#E8E8E5] border-t-[#16834A] rounded-full animate-spin" />
+          <p className="text-sm font-medium text-[#737373]">Loading summary...</p>
         </div>
       </div>
     );
   }
 
+  const firstName = user?.full_name ? user.full_name.split(' ')[0] : 'Traveler';
+
   return (
-    <div className="flex-1 p-5 md:p-8 max-w-7xl mx-auto w-full space-y-8">
-      {/* Header with Greeting & Quick Actions */}
+    <div className="flex-1 p-5 md:p-8 max-w-6xl mx-auto w-full space-y-8">
+      {/* --- Personalized Welcome Header & Actions --- */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900 font-['Plus_Jakarta_Sans']">
-            Namaste, {user?.full_name?.split(' ')[0]} 🏍️
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Ride Together. Split Smarter. Here is your trip financial summary.
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-[#171717] font-['Plus_Jakarta_Sans']">
+              Welcome back, {firstName}
+            </h1>
+            <span className="text-[11px] font-semibold text-[#16834A] bg-[#DDF5E5] px-2 py-0.5 rounded-md border border-[#C6ECCF]">
+              ஒண்ணா போ
+            </span>
+          </div>
+          <p className="text-sm text-[#737373] mt-1">
+            Here is your active group travel &amp; shared balance overview.
           </p>
         </div>
 
         <div className="flex items-center gap-2.5">
           <button
             onClick={() => navigate('/trips/join')}
-            className="px-4 py-2 text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-xl shadow-sm transition-all"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium text-[#171717] bg-white hover:bg-[#F4F4F2] border border-[#E8E8E5] rounded-xl shadow-xs transition-colors"
           >
-            Join with Code
+            <KeyRound className="w-4 h-4 text-[#737373]" />
+            <span>Join with Code</span>
           </button>
           <button
             onClick={() => navigate('/trips/new')}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-sm shadow-indigo-600/30 transition-all active:scale-95"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-[#16834A] hover:bg-[#136F3F] rounded-xl shadow-xs transition-all active:scale-[0.98]"
           >
             <Plus className="w-4 h-4" />
             <span>Create Trip</span>
@@ -86,99 +94,101 @@ export const DashboardPage: React.FC = () => {
       </div>
 
       {error && (
-        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 flex-shrink-0" />
+        <div className="p-4 rounded-xl bg-[#FFE4E6] border border-[#FDA4AF] text-[#E11D48] text-sm flex items-center gap-3">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
-      {/* Financial Overview Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+      {/* --- Apple-Style Financial Overview Cards --- */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Total Spent */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm relative overflow-hidden group">
+        <div className="bg-white p-5 rounded-2xl border border-[#E8E8E5] shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Spent</span>
-            <div className="p-2.5 rounded-xl bg-slate-100 text-slate-700">
-              <Wallet className="w-5 h-5" />
+            <span className="text-xs font-semibold uppercase tracking-wider text-[#737373]">Total Spent</span>
+            <div className="w-8 h-8 rounded-lg bg-[#FAFAF8] border border-[#E8E8E5] flex items-center justify-center text-[#737373]">
+              <Wallet className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-4">
-            <p className="text-3xl font-black font-mono tracking-tight text-slate-900">
+            <p className="text-3xl font-bold font-mono tracking-tight text-[#171717] tabular-nums">
               {formatPaise(data?.total_spent_paise || 0)}
             </p>
-            <p className="text-xs text-slate-400 mt-1">Across all your active journeys</p>
+            <p className="text-xs text-[#737373] mt-1">Across all your trips</p>
           </div>
         </div>
 
         {/* You Are Owed (Positive Net Balance) */}
-        <div className="bg-white p-6 rounded-2xl border border-emerald-200/80 shadow-sm relative overflow-hidden">
+        <div className="bg-[#DDF5E5]/40 p-5 rounded-2xl border border-[#C6ECCF] shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">You Are Owed</span>
-            <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-600">
-              <ArrowDownLeft className="w-5 h-5" />
+            <span className="text-xs font-semibold uppercase tracking-wider text-[#16834A]">You Are Owed</span>
+            <div className="w-8 h-8 rounded-lg bg-[#DDF5E5] text-[#16834A] flex items-center justify-center">
+              <ArrowDownLeft className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-4">
-            <p className="text-3xl font-black font-mono tracking-tight text-emerald-600">
+            <p className="text-3xl font-bold font-mono tracking-tight text-[#16834A] tabular-nums">
               {formatPaise(data?.total_owed_paise || 0)}
             </p>
-            <p className="text-xs text-emerald-600/70 mt-1">Riders owe this to you</p>
+            <p className="text-xs text-[#16834A]/80 mt-1">Friends owe this to you</p>
           </div>
         </div>
 
         {/* You Owe (Negative Net Balance) */}
-        <div className="bg-white p-6 rounded-2xl border border-amber-200/80 shadow-sm relative overflow-hidden">
+        <div className="bg-[#FEF3C7]/40 p-5 rounded-2xl border border-[#FDE68A] shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-amber-700">You Owe</span>
-            <div className="p-2.5 rounded-xl bg-amber-50 text-amber-600">
-              <ArrowUpRight className="w-5 h-5" />
+            <span className="text-xs font-semibold uppercase tracking-wider text-[#B45309]">You Owe</span>
+            <div className="w-8 h-8 rounded-lg bg-[#FEF3C7] text-[#B45309] flex items-center justify-center">
+              <ArrowUpRight className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-4">
-            <p className="text-3xl font-black font-mono tracking-tight text-amber-600">
+            <p className="text-3xl font-bold font-mono tracking-tight text-[#B45309] tabular-nums">
               {formatPaise(data?.total_owe_paise || 0)}
             </p>
-            <p className="text-xs text-amber-600/70 mt-1">To settle with friends</p>
+            <p className="text-xs text-[#B45309]/80 mt-1">To settle with friends</p>
           </div>
         </div>
       </div>
 
-      {/* Main Grid: Trips & Settlements */}
+      {/* --- Main 2-Column Grid: Active Trips & Settlements --- */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column: Active Trips (2/3 width) */}
         <div className="lg:col-span-2 space-y-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Compass className="w-5 h-5 text-indigo-600" />
-              <h2 className="text-lg font-bold text-slate-900 font-['Plus_Jakarta_Sans']">
-                Active Trips & Expeditions ({data?.active_trips.length || 0})
+              <Compass className="w-4 h-4 text-[#16834A]" />
+              <h2 className="text-lg font-bold text-[#171717] font-['Plus_Jakarta_Sans']">
+                Active Trips ({data?.active_trips.length || 0})
               </h2>
             </div>
             <button
               onClick={() => navigate('/trips')}
-              className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+              className="text-xs font-medium text-[#16834A] hover:underline flex items-center gap-0.5"
             >
               <span>View All</span>
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
 
           {data?.active_trips.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-10 text-center space-y-4">
-              <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto">
-                <Compass className="w-7 h-7" />
+            <div className="bg-white rounded-2xl border border-[#E8E8E5] p-10 text-center space-y-3 shadow-xs">
+              <div className="w-12 h-12 bg-[#FAFAF8] border border-[#E8E8E5] text-[#737373] rounded-xl flex items-center justify-center mx-auto">
+                <Compass className="w-6 h-6" />
               </div>
-              <h3 className="text-base font-bold text-slate-800">No active trips yet!</h3>
-              <p className="text-sm text-slate-500 max-w-sm mx-auto">
-                Planning a bike trip to Ladakh, weekend in Goa, or road trip with buddies? Start a trip and invite everyone.
+              <h3 className="text-base font-bold text-[#171717]">No active trips yet</h3>
+              <p className="text-sm text-[#737373] max-w-sm mx-auto">
+                Planning a bike trip, road expedition, or weekend outing? Start your first trip and invite your friends.
               </p>
-              <button
-                onClick={() => navigate('/trips/new')}
-                className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm py-2.5 px-5 rounded-xl shadow-sm transition-all"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Create Your First Trip</span>
-              </button>
+              <div className="pt-2">
+                <button
+                  onClick={() => navigate('/trips/new')}
+                  className="inline-flex items-center gap-1.5 bg-[#16834A] hover:bg-[#136F3F] text-white font-medium text-sm py-2 px-4 rounded-xl shadow-xs transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Create Trip</span>
+                </button>
+              </div>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -186,37 +196,44 @@ export const DashboardPage: React.FC = () => {
                 <div
                   key={trip.id}
                   onClick={() => navigate(`/trips/${trip.id}`)}
-                  className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:border-indigo-400/80 hover:shadow-md cursor-pointer transition-all duration-200 flex flex-col justify-between"
+                  className="bg-white p-5 rounded-2xl border border-[#E8E8E5] shadow-xs hover:border-[#16834A]/50 hover:shadow-md cursor-pointer transition-all duration-200 flex flex-col justify-between"
                 >
                   <div>
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold tracking-wide uppercase px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-md bg-[#FAFAF8] text-[#737373] border border-[#E8E8E5]">
                         {trip.currency}
                       </span>
-                      <span className="text-xs text-slate-500 flex items-center gap-1">
-                        <Users className="w-3.5 h-3.5" />
-                        <span>{trip.members_count} riders</span>
+                      <span className="text-xs text-[#737373] flex items-center gap-1">
+                        <Users className="w-3.5 h-3.5 text-[#A3A3A3]" />
+                        <span>{trip.members_count} members</span>
                       </span>
                     </div>
 
-                    <h3 className="text-base font-bold text-slate-900 mt-2 truncate">
+                    <h3 className="text-base font-bold text-[#171717] mt-3 truncate">
                       {trip.name}
                     </h3>
-                    <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">
-                      {trip.destination ? `📍 ${trip.destination}` : trip.description || 'No destination specified'}
+                    <p className="text-xs text-[#737373] mt-1 line-clamp-1 flex items-center gap-1">
+                      {trip.destination ? (
+                        <>
+                          <MapPin className="w-3 h-3 text-[#16834A] flex-shrink-0" />
+                          <span>{trip.destination}</span>
+                        </>
+                      ) : (
+                        <span>{trip.description || 'Shared group journey'}</span>
+                      )}
                     </p>
                   </div>
 
-                  <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between">
+                  <div className="mt-5 pt-3.5 border-t border-[#F4F4F2] flex items-center justify-between">
                     <div>
-                      <span className="text-[10px] text-slate-400 uppercase font-semibold block">Total Pool</span>
-                      <span className="text-sm font-bold font-mono text-slate-800">
+                      <span className="text-[10px] text-[#A3A3A3] uppercase font-semibold block">Total Pool</span>
+                      <span className="text-sm font-bold font-mono text-[#171717] tabular-nums">
                         {formatPaise(trip.total_expenses_paise, trip.currency)}
                       </span>
                     </div>
-                    <div className="text-indigo-600 text-xs font-semibold flex items-center gap-0.5">
-                      <span>View</span>
-                      <ChevronRight className="w-4 h-4" />
+                    <div className="text-[#16834A] text-xs font-semibold flex items-center gap-0.5">
+                      <span>Open</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
                     </div>
                   </div>
                 </div>
@@ -224,41 +241,41 @@ export const DashboardPage: React.FC = () => {
             </div>
           )}
 
-          {/* Recent Group Expenses */}
+          {/* --- Recent Expenses --- */}
           <div className="mt-8 space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Receipt className="w-5 h-5 text-indigo-600" />
-                <h2 className="text-lg font-bold text-slate-900 font-['Plus_Jakarta_Sans']">
+                <Receipt className="w-4 h-4 text-[#16834A]" />
+                <h2 className="text-lg font-bold text-[#171717] font-['Plus_Jakarta_Sans']">
                   Recent Expenses
                 </h2>
               </div>
             </div>
 
             {data?.recent_expenses.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-slate-200/80 p-6 text-center text-sm text-slate-500">
+              <div className="bg-white rounded-2xl border border-[#E8E8E5] p-6 text-center text-sm text-[#737373] shadow-xs">
                 No recent expenses recorded yet.
               </div>
             ) : (
-              <div className="bg-white rounded-2xl border border-slate-200/80 divide-y divide-slate-100 shadow-sm overflow-hidden">
+              <div className="bg-white rounded-2xl border border-[#E8E8E5] divide-y divide-[#F4F4F2] shadow-xs overflow-hidden">
                 {data?.recent_expenses.map((exp) => (
-                  <div key={exp.id} className="p-4 flex items-center justify-between hover:bg-slate-50/80 transition-colors">
+                  <div key={exp.id} className="p-4 flex items-center justify-between hover:bg-[#FAFAF8] transition-colors">
                     <div className="flex items-center gap-3.5 min-w-0">
-                      <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs flex-shrink-0">
+                      <div className="w-9 h-9 rounded-xl bg-[#F4F4F2] text-[#171717] flex items-center justify-center font-bold text-xs flex-shrink-0">
                         {exp.category[0].toUpperCase()}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-bold text-slate-900 truncate">{exp.description}</p>
-                        <p className="text-xs text-slate-400">
-                          Paid by <span className="font-medium text-slate-600">{exp.payer_name}</span> • {formatDate(exp.date)}
+                        <p className="text-sm font-semibold text-[#171717] truncate">{exp.description}</p>
+                        <p className="text-xs text-[#737373]">
+                          Paid by <span className="font-medium text-[#171717]">{exp.payer_name}</span> • {formatDate(exp.date)}
                         </p>
                       </div>
                     </div>
                     <div className="text-right flex-shrink-0 ml-4">
-                      <p className="text-sm font-bold font-mono text-slate-900">
+                      <p className="text-sm font-bold font-mono text-[#171717] tabular-nums">
                         {formatPaise(exp.amount_paise, exp.currency)}
                       </p>
-                      <span className="text-[10px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+                      <span className="text-[10px] font-medium text-[#737373] bg-[#F4F4F2] px-2 py-0.5 rounded-md">
                         {exp.split_method}
                       </span>
                     </div>
@@ -269,41 +286,41 @@ export const DashboardPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Column: Pending Settlements & Help (1/3 width) */}
+        {/* Right Column: Pending Settlements (1/3 width) */}
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Clock className="w-5 h-5 text-amber-500" />
-              <h2 className="text-lg font-bold text-slate-900 font-['Plus_Jakarta_Sans']">
+              <Clock className="w-4 h-4 text-[#B45309]" />
+              <h2 className="text-lg font-bold text-[#171717] font-['Plus_Jakarta_Sans']">
                 Settlements Pending
               </h2>
             </div>
           </div>
 
           {data?.pending_settlements.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-slate-200/80 p-6 text-center">
-              <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
-              <p className="text-sm font-bold text-slate-800">All Settled Up!</p>
-              <p className="text-xs text-slate-400 mt-1">No unverified transfers currently pending.</p>
+            <div className="bg-white rounded-2xl border border-[#E8E8E5] p-6 text-center shadow-xs">
+              <CheckCircle2 className="w-7 h-7 text-[#16834A] mx-auto mb-2" />
+              <p className="text-sm font-bold text-[#171717]">All Settled Up</p>
+              <p className="text-xs text-[#737373] mt-1">No unverified transfers currently pending.</p>
             </div>
           ) : (
-            <div className="bg-white rounded-2xl border border-slate-200/80 p-4 space-y-3 shadow-sm">
+            <div className="bg-white rounded-2xl border border-[#E8E8E5] p-4 space-y-3 shadow-xs">
               {data?.pending_settlements.map((st) => (
-                <div key={st.id} className="p-3 rounded-xl bg-slate-50 border border-slate-200/60 flex items-center justify-between">
+                <div key={st.id} className="p-3.5 rounded-xl bg-[#FAFAF8] border border-[#E8E8E5] flex items-center justify-between">
                   <div>
-                    <p className="text-xs font-semibold text-slate-800">
+                    <p className="text-xs font-semibold text-[#171717]">
                       {st.payer_name} ➔ {st.payee_name}
                     </p>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
+                    <p className="text-[11px] text-[#737373] mt-0.5">
                       via {st.payment_method} {st.reference_id ? `(${st.reference_id})` : ''}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-bold font-mono text-indigo-600">
+                    <span className="text-xs font-bold font-mono text-[#171717] tabular-nums">
                       {formatPaise(st.amount_paise)}
-                    </p>
-                    <span className="text-[9px] font-bold text-amber-600 uppercase bg-amber-50 px-1.5 py-0.5 rounded">
-                      Pending
+                    </span>
+                    <span className="text-[10px] block text-[#B45309] font-medium">
+                      Awaiting verification
                     </span>
                   </div>
                 </div>
@@ -311,12 +328,13 @@ export const DashboardPage: React.FC = () => {
             </div>
           )}
 
-          {/* ONNA-GO Pro-Tips Card */}
-          <div className="bg-gradient-to-br from-slate-900 to-indigo-950 text-white rounded-2xl p-5 shadow-lg space-y-3">
-            <span className="text-[10px] uppercase font-bold tracking-wider text-orange-400">ONNA-GO Rule of Thumb • ஒண்ணா போ</span>
-            <h4 className="text-sm font-bold">Automatic Debt Simplification</h4>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              If Alice owes Bob ₹500 and Bob owes Charlie ₹500, ONNA-GO automatically recommends that Alice pays Charlie ₹500 directly, cutting 50% of the transactions.
+          {/* Quick Info Box */}
+          <div className="bg-white rounded-2xl border border-[#E8E8E5] p-5 shadow-xs space-y-2">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[#171717]">
+              Zero-Sum Assurance
+            </h3>
+            <p className="text-xs text-[#737373] leading-relaxed">
+              All financial calculations in ONNA-GO are computed in integer paise minor units. Group balances always reconcile to zero with zero rounding discrepancies.
             </p>
           </div>
         </div>

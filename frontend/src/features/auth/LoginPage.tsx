@@ -47,37 +47,35 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 text-white relative">
-      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[300px] bg-indigo-600/20 rounded-full blur-3xl pointer-events-none -z-10" />
-
+    <div className="min-h-screen bg-[#FAFAF8] flex flex-col justify-center py-12 sm:px-6 lg:px-8 text-[#171717]">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
         <div className="inline-block cursor-pointer mb-2" onClick={() => navigate('/')}>
-          <Logo size="lg" showTagline={true} theme="dark" />
+          <Logo size="lg" showTagline={true} theme="light" />
         </div>
-        <h2 className="mt-6 text-2xl font-bold tracking-tight text-white font-['Plus_Jakarta_Sans']">
-          Welcome back, rider!
+        <h2 className="mt-6 text-2xl font-bold tracking-tight text-[#171717] font-['Plus_Jakarta_Sans']">
+          Welcome back
         </h2>
-        <p className="mt-1 text-sm text-slate-400">
-          Sign in to access your trips, bikes, expenses, and settlements.
+        <p className="mt-1 text-sm text-[#737373]">
+          Sign in to access your trips, expenses, and settlements.
         </p>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md px-4 sm:px-0">
-        <div className="bg-slate-800/90 border border-slate-700/80 py-8 px-6 sm:px-10 rounded-2xl shadow-2xl backdrop-blur-md">
+      <div className="mt-7 sm:mx-auto sm:w-full sm:max-w-md px-4 sm:px-0">
+        <div className="bg-white border border-[#E8E8E5] py-8 px-6 sm:px-10 rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.04)]">
           {error && (
-            <div className="mb-6 p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-sm flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 flex-shrink-0 text-rose-400 mt-0.5" />
+            <div className="mb-5 p-3.5 rounded-xl bg-[#FFE4E6] border border-[#FDA4AF] text-[#E11D48] text-xs flex items-start gap-2.5">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 text-[#E11D48] mt-0.5" />
               <span>{error}</span>
             </div>
           )}
 
-          <form className="space-y-5" onSubmit={handleSubmit}>
+          <form className="space-y-4" onSubmit={handleSubmit}>
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1">
                 Email Address
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#A3A3A3]">
                   <Mail className="w-4 h-4" />
                 </div>
                 <input
@@ -86,25 +84,25 @@ export const LoginPage: React.FC = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="rider@example.com"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+                  className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl pl-10 pr-4 py-2.5 text-[#171717] placeholder-[#A3A3A3] text-sm focus:outline-none focus:border-[#16834A] focus:ring-2 focus:ring-[#16834A]/10 transition-colors"
                 />
               </div>
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373]">
                   Password
                 </label>
                 <Link
                   to="/forgot-password"
-                  className="text-xs text-indigo-400 hover:text-indigo-300 font-medium"
+                  className="text-xs text-[#16834A] hover:underline font-medium"
                 >
                   Forgot password?
                 </Link>
               </div>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#A3A3A3]">
                   <Lock className="w-4 h-4" />
                 </div>
                 <input
@@ -113,7 +111,7 @@ export const LoginPage: React.FC = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+                  className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl pl-10 pr-4 py-2.5 text-[#171717] placeholder-[#A3A3A3] text-sm focus:outline-none focus:border-[#16834A] focus:ring-2 focus:ring-[#16834A]/10 transition-colors"
                 />
               </div>
             </div>
@@ -121,7 +119,7 @@ export const LoginPage: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-500 to-cyan-500 hover:from-indigo-600 hover:to-cyan-600 text-white font-bold py-3 rounded-xl shadow-lg shadow-indigo-500/25 active:scale-[0.98] transition-all disabled:opacity-50 mt-2"
+              className="w-full flex items-center justify-center gap-2 bg-[#16834A] hover:bg-[#136F3F] text-white font-semibold py-2.5 px-4 rounded-xl shadow-xs active:scale-[0.98] transition-all disabled:opacity-50 mt-2"
             >
               <span>{loading ? 'Signing In...' : 'Sign In'}</span>
               <ArrowRight className="w-4 h-4" />
@@ -129,32 +127,32 @@ export const LoginPage: React.FC = () => {
           </form>
 
           {/* Quick Demo Test Buttons */}
-          <div className="mt-6 pt-6 border-t border-slate-700">
-            <p className="text-xs text-slate-400 mb-2 font-medium flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>Quick Test Accounts:</span>
+          <div className="mt-6 pt-5 border-t border-[#E8E8E5]">
+            <p className="text-xs text-[#737373] mb-2 font-medium flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-[#16834A]" />
+              <span>One-Click Test Accounts:</span>
             </p>
             <div className="grid grid-cols-2 gap-2 text-xs">
               <button
                 type="button"
                 onClick={() => handleDemoLogin('alice_rider@onnago.app')}
-                className="py-2 px-2.5 rounded-lg bg-slate-900 hover:bg-slate-700/80 border border-slate-700 text-slate-300 text-center font-medium transition-colors"
+                className="py-2 px-2.5 rounded-lg bg-[#FAFAF8] hover:bg-[#F4F4F2] border border-[#E8E8E5] text-[#171717] text-center font-medium transition-colors"
               >
                 Alice (Trip Owner)
               </button>
               <button
                 type="button"
                 onClick={() => handleDemoLogin('bob_biker@onnago.app')}
-                className="py-2 px-2.5 rounded-lg bg-slate-900 hover:bg-slate-700/80 border border-slate-700 text-slate-300 text-center font-medium transition-colors"
+                className="py-2 px-2.5 rounded-lg bg-[#FAFAF8] hover:bg-[#F4F4F2] border border-[#E8E8E5] text-[#171717] text-center font-medium transition-colors"
               >
                 Bob (Member)
               </button>
             </div>
           </div>
 
-          <div className="mt-6 text-center text-sm text-slate-400">
+          <div className="mt-6 text-center text-sm text-[#737373]">
             Don't have an account?{' '}
-            <Link to="/register" className="font-semibold text-indigo-400 hover:text-indigo-300">
+            <Link to="/register" className="font-semibold text-[#16834A] hover:underline">
               Create an account
             </Link>
           </div>

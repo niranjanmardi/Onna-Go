@@ -21,7 +21,6 @@ import {
   FileSpreadsheet,
   FileText,
   Trash2,
-  Share2,
 } from 'lucide-react';
 import { api } from '@/lib/api-client';
 import {
@@ -58,23 +57,22 @@ export const TripDetailPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'expenses' | 'balances' | 'settlements' | 'activities' | 'budgets' | 'reports' | 'members'>('expenses');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [copiedCode, setCopiedCode] = useState(false);
 
   // Modals state
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
   const [isRecordSettlementOpen, setIsRecordSettlementOpen] = useState(false);
-  const [settlePayer, setSettlePayer] = useState<string | undefined>();
-  const [settlePayee, setSettlePayee] = useState<string | undefined>();
-  const [settleAmount, setSettleAmount] = useState<number | undefined>();
+  const [settlePayer, setSettlePayer] = useState<string | undefined>(undefined);
+  const [settlePayee, setSettlePayee] = useState<string | undefined>(undefined);
+  const [settleAmount, setSettleAmount] = useState<number | undefined>(undefined);
 
-  // Filter expenses
-  const [expenseCategoryFilter, setExpenseCategoryFilter] = useState('All');
+  // Filters
   const [expenseSearch, setExpenseSearch] = useState('');
+  const [expenseCategoryFilter, setExpenseCategoryFilter] = useState('All');
+  const [copiedCode, setCopiedCode] = useState(false);
 
   const loadAllTripData = async () => {
     if (!id) return;
     setLoading(true);
-    setError(null);
     try {
       const [
         tripData,
@@ -91,11 +89,11 @@ export const TripDetailPage: React.FC = () => {
         api.get<TripMember[]>(`/trips/${id}/members`),
         api.get<Expense[]>(`/expenses/trip/${id}`),
         api.get<TripBalances>(`/balances/trip/${id}`),
-        api.get<{ trip_id: string; suggestions: SettlementSuggestion[] }>(`/balances/trip/${id}/suggestions`),
+        api.get<{ suggestions: SettlementSuggestion[] }>(`/balances/trip/${id}/suggestions`),
         api.get<Settlement[]>(`/settlements/trip/${id}`),
         api.get<Activity[]>(`/activities/trip/${id}`),
         api.get<Budget[]>(`/budgets/trip/${id}`),
-        api.get<TripReport>(`/reports/trip/${id}`).catch(() => null),
+        api.get<TripReport>(`/reports/trip/${id}`),
       ]);
 
       setTrip(tripData);
@@ -172,21 +170,21 @@ export const TripDetailPage: React.FC = () => {
   if (loading) {
     return (
       <div className="flex-1 p-12 flex flex-col items-center justify-center min-h-[60vh]">
-        <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-        <p className="text-sm font-medium text-slate-500 mt-3">Loading trip details...</p>
+        <div className="w-8 h-8 border-2 border-[#E8E8E5] border-t-[#16834A] rounded-full animate-spin mb-3" />
+        <p className="text-sm font-medium text-[#737373]">Loading trip details...</p>
       </div>
     );
   }
 
   if (error || !trip) {
     return (
-      <div className="p-8 max-w-xl mx-auto text-center space-y-4">
-        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm">
+      <div className="p-8 max-w-md mx-auto text-center space-y-4">
+        <div className="p-4 rounded-xl bg-[#FFE4E6] border border-[#FDA4AF] text-[#E11D48] text-sm">
           {error || 'Trip not found.'}
         </div>
         <button
           onClick={() => navigate('/trips')}
-          className="px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-semibold"
+          className="px-4 py-2 bg-[#171717] text-white rounded-xl text-sm font-semibold"
         >
           Back to Trips
         </button>
@@ -194,7 +192,6 @@ export const TripDetailPage: React.FC = () => {
     );
   }
 
-  // Filtered expenses
   const filteredExpenses = expenses.filter((e) => {
     const matchCat = expenseCategoryFilter === 'All' || e.category === expenseCategoryFilter;
     const matchSearch =
@@ -203,96 +200,93 @@ export const TripDetailPage: React.FC = () => {
   });
 
   return (
-    <div className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full space-y-6">
-      {/* --- Trip Header Banner --- */}
-      <div className="bg-slate-900 text-white rounded-3xl p-6 md:p-8 shadow-xl relative overflow-hidden">
-        {/* Glow accent */}
-        <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-bl from-orange-500/20 via-indigo-600/20 to-transparent rounded-full blur-3xl pointer-events-none" />
-
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+    <div className="flex-1 p-4 md:p-8 max-w-6xl mx-auto w-full space-y-6">
+      {/* --- Apple-Style Trip Header Card --- */}
+      <div className="bg-white rounded-2xl border border-[#E8E8E5] p-6 md:p-8 shadow-xs relative overflow-hidden">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-bold text-orange-400 bg-orange-500/10 border border-orange-500/20 px-2.5 py-0.5 rounded-full">
+              <span className="text-[11px] font-semibold text-[#16834A] bg-[#DDF5E5] border border-[#C6ECCF] px-2.5 py-0.5 rounded-md">
                 ONNA-GO • ஒண்ணா போ
               </span>
-              <span className="text-xs font-bold text-slate-400 bg-slate-800 px-2.5 py-0.5 rounded-full">
+              <span className="text-[11px] font-semibold text-[#737373] bg-[#FAFAF8] border border-[#E8E8E5] px-2.5 py-0.5 rounded-md">
                 {trip.currency}
               </span>
             </div>
 
-            <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight font-['Plus_Jakarta_Sans']">
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-[#171717] font-['Plus_Jakarta_Sans']">
               {trip.name}
             </h1>
 
-            <div className="flex items-center gap-4 text-xs text-slate-300 flex-wrap">
+            <div className="flex items-center gap-4 text-xs text-[#737373] flex-wrap">
               {trip.destination && (
-                <span className="flex items-center gap-1.5 font-medium">
-                  <MapPin className="w-3.5 h-3.5 text-orange-400" />
+                <span className="flex items-center gap-1.5 font-medium text-[#171717]">
+                  <MapPin className="w-3.5 h-3.5 text-[#16834A]" />
                   <span>{trip.destination}</span>
                 </span>
               )}
               {trip.start_date && (
                 <span className="flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                  <span>{formatDate(trip.start_date)} - {formatDate(trip.end_date)}</span>
+                  <Calendar className="w-3.5 h-3.5 text-[#A3A3A3]" />
+                  <span>{formatDate(trip.start_date)} {trip.end_date ? `— ${formatDate(trip.end_date)}` : ''}</span>
                 </span>
               )}
               <span className="flex items-center gap-1.5">
-                <Users className="w-3.5 h-3.5 text-slate-400" />
-                <span>{members.length} Riders / Friends</span>
+                <Users className="w-3.5 h-3.5 text-[#A3A3A3]" />
+                <span>{members.length} members</span>
               </span>
             </div>
           </div>
 
-          {/* Quick Invite Code Banner */}
+          {/* Quick Actions & Invite Code */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            <div className="bg-slate-800/90 border border-slate-700 rounded-2xl p-3 flex items-center justify-between gap-3">
+            <div className="bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl p-2.5 px-3.5 flex items-center justify-between gap-3">
               <div>
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Invite Code</span>
-                <span className="text-sm font-mono font-bold tracking-widest text-orange-400">{trip.invite_code}</span>
+                <span className="text-[10px] text-[#A3A3A3] font-semibold uppercase tracking-wider block">Invite Code</span>
+                <span className="text-sm font-mono font-bold tracking-widest text-[#171717]">{trip.invite_code}</span>
               </div>
               <button
                 onClick={handleCopyCode}
-                className="p-2 rounded-xl bg-slate-700/80 hover:bg-slate-600 text-slate-200 transition-colors"
+                className="p-1.5 rounded-lg bg-white hover:bg-[#F4F4F2] text-[#737373] border border-[#E8E8E5] transition-colors"
                 title="Copy Code"
               >
-                {copiedCode ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                {copiedCode ? <Check className="w-3.5 h-3.5 text-[#16834A]" /> : <Copy className="w-3.5 h-3.5" />}
               </button>
             </div>
 
             <button
               onClick={() => setIsAddExpenseOpen(true)}
-              className="flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold py-3 px-5 rounded-2xl shadow-lg shadow-orange-500/25 active:scale-95 transition-all text-sm"
+              className="inline-flex items-center justify-center gap-2 bg-[#16834A] hover:bg-[#136F3F] text-white font-semibold py-2.5 px-4 rounded-xl shadow-xs transition-all active:scale-[0.98] text-sm"
             >
-              <Plus className="w-4 h-4 stroke-[3]" />
-              <span>Add Expense</span>
+              <Plus className="w-4 h-4" />
+              <span>Record Expense</span>
             </button>
           </div>
         </div>
 
-        {/* Total Expenses / Balances ribbon */}
-        <div className="mt-8 pt-5 border-t border-slate-800 grid grid-cols-2 sm:grid-cols-4 gap-4 text-left">
+        {/* Metrics Ribbon */}
+        <div className="mt-7 pt-5 border-t border-[#F4F4F2] grid grid-cols-2 sm:grid-cols-4 gap-4 text-left">
           <div>
-            <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Total Spent</span>
-            <span className="text-xl font-bold font-mono text-white">
+            <span className="text-[10px] text-[#A3A3A3] uppercase font-semibold tracking-wider block">Total Pool</span>
+            <span className="text-xl font-bold font-mono text-[#171717] tabular-nums">
               {formatPaise(trip.total_expenses_paise, trip.currency)}
             </span>
           </div>
           <div>
-            <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Recorded Expenses</span>
-            <span className="text-xl font-bold font-mono text-indigo-400">
+            <span className="text-[10px] text-[#A3A3A3] uppercase font-semibold tracking-wider block">Recorded Expenses</span>
+            <span className="text-xl font-bold font-mono text-[#171717] tabular-nums">
               {expenses.filter((e) => !e.is_void).length}
             </span>
           </div>
           <div>
-            <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Your Position</span>
+            <span className="text-[10px] text-[#A3A3A3] uppercase font-semibold tracking-wider block">Your Position</span>
             {(() => {
               const myBal = balances?.balances.find((b) => b.user_id === user?.id);
               const amt = myBal?.net_balance_paise || 0;
               return (
                 <span
-                  className={`text-xl font-bold font-mono ${
-                    amt > 0 ? 'text-emerald-400' : amt < 0 ? 'text-amber-400' : 'text-slate-300'
+                  className={`text-xl font-bold font-mono tabular-nums ${
+                    amt > 0 ? 'text-[#16834A]' : amt < 0 ? 'text-[#B45309]' : 'text-[#737373]'
                   }`}
                 >
                   {amt > 0 ? `+${formatPaise(amt)}` : formatPaise(amt)}
@@ -301,24 +295,24 @@ export const TripDetailPage: React.FC = () => {
             })()}
           </div>
           <div>
-            <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Pending Settlements</span>
-            <span className="text-xl font-bold font-mono text-orange-400">
+            <span className="text-[10px] text-[#A3A3A3] uppercase font-semibold tracking-wider block">Pending Settlements</span>
+            <span className="text-xl font-bold font-mono text-[#B45309] tabular-nums">
               {settlements.filter((s) => s.status === 'PENDING_CONFIRMATION').length}
             </span>
           </div>
         </div>
       </div>
 
-      {/* --- Navigation Tabs --- */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-slate-200">
+      {/* --- Segmented Control Tabs --- */}
+      <div className="bg-[#F4F4F2] p-1 rounded-xl flex gap-1 overflow-x-auto">
         {[
           { key: 'expenses', label: 'Expenses', icon: Receipt, count: expenses.length },
           { key: 'balances', label: 'Balances & Settle', icon: Scale },
           { key: 'settlements', label: 'Settlement History', icon: HandCoins, count: settlements.length },
           { key: 'activities', label: 'Activities', icon: Compass, count: activities.length },
           { key: 'budgets', label: 'Budgets', icon: Sliders, count: budgets.length },
-          { key: 'reports', label: 'Reports & Export', icon: PieChart },
-          { key: 'members', label: 'Riders', icon: Users, count: members.length },
+          { key: 'reports', label: 'Reports', icon: PieChart },
+          { key: 'members', label: 'Members', icon: Users, count: members.length },
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.key;
@@ -326,18 +320,18 @@ export const TripDetailPage: React.FC = () => {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key as any)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all ${
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-all ${
                 isActive
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                  ? 'bg-white text-[#171717] font-semibold shadow-xs border border-[#E8E8E5]'
+                  : 'text-[#737373] hover:text-[#171717]'
               }`}
             >
-              <Icon className="w-4 h-4" />
+              <Icon className="w-3.5 h-3.5" />
               <span>{tab.label}</span>
               {typeof tab.count === 'number' && (
                 <span
-                  className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${
-                    isActive ? 'bg-indigo-700 text-white' : 'bg-slate-200 text-slate-700'
+                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                    isActive ? 'bg-[#DDF5E5] text-[#16834A]' : 'bg-[#E8E8E5] text-[#737373]'
                   }`}
                 >
                   {tab.count}
@@ -352,16 +346,16 @@ export const TripDetailPage: React.FC = () => {
       {activeTab === 'expenses' && (
         <div className="space-y-4">
           {/* Filters & Search */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-[#E8E8E5] shadow-xs">
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
               {['All', 'Fuel', 'Food', 'Stay', 'Transport', 'Tickets', 'Other'].map((cat) => (
                 <button
                   key={cat}
                   onClick={() => setExpenseCategoryFilter(cat)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
                     expenseCategoryFilter === cat
-                      ? 'bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold'
-                      : 'text-slate-600 hover:bg-slate-100'
+                      ? 'bg-[#171717] text-white font-semibold'
+                      : 'text-[#737373] hover:bg-[#F4F4F2]'
                   }`}
                 >
                   {cat}
@@ -375,80 +369,80 @@ export const TripDetailPage: React.FC = () => {
                 placeholder="Search expense description..."
                 value={expenseSearch}
                 onChange={(e) => setExpenseSearch(e.target.value)}
-                className="w-full sm:w-60 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500"
+                className="w-full sm:w-60 bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-3 py-1.5 text-xs text-[#171717] placeholder-[#A3A3A3] focus:outline-none focus:border-[#16834A]"
               />
             </div>
           </div>
 
           {/* Expenses List */}
           {filteredExpenses.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-12 text-center space-y-3">
-              <Receipt className="w-10 h-10 text-slate-400 mx-auto" />
-              <h4 className="text-base font-bold text-slate-800">No expenses recorded yet</h4>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+            <div className="bg-white rounded-2xl border border-[#E8E8E5] p-12 text-center space-y-3 shadow-xs">
+              <Receipt className="w-8 h-8 text-[#A3A3A3] mx-auto" />
+              <h4 className="text-base font-bold text-[#171717]">No expenses recorded yet</h4>
+              <p className="text-xs text-[#737373] max-w-sm mx-auto">
                 Paid for highway fuel, food, or bike repairs? Add an expense and split it with the group.
               </p>
               <button
                 onClick={() => setIsAddExpenseOpen(true)}
-                className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs py-2 px-4 rounded-xl"
+                className="inline-flex items-center gap-1.5 bg-[#16834A] hover:bg-[#136F3F] text-white font-semibold text-xs py-2 px-4 rounded-xl shadow-xs"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-3.5 h-3.5" />
                 <span>Add First Expense</span>
               </button>
             </div>
           ) : (
-            <div className="bg-white rounded-2xl border border-slate-200/80 divide-y divide-slate-100 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl border border-[#E8E8E5] divide-y divide-[#F4F4F2] shadow-xs overflow-hidden">
               {filteredExpenses.map((exp) => (
                 <div
                   key={exp.id}
                   className={`p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors ${
-                    exp.is_void ? 'bg-slate-50 opacity-60' : 'hover:bg-slate-50/70'
+                    exp.is_void ? 'bg-[#FAFAF8] opacity-60' : 'hover:bg-[#FAFAF8]'
                   }`}
                 >
                   <div className="flex items-start gap-3.5 min-w-0">
-                    <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center font-bold text-xs flex-shrink-0 mt-0.5">
+                    <div className="w-9 h-9 rounded-xl bg-[#F4F4F2] text-[#171717] flex items-center justify-center font-bold text-xs flex-shrink-0 mt-0.5">
                       {exp.category[0].toUpperCase()}
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <h4
-                          className={`text-sm font-bold text-slate-900 truncate ${
-                            exp.is_void ? 'line-through text-slate-400' : ''
+                          className={`text-sm font-semibold text-[#171717] truncate ${
+                            exp.is_void ? 'line-through text-[#A3A3A3]' : ''
                           }`}
                         >
                           {exp.description}
                         </h4>
                         {exp.is_void && (
-                          <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded">
+                          <span className="text-[10px] font-bold text-[#E11D48] bg-[#FFE4E6] px-2 py-0.5 rounded">
                             VOID
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        Paid by <strong className="text-slate-800">{exp.payer_name}</strong> • {formatDate(exp.date)}
+                      <p className="text-xs text-[#737373] mt-0.5">
+                        Paid by <strong className="text-[#171717] font-medium">{exp.payer_name}</strong> • {formatDate(exp.date)}
                       </p>
-                      <div className="flex items-center gap-2 mt-2 flex-wrap">
-                        <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded">
+                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                        <span className="text-[10px] font-medium text-[#737373] bg-[#F4F4F2] px-2 py-0.5 rounded">
                           {exp.split_method} Split
                         </span>
-                        <span className="text-[10px] text-slate-400">
+                        <span className="text-[10px] text-[#A3A3A3]">
                           {exp.splits.length} participants: {exp.splits.map((s) => `${s.user_name} (${formatPaise(s.amount_paise)})`).join(', ')}
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2 flex-shrink-0 border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100">
-                    <span className="text-base font-bold font-mono text-slate-900">
+                  <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2 flex-shrink-0 border-t sm:border-t-0 pt-2 sm:pt-0 border-[#F4F4F2]">
+                    <span className="text-base font-bold font-mono text-[#171717] tabular-nums">
                       {formatPaise(exp.amount_paise, exp.currency)}
                     </span>
                     {!exp.is_void && (
                       <button
                         onClick={() => handleVoidExpense(exp.id)}
-                        className="text-[11px] text-rose-500 hover:text-rose-700 flex items-center gap-1 font-medium"
+                        className="text-[11px] text-[#A3A3A3] hover:text-[#E11D48] flex items-center gap-1 font-medium transition-colors"
                         title="Void Expense"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="w-3 h-3" />
                         <span>Void</span>
                       </button>
                     )}
@@ -463,33 +457,33 @@ export const TripDetailPage: React.FC = () => {
       {/* --- TAB 2: BALANCES & DEBT SIMPLIFICATION --- */}
       {activeTab === 'balances' && (
         <div className="space-y-6">
-          {/* Member Net Balances Table */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
+          {/* Member Net Balances */}
+          <div className="bg-white rounded-2xl border border-[#E8E8E5] p-6 shadow-xs">
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#F4F4F2]">
               <div>
-                <h3 className="text-base font-bold text-slate-900 font-['Plus_Jakarta_Sans']">
-                  Rider Net Balances
+                <h3 className="text-base font-bold text-[#171717] font-['Plus_Jakarta_Sans']">
+                  Member Net Balances
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-[#737373]">
                   Calculated using ONNA-GO zero-sum conservation invariant
                 </p>
               </div>
-              <div className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-semibold flex items-center gap-1.5 border border-emerald-200">
+              <div className="px-2.5 py-1 rounded-full bg-[#DDF5E5] text-[#16834A] text-xs font-semibold flex items-center gap-1.5 border border-[#C6ECCF]">
                 <Check className="w-3.5 h-3.5" />
-                <span>Sum Equals Exactly 0</span>
+                <span>∑ Net = 0.00</span>
               </div>
             </div>
 
-            <div className="divide-y divide-slate-100">
+            <div className="divide-y divide-[#F4F4F2]">
               {balances?.balances.map((item) => (
                 <div key={item.user_id} className="py-3.5 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-500 to-orange-400 text-white font-bold flex items-center justify-center text-xs">
+                    <div className="w-9 h-9 rounded-xl bg-[#171717] text-white font-bold flex items-center justify-center text-xs">
                       {item.user_name[0].toUpperCase()}
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-slate-900">{item.user_name}</p>
-                      <p className="text-xs text-slate-400">
+                      <p className="text-sm font-semibold text-[#171717]">{item.user_name}</p>
+                      <p className="text-xs text-[#737373]">
                         Paid {formatPaise(item.total_spent_paise)} • Share {formatPaise(item.total_share_paise)}
                       </p>
                     </div>
@@ -497,12 +491,12 @@ export const TripDetailPage: React.FC = () => {
 
                   <div className="text-right">
                     <p
-                      className={`text-base font-bold font-mono ${
+                      className={`text-base font-bold font-mono tabular-nums ${
                         item.net_balance_paise > 0
-                          ? 'text-emerald-600'
+                          ? 'text-[#16834A]'
                           : item.net_balance_paise < 0
-                          ? 'text-amber-600'
-                          : 'text-slate-500'
+                          ? 'text-[#B45309]'
+                          : 'text-[#737373]'
                       }`}
                     >
                       {item.net_balance_paise > 0
@@ -510,12 +504,12 @@ export const TripDetailPage: React.FC = () => {
                         : formatPaise(item.net_balance_paise)}
                     </p>
                     <span
-                      className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
+                      className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded ${
                         item.status === 'IS_OWED'
-                          ? 'bg-emerald-50 text-emerald-700'
+                          ? 'bg-[#DDF5E5] text-[#16834A]'
                           : item.status === 'OWES'
-                          ? 'bg-amber-50 text-amber-700'
-                          : 'bg-slate-100 text-slate-600'
+                          ? 'bg-[#FEF3C7] text-[#B45309]'
+                          : 'bg-[#F4F4F2] text-[#737373]'
                       }`}
                     >
                       {item.status === 'IS_OWED' ? 'Receives' : item.status === 'OWES' ? 'Owes' : 'Settled'}
@@ -527,25 +521,25 @@ export const TripDetailPage: React.FC = () => {
           </div>
 
           {/* Optimal Settlement Suggestions */}
-          <div className="bg-slate-900 text-white rounded-2xl p-6 shadow-xl border border-slate-800 space-y-4">
+          <div className="bg-white rounded-2xl border border-[#E8E8E5] p-6 shadow-xs space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-orange-500/20 text-orange-400">
-                  <TrendingDown className="w-5 h-5" />
+                <div className="w-8 h-8 rounded-lg bg-[#DDF5E5] text-[#16834A] flex items-center justify-center">
+                  <TrendingDown className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white font-['Plus_Jakarta_Sans']">
-                    Optimal Debt Simplification Suggestions
+                  <h3 className="text-base font-bold text-[#171717] font-['Plus_Jakarta_Sans']">
+                    Optimal Debt Simplification
                   </h3>
-                  <p className="text-xs text-slate-400">
-                    Minimum transactions required to fully settle all group debts
+                  <p className="text-xs text-[#737373]">
+                    Minimum transfers required to fully settle all group debts
                   </p>
                 </div>
               </div>
             </div>
 
             {suggestions.length === 0 ? (
-              <div className="p-6 text-center text-xs text-slate-400 bg-slate-800/60 rounded-xl">
+              <div className="p-6 text-center text-xs text-[#737373] bg-[#FAFAF8] rounded-xl border border-[#E8E8E5]">
                 Everyone in this trip is completely settled up!
               </div>
             ) : (
@@ -553,28 +547,28 @@ export const TripDetailPage: React.FC = () => {
                 {suggestions.map((sug, idx) => (
                   <div
                     key={idx}
-                    className="p-4 rounded-xl bg-slate-800/80 border border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    className="p-4 rounded-xl bg-[#FAFAF8] border border-[#E8E8E5] flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-xs">
+                      <div className="w-7 h-7 rounded-full bg-[#171717] text-white flex items-center justify-center font-bold text-xs">
                         #{idx + 1}
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-white">
-                          <strong className="text-amber-400">{sug.from_user_name}</strong> pays{' '}
-                          <strong className="text-emerald-400">{sug.to_user_name}</strong>
+                        <p className="text-sm font-semibold text-[#171717]">
+                          <strong className="text-[#B45309] font-medium">{sug.from_user_name}</strong> pays{' '}
+                          <strong className="text-[#16834A] font-medium">{sug.to_user_name}</strong>
                         </p>
-                        <p className="text-xs text-slate-400">Direct payment via UPI / Cash</p>
+                        <p className="text-xs text-[#737373]">Direct transfer via UPI / Cash</p>
                       </div>
                     </div>
 
                     <div className="flex items-center justify-between sm:justify-end gap-3">
-                      <span className="text-lg font-bold font-mono text-cyan-400">
+                      <span className="text-base font-bold font-mono text-[#171717] tabular-nums">
                         {formatPaise(sug.amount_paise)}
                       </span>
                       <button
                         onClick={() => handleTriggerSuggestion(sug)}
-                        className="px-3.5 py-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs shadow-md transition-all active:scale-95"
+                        className="px-3.5 py-1.5 rounded-xl bg-[#16834A] hover:bg-[#136F3F] text-white font-medium text-xs shadow-xs transition-all active:scale-[0.98]"
                       >
                         Record Payment
                       </button>
@@ -591,8 +585,8 @@ export const TripDetailPage: React.FC = () => {
       {activeTab === 'settlements' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-base font-bold text-slate-900 font-['Plus_Jakarta_Sans']">
-              Settlement Records & Verification Lifecycle
+            <h3 className="text-base font-bold text-[#171717] font-['Plus_Jakarta_Sans']">
+              Settlement Records &amp; Verification
             </h3>
             <button
               onClick={() => {
@@ -601,45 +595,45 @@ export const TripDetailPage: React.FC = () => {
                 setSettleAmount(undefined);
                 setIsRecordSettlementOpen(true);
               }}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all"
+              className="px-4 py-2 bg-[#16834A] hover:bg-[#136F3F] text-white font-semibold text-xs rounded-xl shadow-xs transition-all"
             >
               Record Payment
             </button>
           </div>
 
           {settlements.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-10 text-center text-xs text-slate-500">
+            <div className="bg-white rounded-2xl border border-[#E8E8E5] p-10 text-center text-xs text-[#737373] shadow-xs">
               No settlement payments recorded yet.
             </div>
           ) : (
-            <div className="bg-white rounded-2xl border border-slate-200/80 divide-y divide-slate-100 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl border border-[#E8E8E5] divide-y divide-[#F4F4F2] shadow-xs overflow-hidden">
               {settlements.map((st) => (
                 <div key={st.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-slate-900">
+                      <span className="text-sm font-semibold text-[#171717]">
                         {st.payer_name} ➔ {st.payee_name}
                       </span>
                       <span
-                        className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
+                        className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded ${
                           st.status === 'CONFIRMED'
-                            ? 'bg-emerald-50 text-emerald-700'
+                            ? 'bg-[#DDF5E5] text-[#16834A]'
                             : st.status === 'DISPUTED'
-                            ? 'bg-rose-50 text-rose-700'
-                            : 'bg-amber-50 text-amber-700'
+                            ? 'bg-[#FFE4E6] text-[#E11D48]'
+                            : 'bg-[#FEF3C7] text-[#B45309]'
                         }`}
                       >
                         {st.status.replace('_', ' ')}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <p className="text-xs text-[#737373] mt-0.5">
                       Mode: {st.payment_method} {st.reference_id ? `• Ref: ${st.reference_id}` : ''} • {formatDate(st.created_at)}
                     </p>
-                    {st.notes && <p className="text-xs text-slate-400 mt-1 italic">"{st.notes}"</p>}
+                    {st.notes && <p className="text-xs text-[#A3A3A3] mt-1 italic">"{st.notes}"</p>}
                   </div>
 
                   <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2">
-                    <span className="text-base font-bold font-mono text-slate-900">
+                    <span className="text-base font-bold font-mono text-[#171717] tabular-nums">
                       {formatPaise(st.amount_paise)}
                     </span>
 
@@ -649,14 +643,14 @@ export const TripDetailPage: React.FC = () => {
                         {user?.id === st.payee_id && (
                           <button
                             onClick={() => handleConfirmSettlement(st.id)}
-                            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg"
+                            className="px-2.5 py-1 bg-[#16834A] hover:bg-[#136F3F] text-white text-[11px] font-semibold rounded-lg shadow-xs"
                           >
                             Confirm Receipt
                           </button>
                         )}
                         <button
                           onClick={() => handleDisputeSettlement(st.id)}
-                          className="px-2 py-1 text-slate-500 hover:text-rose-600 text-[11px] font-medium"
+                          className="px-2 py-1 text-[#737373] hover:text-[#E11D48] text-[11px] font-medium"
                         >
                           Dispute
                         </button>
@@ -675,32 +669,32 @@ export const TripDetailPage: React.FC = () => {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-base font-bold text-slate-900 font-['Plus_Jakarta_Sans']">
-                Trip Activities & Stops
+              <h3 className="text-base font-bold text-[#171717] font-['Plus_Jakarta_Sans']">
+                Trip Activities &amp; Itinerary
               </h3>
-              <p className="text-xs text-slate-500">Group bike rides, dinners, bonfire hangouts</p>
+              <p className="text-xs text-[#737373]">Group bike rides, stops, dinners, hangouts</p>
             </div>
           </div>
 
           {activities.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-10 text-center text-xs text-slate-500">
+            <div className="bg-white rounded-2xl border border-[#E8E8E5] p-10 text-center text-xs text-[#737373] shadow-xs">
               No activities created for this trip yet.
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {activities.map((a) => (
-                <div key={a.id} className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-2">
-                  <h4 className="text-base font-bold text-slate-900">{a.name}</h4>
+                <div key={a.id} className="bg-white p-5 rounded-2xl border border-[#E8E8E5] shadow-xs space-y-2">
+                  <h4 className="text-base font-bold text-[#171717]">{a.name}</h4>
                   {a.location && (
-                    <p className="text-xs text-slate-600 flex items-center gap-1">
-                      <MapPin className="w-3.5 h-3.5 text-orange-500" />
+                    <p className="text-xs text-[#737373] flex items-center gap-1">
+                      <MapPin className="w-3.5 h-3.5 text-[#16834A]" />
                       <span>{a.location}</span>
                     </p>
                   )}
-                  {a.description && <p className="text-xs text-slate-500">{a.description}</p>}
-                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                    <span className="text-slate-500">{a.participants_count} participants</span>
-                    <span className="font-mono font-bold text-indigo-600">{formatPaise(a.total_expenses_paise)}</span>
+                  {a.description && <p className="text-xs text-[#737373]">{a.description}</p>}
+                  <div className="pt-3 border-t border-[#F4F4F2] flex items-center justify-between text-xs">
+                    <span className="text-[#737373]">{a.participants_count} participants</span>
+                    <span className="font-mono font-bold text-[#171717] tabular-nums">{formatPaise(a.total_expenses_paise)}</span>
                   </div>
                 </div>
               ))}
@@ -712,27 +706,27 @@ export const TripDetailPage: React.FC = () => {
       {/* --- TAB 5: BUDGETS --- */}
       {activeTab === 'budgets' && (
         <div className="space-y-4">
-          <h3 className="text-base font-bold text-slate-900 font-['Plus_Jakarta_Sans']">
-            Budget Tracking & Threshold Warnings
+          <h3 className="text-base font-bold text-[#171717] font-['Plus_Jakarta_Sans']">
+            Budget Tracking
           </h3>
 
-          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+          <div className="bg-white p-6 rounded-2xl border border-[#E8E8E5] shadow-xs space-y-4">
             <div>
-              <div className="flex items-center justify-between text-sm font-bold mb-1.5">
+              <div className="flex items-center justify-between text-sm font-semibold mb-2">
                 <span>Trip Budget Consumption</span>
-                <span className="font-mono text-indigo-600">
+                <span className="font-mono text-[#171717] tabular-nums">
                   {formatPaise(trip.total_expenses_paise)} / {trip.budget_paise ? formatPaise(trip.budget_paise) : 'No Budget Set'}
                 </span>
               </div>
               {trip.budget_paise && (
-                <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
+                <div className="w-full bg-[#F4F4F2] h-2.5 rounded-full overflow-hidden">
                   <div
-                    className={`h-full transition-all duration-500 ${
+                    className={`h-full transition-all duration-500 rounded-full ${
                       trip.total_expenses_paise > trip.budget_paise
-                        ? 'bg-rose-500'
+                        ? 'bg-[#E11D48]'
                         : trip.total_expenses_paise / trip.budget_paise >= 0.8
-                        ? 'bg-amber-500'
-                        : 'bg-indigo-600'
+                        ? 'bg-[#B45309]'
+                        : 'bg-[#16834A]'
                     }`}
                     style={{
                       width: `${Math.min(100, (trip.total_expenses_paise / trip.budget_paise) * 100)}%`,
@@ -750,11 +744,11 @@ export const TripDetailPage: React.FC = () => {
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h3 className="text-base font-bold text-slate-900 font-['Plus_Jakarta_Sans']">
-                Financial Reports & Export
+              <h3 className="text-base font-bold text-[#171717] font-['Plus_Jakarta_Sans']">
+                Financial Reports &amp; Export
               </h3>
-              <p className="text-xs text-slate-500">
-                Formula injection-protected CSV and PDF reports
+              <p className="text-xs text-[#737373]">
+                Formula injection-protected CSV and PDF invoices
               </p>
             </div>
 
@@ -763,9 +757,9 @@ export const TripDetailPage: React.FC = () => {
                 href={`/api/v1/reports/trip/${trip.id}/export/csv`}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors"
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-[#F4F4F2] text-[#171717] border border-[#E8E8E5] text-xs font-semibold shadow-xs transition-colors"
               >
-                <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                <FileSpreadsheet className="w-3.5 h-3.5 text-[#16834A]" />
                 <span>Export CSV</span>
               </a>
 
@@ -773,9 +767,9 @@ export const TripDetailPage: React.FC = () => {
                 href={`/api/v1/reports/trip/${trip.id}/export/pdf`}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm transition-colors"
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#16834A] hover:bg-[#136F3F] text-white text-xs font-semibold shadow-xs transition-colors"
               >
-                <FileText className="w-4 h-4" />
+                <FileText className="w-3.5 h-3.5" />
                 <span>Export PDF</span>
               </a>
             </div>
@@ -783,20 +777,20 @@ export const TripDetailPage: React.FC = () => {
 
           {/* Category Spending Breakdown */}
           {report && (
-            <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
-              <h4 className="text-sm font-bold text-slate-900">Category Spending Distribution</h4>
+            <div className="bg-white p-6 rounded-2xl border border-[#E8E8E5] shadow-xs space-y-4">
+              <h4 className="text-sm font-bold text-[#171717]">Category Spending Breakdown</h4>
               <div className="space-y-3">
                 {report.category_breakdown.map((cat) => (
                   <div key={cat.category} className="space-y-1">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="font-semibold text-slate-800">{cat.category}</span>
-                      <span className="font-mono text-slate-600">
+                      <span className="font-medium text-[#171717]">{cat.category}</span>
+                      <span className="font-mono text-[#737373] tabular-nums">
                         {formatPaise(cat.amount_paise)} ({cat.percentage}%)
                       </span>
                     </div>
-                    <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                    <div className="w-full bg-[#F4F4F2] h-2 rounded-full overflow-hidden">
                       <div
-                        className="bg-indigo-600 h-full rounded-full"
+                        className="bg-[#16834A] h-full rounded-full"
                         style={{ width: `${cat.percentage}%` }}
                       />
                     </div>
@@ -811,22 +805,22 @@ export const TripDetailPage: React.FC = () => {
       {/* --- TAB 7: RIDERS / MEMBERS --- */}
       {activeTab === 'members' && (
         <div className="space-y-4">
-          <h3 className="text-base font-bold text-slate-900 font-['Plus_Jakarta_Sans']">
+          <h3 className="text-base font-bold text-[#171717] font-['Plus_Jakarta_Sans']">
             Trip Members ({members.length})
           </h3>
-          <div className="bg-white rounded-2xl border border-slate-200/80 divide-y divide-slate-100 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-2xl border border-[#E8E8E5] divide-y divide-[#F4F4F2] shadow-xs overflow-hidden">
             {members.map((m) => (
               <div key={m.id} className="p-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-xs">
+                  <div className="w-9 h-9 rounded-xl bg-[#171717] text-white flex items-center justify-center font-bold text-xs">
                     {m.user_name[0].toUpperCase()}
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-slate-900">{m.user_name}</p>
-                    <p className="text-xs text-slate-400">{m.user_email}</p>
+                    <p className="text-sm font-semibold text-[#171717]">{m.user_name}</p>
+                    <p className="text-xs text-[#737373]">{m.user_email}</p>
                   </div>
                 </div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-[#737373] bg-[#FAFAF8] border border-[#E8E8E5] px-2 py-0.5 rounded">
                   {m.role}
                 </span>
               </div>

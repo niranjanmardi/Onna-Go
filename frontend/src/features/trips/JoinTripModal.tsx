@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, KeyRound, ArrowRight, AlertCircle, Sparkles } from 'lucide-react';
+import { X, KeyRound, ArrowRight, AlertCircle } from 'lucide-react';
 import { api } from '@/lib/api-client';
 import { Trip } from '@/types';
 
@@ -39,30 +39,30 @@ export const JoinTripModal: React.FC<JoinTripModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full p-6 relative">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/25 backdrop-blur-xs">
+      <div className="bg-white rounded-2xl border border-[#E8E8E5] shadow-xl max-w-md w-full p-6 relative">
+        <div className="flex items-center justify-between pb-4 border-b border-[#E8E8E5]">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-orange-50 text-orange-600">
+            <div className="w-9 h-9 rounded-xl bg-[#DDF5E5] text-[#16834A] flex items-center justify-center">
               <KeyRound className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-slate-900 font-['Plus_Jakarta_Sans']">
+              <h3 className="text-lg font-bold text-[#171717] font-['Plus_Jakarta_Sans']">
                 Join Ride / Trip
               </h3>
-              <p className="text-xs text-slate-500">Enter the invitation code shared by your friend</p>
+              <p className="text-xs text-[#737373]">Enter the code shared by your friend</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
+            className="p-1.5 text-[#737373] hover:text-[#171717] rounded-lg hover:bg-[#F4F4F2] transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {error && (
-          <div className="mt-4 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2.5">
+          <div className="mt-4 p-3 rounded-xl bg-[#FFE4E6] border border-[#FDA4AF] text-[#E11D48] text-xs flex items-center gap-2">
             <AlertCircle className="w-4 h-4 flex-shrink-0" />
             <span>{error}</span>
           </div>
@@ -70,8 +70,8 @@ export const JoinTripModal: React.FC<JoinTripModalProps> = ({
 
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1.5">
-              8-Character Invitation Code
+            <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1">
+              Invite Code (6-8 characters)
             </label>
             <input
               type="text"
@@ -79,30 +79,29 @@ export const JoinTripModal: React.FC<JoinTripModalProps> = ({
               maxLength={12}
               value={inviteCode}
               onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-              placeholder="e.g. 9B4F1A2C"
-              className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-center tracking-widest font-mono font-bold text-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-500 focus:bg-white uppercase"
+              placeholder="e.g. LADAKH9"
+              className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-4 py-3 text-center text-lg font-mono tracking-widest uppercase font-bold text-[#171717] focus:outline-none focus:border-[#16834A] focus:ring-2 focus:ring-[#16834A]/10 transition-colors"
             />
           </div>
 
-          <div className="p-3 bg-amber-50/60 rounded-xl border border-amber-200/60 text-amber-800 text-xs flex items-start gap-2">
-            <Sparkles className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-            <span>Once you join, you will be able to view group expenses, add bills, and settle balances in real-time.</span>
-          </div>
+          <p className="text-xs text-[#737373] text-center">
+            You will be added as a member and can view all expenses, balances, and itinerary activities.
+          </p>
 
-          <div className="pt-3 flex items-center justify-end gap-3 border-t border-slate-100">
+          <div className="pt-3 border-t border-[#E8E8E5] flex items-center justify-end gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 text-sm font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors"
+              className="px-4 py-2 text-sm font-medium text-[#737373] hover:text-[#171717] rounded-xl hover:bg-[#F4F4F2] transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading || !inviteCode.trim()}
-              className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-semibold text-sm py-2.5 px-6 rounded-xl shadow-md shadow-orange-500/25 active:scale-95 transition-all disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-5 py-2 text-sm font-semibold text-white bg-[#16834A] hover:bg-[#136F3F] rounded-xl shadow-xs transition-all active:scale-[0.98] disabled:opacity-50"
             >
-              <span>{loading ? 'Joining...' : 'Join Group'}</span>
+              <span>{loading ? 'Joining...' : 'Join Trip'}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
