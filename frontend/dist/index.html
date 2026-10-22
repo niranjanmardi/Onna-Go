@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <link rel="manifest" href="/manifest.json" />
+    <title>ONNA-GO — Plan Together. Spend Smarter. Settle Fairly.</title>
+    
+    <!-- Meta & SEO -->
+    <meta name="description" content="Plan trips, organize rides, share experiences, and split expenses with friends — all in one place with ONNA-GO." />
+    <meta name="theme-color" content="#16834A" />
+    <meta property="og:title" content="ONNA-GO — Good trips. Great friends. No awkward splits." />
+    <meta property="og:description" content="Plan trips, organize rides, share experiences, and split expenses with friends — all in one place." />
+    <meta property="og:type" content="website" />
+    
+    <!-- Typography: Plus Jakarta Sans & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <!-- Official Google Identity Services SDK -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+    <!-- Global Early Diagnostic Handler -->
+    <script>
+      window.addEventListener('error', function(e) {
+        console.error('[ONNA-GO Global Error]', e);
+        var errBanner = document.getElementById('onna-early-error');
+        if (errBanner) {
+          errBanner.style.display = 'block';
+          errBanner.innerText = 'Script Error: ' + (e.message || e.error || 'Failed to load module') + ' (' + (e.filename ? e.filename.split('/').pop() : 'script') + ':' + (e.lineno || 0) + ')';
+        }
+      });
+      window.addEventListener('unhandledrejection', function(e) {
+        console.error('[ONNA-GO Unhandled Rejection]', e);
+      });
+    </script>
+    <script type="module" crossorigin src="/assets/index-Cs7-kJtW.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-lBm4Kvwi.css">
+  </head>
+  <body class="bg-[#FAFAF8] text-[#171717] antialiased selection:bg-[#DDF5E5] selection:text-[#16834A]" style="margin: 0; background-color: #FAFAF8; color: #171717;">
+    <div id="root">
+      <!-- Fallback / Initial Branded Loading Screen (Replaced once React mounts) -->
+      <div style="min-height: 100vh; background-color: #FAFAF8; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: 'Inter', system-ui, -apple-system, sans-serif; text-align: center; padding: 24px;">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 24px;">
+          <div style="width: 44px; height: 44px; background: #171717; border-radius: 12px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="8" />
+              <line x1="12" y1="2" x2="12" y2="6" />
+              <line x1="12" y1="18" x2="12" y2="22" />
+              <line x1="4.93" y1="4.93" x2="7.76" y2="7.76" />
+              <line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
+            </svg>
+          </div>
+          <div style="text-align: left;">
+            <div style="font-size: 22px; font-weight: 700; letter-spacing: -0.02em; color: #171717; font-family: 'Plus Jakarta Sans', sans-serif;">
+              ONNA-GO
+            </div>
+            <div style="font-size: 12px; color: #737373;">Ride Together. Vibe Together. Split Together.</div>
+          </div>
+        </div>
+
+        <div style="width: 28px; height: 28px; border: 2.5px solid #E8E8E5; border-top-color: #16834A; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+        <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+        
+        <p style="margin-top: 14px; font-size: 13px; color: #737373;">Loading ONNA-GO...</p>
+
+        <!-- Dynamic error banner if JS fails to execute -->
+        <div id="onna-early-error" style="display: none; margin-top: 20px; max-width: 480px; padding: 12px 16px; background: #FFE4E6; border: 1px solid #FDA4AF; border-radius: 10px; color: #E11D48; font-size: 12px; font-family: monospace; text-align: left;"></div>
+
+        <noscript>
+          <div style="margin-top: 20px; padding: 12px; background: #F4F4F2; border-radius: 8px; color: #E11D48; font-size: 13px;">
+            JavaScript is required to run ONNA-GO. Please enable JavaScript in your browser.
+          </div>
+        </noscript>
+      </div>
+    </div>
+  </body>
+</html>

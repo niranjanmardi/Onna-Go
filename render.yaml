@@ -8,8 +8,6 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
-      - key: NODE_VERSION
-        value: 20.12.0
       - key: SECRET_KEY
         generateValue: true
       - key: SECURE_COOKIE
