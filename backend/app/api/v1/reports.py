@@ -202,7 +202,7 @@ def export_trip_pdf(
         textColor=colors.HexColor('#64748B')
     )
     
-    elements.append(Paragraph(f"ONNA-GO (ஒண்ணா போ) Expense Report: {trip.name}", title_style))
+    elements.append(Paragraph(f"ONNA-GO Expense Report: {trip.name}", title_style))
     elements.append(Paragraph(f"Destination: {trip.destination or 'N/A'} | Tagline: Ride Together. Vibe Together. Split Together.", subtitle_style))
     elements.append(Spacer(1, 16))
     

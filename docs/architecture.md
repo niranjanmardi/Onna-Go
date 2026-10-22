@@ -1,6 +1,5 @@
 # ONNA-GO — System Architecture
 
-**Tamil Name:** ஒண்ணா போ
 **Tagline:** Ride Together. Vibe Together. Split Together.
 
 ---

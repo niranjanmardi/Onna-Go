@@ -3,8 +3,6 @@ import React from 'react';
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
   showTagline?: boolean;
-  showTamil?: boolean;
-  tamilClassName?: string;
   className?: string;
   theme?: 'light' | 'dark';
 }
@@ -12,8 +10,6 @@ interface LogoProps {
 export const Logo: React.FC<LogoProps> = ({
   size = 'md',
   showTagline = false,
-  showTamil = true,
-  tamilClassName = '',
   className = '',
   theme = 'light',
 }) => {
@@ -78,18 +74,6 @@ export const Logo: React.FC<LogoProps> = ({
           >
             ONNA-GO
           </span>
-
-          {showTamil && (
-            <span
-              className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md tracking-normal font-sans whitespace-nowrap ${
-                isDark
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                  : 'bg-[#DDF5E5] text-[#16834A] border border-[#C6ECCF]'
-              } ${tamilClassName}`}
-            >
-              ஒண்ணா போ
-            </span>
-          )}
         </div>
 
         {showTagline && (

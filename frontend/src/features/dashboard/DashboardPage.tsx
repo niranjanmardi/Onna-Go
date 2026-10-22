@@ -66,9 +66,6 @@ export const DashboardPage: React.FC = () => {
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-[#171717] font-['Plus_Jakarta_Sans']">
               Welcome back, {firstName}
             </h1>
-            <span className="text-[11px] font-semibold text-[#16834A] bg-[#DDF5E5] px-2 py-0.5 rounded-md border border-[#C6ECCF]">
-              ஒண்ணா போ
-            </span>
           </div>
           <p className="text-sm text-[#737373] mt-1">
             Here is your active group travel &amp; shared balance overview.

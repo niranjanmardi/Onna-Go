@@ -62,3 +62,20 @@ export function formatDateTime(dateStr?: string | null): string {
     return dateStr;
   }
 }
+
+export function getCurrencySymbol(currency = 'INR'): string {
+  switch (currency.toUpperCase()) {
+    case 'USD':
+      return '$';
+    case 'EUR':
+      return '€';
+    case 'GBP':
+      return '£';
+    case 'AED':
+      return 'د.إ';
+    case 'INR':
+    default:
+      return '₹';
+  }
+}
+

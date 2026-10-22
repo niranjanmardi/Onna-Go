@@ -23,6 +23,8 @@ class UserUpdate(BaseModel):
 class UserResponse(UserBase):
     id: str
     avatar_url: Optional[str] = None
+    auth_provider: str = "email"
+    google_id: Optional[str] = None
     is_active: bool
     is_verified: bool
     created_at: datetime
@@ -33,6 +35,17 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserResponse
+
+class GoogleAuthRequest(BaseModel):
+    credential: str = Field(..., description="Google ID Token (JWT) from Google Identity Services")
+    client_id: Optional[str] = None
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(..., min_length=8)
+
+class DeleteAccountRequest(BaseModel):
+    confirmation: str = Field(..., description="Must be 'DELETE' to confirm account deletion")
 
 class PasswordResetRequest(BaseModel):
     email: EmailStr

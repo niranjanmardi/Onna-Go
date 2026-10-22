@@ -41,7 +41,7 @@ export const LandingPage: React.FC = () => {
       {/* --- Minimal Navigation Bar --- */}
       <header className="sticky top-0 z-50 bg-[#FAFAF8]/85 backdrop-blur-md border-b border-[#E8E8E5] transition-all">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-2">
-          <Logo size="md" showTagline={false} showTamil={true} tamilClassName="hidden sm:inline-flex" theme="light" />
+          <Logo size="md" showTagline={false} theme="light" />
 
           <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-[#737373]">
             <button
@@ -83,10 +83,10 @@ export const LandingPage: React.FC = () => {
 
       {/* --- Hero Section --- */}
       <section className="pt-20 pb-16 px-6 max-w-5xl mx-auto text-center">
-        {/* Subtle Tamil Badge */}
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#DDF5E5] border border-[#C6ECCF] text-xs font-semibold text-[#16834A] mb-8">
+        {/* Subtle Badge */}
+        <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#DDF5E5] border border-[#C6ECCF] text-xs font-semibold text-[#16834A] mb-8">
           <span className="w-1.5 h-1.5 rounded-full bg-[#16834A]" />
-          <span>ஒண்ணா போ • The All-In-One Travel &amp; Expense Hub</span>
+          <span>The Modern Travel &amp; Expense Hub</span>
         </div>
 
         {/* Hero Headline */}
@@ -394,9 +394,9 @@ export const LandingPage: React.FC = () => {
 
       {/* --- Minimal Footer --- */}
       <footer className="border-t border-[#E8E8E5] py-12 px-6 max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6 text-[#737373] text-sm">
-        <Logo size="sm" showTagline={true} showTamil={true} theme="light" />
+        <Logo size="sm" showTagline={true} theme="light" />
         <p className="text-xs text-[#737373]">
-          ONNA-GO (ஒண்ணா போ) — Plan Together. Spend Smarter. Settle Fairly.
+          ONNA-GO — Plan Together. Spend Smarter. Settle Fairly.
         </p>
       </footer>
     </div>

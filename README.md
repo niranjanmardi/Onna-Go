@@ -1,4 +1,4 @@
-# ONNA-GO (ஒண்ணா போ)
+# ONNA-GO
 
 > **Ride Together. Vibe Together. Split Together.**
 
@@ -8,10 +8,9 @@ It solves the headache of managing group travel costs: planning journeys, inviti
 
 ---
 
-## Brand Identity & Meaning
+## Brand Identity
 
 - **Name:** ONNA-GO
-- **Tamil Representation:** ஒண்ணா போ ("Go Together" / "Travel as One")
 - **Tagline:** Ride Together. Vibe Together. Split Together.
 - **Concept:** Road journeys, motorcycle expeditions, weekend escapes, music, hangouts, and crystal-clear financial fairness.
 

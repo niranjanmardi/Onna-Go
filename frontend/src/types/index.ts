@@ -6,6 +6,8 @@ export interface User {
   full_name: string;
   avatar_url?: string | null;
   default_currency: string;
+  auth_provider?: string;
+  google_id?: string | null;
   is_active: boolean;
   is_verified: boolean;
   created_at: string;

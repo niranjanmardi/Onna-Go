@@ -1,6 +1,6 @@
 {
   "name": "onna-go-web",
-  "description": "ONNA-GO (ஒண்ணா போ) — Ride Together. Vibe Together. Split Together.",
+  "description": "ONNA-GO — Ride Together. Vibe Together. Split Together.",
   "private": true,
   "version": "1.0.0",
   "type": "module",

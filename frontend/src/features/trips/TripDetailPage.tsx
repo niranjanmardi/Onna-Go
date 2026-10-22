@@ -207,7 +207,7 @@ export const TripDetailPage: React.FC = () => {
           <div className="space-y-2">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-[11px] font-semibold text-[#16834A] bg-[#DDF5E5] border border-[#C6ECCF] px-2.5 py-0.5 rounded-md">
-                ONNA-GO • ஒண்ணா போ
+                ONNA-GO • Group Trip
               </span>
               <span className="text-[11px] font-semibold text-[#737373] bg-[#FAFAF8] border border-[#E8E8E5] px-2.5 py-0.5 rounded-md">
                 {trip.currency}

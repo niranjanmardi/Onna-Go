@@ -7,8 +7,12 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, fullName: string, password: string, defaultCurrency?: string) => Promise<void>;
+  googleLogin: (credential: string) => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  uploadAvatar: (file: File) => Promise<string>;
+  deleteAccount: (confirmation: string) => Promise<void>;
   refreshUser: () => Promise<void>;
 }
 
@@ -85,6 +89,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const googleLogin = async (credential: string) => {
+    setIsLoading(true);
+    try {
+      const data = await api.post<{ access_token: string; user: User }>('/auth/google', {
+        credential,
+      });
+      localStorage.setItem('onnago_token', data.access_token);
+      localStorage.setItem('onnago_user', JSON.stringify(data.user));
+      setUser(data.user);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const logout = async () => {
     try {
       await api.post('/auth/logout');
@@ -105,6 +123,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('onnago_user', JSON.stringify(updated));
   };
 
+  const changePassword = async (currentPassword: string, newPassword: string) => {
+    await api.post('/auth/change-password', {
+      current_password: currentPassword,
+      new_password: newPassword,
+    });
+  };
+
+  const uploadAvatar = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await api.post<{ message: string; avatar_url: string }>('/auth/avatar', formData);
+    if (res.avatar_url) {
+      const updatedUser = { ...user!, avatar_url: res.avatar_url };
+      setUser(updatedUser);
+      localStorage.setItem('onnago_user', JSON.stringify(updatedUser));
+      return res.avatar_url;
+    }
+    return '';
+  };
+
+  const deleteAccount = async (confirmation: string) => {
+    await api.delete('/auth/me', { confirmation });
+    localStorage.removeItem('onnago_token');
+    localStorage.removeItem('onnago_user');
+    localStorage.removeItem('rupaii_token');
+    localStorage.removeItem('rupaii_user');
+    setUser(null);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -112,8 +159,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoading,
         login,
         register,
+        googleLogin,
         logout,
         updateProfile,
+        changePassword,
+        uploadAvatar,
+        deleteAccount,
         refreshUser,
       }}
     >

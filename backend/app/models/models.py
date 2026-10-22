@@ -21,6 +21,8 @@ class User(Base):
     hashed_password = Column(String(255), nullable=False)
     avatar_url = Column(String(500), nullable=True)
     default_currency = Column(String(10), default="INR")
+    google_id = Column(String(255), unique=True, index=True, nullable=True)
+    auth_provider = Column(String(20), default="email")
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), default=utc_now)

@@ -87,19 +87,20 @@ export const ForgotPasswordPage: React.FC = () => {
           {!devToken ? (
             <form className="space-y-4" onSubmit={handleRequestToken}>
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1">
-                  Email Address
+                <label htmlFor="reset-email" className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1.5">
+                  Email address
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#A3A3A3]">
                     <Mail className="w-4 h-4" />
                   </div>
                   <input
+                    id="reset-email"
                     type="email"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="rider@example.com"
+                    placeholder="name@example.com"
                     className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl pl-10 pr-4 py-2.5 text-[#171717] placeholder-[#A3A3A3] text-sm focus:outline-none focus:border-[#16834A] focus:ring-2 focus:ring-[#16834A]/10 transition-colors"
                   />
                 </div>
@@ -108,23 +109,24 @@ export const ForgotPasswordPage: React.FC = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-2 bg-[#16834A] hover:bg-[#136F3F] text-white font-semibold py-2.5 px-4 rounded-xl shadow-xs active:scale-[0.98] transition-all disabled:opacity-50 mt-2"
+                className="w-full flex items-center justify-center gap-2 bg-[#16834A] hover:bg-[#136F3F] text-white font-semibold py-2.5 px-4 rounded-xl shadow-xs active:scale-[0.98] transition-all disabled:opacity-50 mt-2 cursor-pointer"
               >
-                <span>{loading ? 'Sending...' : 'Request Reset Token'}</span>
+                <span>{loading ? 'Sending...' : 'Request Password Reset'}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </form>
           ) : (
             <form className="space-y-4" onSubmit={handleConfirmReset}>
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1">
-                  New Password
+                <label htmlFor="new-password" className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1.5">
+                  New password
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#A3A3A3]">
                     <Lock className="w-4 h-4" />
                   </div>
                   <input
+                    id="new-password"
                     type="password"
                     required
                     minLength={8}
@@ -139,7 +141,7 @@ export const ForgotPasswordPage: React.FC = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-2 bg-[#16834A] hover:bg-[#136F3F] text-white font-semibold py-2.5 px-4 rounded-xl shadow-xs active:scale-[0.98] transition-all disabled:opacity-50 mt-2"
+                className="w-full flex items-center justify-center gap-2 bg-[#16834A] hover:bg-[#136F3F] text-white font-semibold py-2.5 px-4 rounded-xl shadow-xs active:scale-[0.98] transition-all disabled:opacity-50 mt-2 cursor-pointer"
               >
                 <span>{loading ? 'Updating...' : 'Set New Password'}</span>
                 <ArrowRight className="w-4 h-4" />

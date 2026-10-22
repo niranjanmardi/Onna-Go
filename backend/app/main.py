@@ -22,7 +22,7 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    description="ONNA-GO (ஒண்ணா போ) — Ride Together. Vibe Together. Split Together. Group trip & expense management API.",
+    description="ONNA-GO — Ride Together. Vibe Together. Split Together. Group trip & expense management API.",
     version=settings.VERSION,
     docs_url="/docs",
     redoc_url="/redoc",
@@ -58,7 +58,6 @@ def health_check():
     return {
         "status": "healthy",
         "app": settings.PROJECT_NAME,
-        "tamil_name": settings.TAMIL_NAME,
         "tagline": settings.TAGLINE,
         "version": settings.VERSION,
         "environment": "production" if settings.SECURE_COOKIE else "development"

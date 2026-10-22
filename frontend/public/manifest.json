@@ -1,11 +1,11 @@
 {
-  "name": "ONNA-GO (ஒண்ணா போ)",
+  "name": "ONNA-GO",
   "short_name": "ONNA-GO",
   "description": "Ride Together. Vibe Together. Split Together. The all-in-one group trip & expense platform.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0F172A",
-  "theme_color": "#4F46E5",
+  "background_color": "#FAFAF8",
+  "theme_color": "#16834A",
   "icons": [
     {
       "src": "/logo.svg",

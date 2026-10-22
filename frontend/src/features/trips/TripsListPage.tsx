@@ -60,9 +60,6 @@ export const TripsListPage: React.FC = () => {
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-[#171717] font-['Plus_Jakarta_Sans']">
               Trips &amp; Rides
             </h1>
-            <span className="text-[11px] font-semibold text-[#16834A] bg-[#DDF5E5] px-2 py-0.5 rounded-md border border-[#C6ECCF]">
-              ஒண்ணா போ
-            </span>
           </div>
           <p className="text-sm text-[#737373] mt-1">
             Manage your motorcycle tours, road journeys, weekend getaways, and shared expenses.
