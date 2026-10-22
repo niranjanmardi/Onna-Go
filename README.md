@@ -148,5 +148,17 @@ npm run build
 
 ---
 
+## Hosting & Deployment
+
+ONNA-GO supports 1-click cloud deployment, containerized hosting, and decoupled CDN setups:
+
+- **1-Click Render Blueprint:** Connect repo and deploy via [`render.yaml`](./render.yaml).
+- **Docker Compose:** Run `docker compose up --build -d` for single-container hosting on any VPS.
+- **Vercel + Render:** Host the frontend on Vercel using [`frontend/vercel.json`](./frontend/vercel.json) and backend on Render/Railway.
+
+For full step-by-step instructions, see the **[Deployment & Hosting Guide](./docs/deployment.md)**.
+
+---
+
 ## License
 MIT License. Built for seamless road trips and fair group spending.

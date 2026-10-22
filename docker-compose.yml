@@ -1,0 +1,19 @@
+services:
+  onna-go:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: onna-go-app
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - SECRET_KEY=onnago-production-secret-change-me-in-production
+      - DATABASE_URL=sqlite:///./splitmate.db
+      - SECURE_COOKIE=false
+    volumes:
+      - onna-go-data:/app/backend/uploads
+    restart: unless-stopped
+
+volumes:
+  onna-go-data:

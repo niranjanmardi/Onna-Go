@@ -36,6 +36,22 @@ class Settings(BaseSettings):
         "https://localhost",
     ]
     
+    @field_validator("BACKEND_CORS_ORIGINS", mode="before")
+    @classmethod
+    def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
+        if isinstance(v, str):
+            v_strip = v.strip()
+            if v_strip.startswith("[") and v_strip.endswith("]"):
+                import json
+                try:
+                    return json.loads(v_strip)
+                except Exception:
+                    pass
+            return [i.strip() for i in v_strip.split(",") if i.strip()]
+        elif isinstance(v, list):
+            return v
+        return []
+    
     # File Storage
     STORAGE_DIR: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "uploads")
     MAX_UPLOAD_SIZE_BYTES: int = 5 * 1024 * 1024  # 5 MB

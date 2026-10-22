@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: onna-go
+    runtime: python
+    buildCommand: bash build.sh
+    startCommand: uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT
+    plan: free
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: NODE_VERSION
+        value: 20.12.0
+      - key: SECRET_KEY
+        generateValue: true
+      - key: SECURE_COOKIE
+        value: true
+      - key: DATABASE_URL
+        value: sqlite:///./splitmate.db
