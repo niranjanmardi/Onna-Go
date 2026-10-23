@@ -11,31 +11,24 @@ import {
   HandCoins,
   Copy,
   Check,
-  TrendingDown,
-  TrendingUp,
   AlertCircle,
   Clock,
-  ShieldCheck,
   Download,
-  FileSpreadsheet,
-  FileText,
   Trash2,
   UserPlus,
   X,
   Loader2,
-  Smartphone,
-  ExternalLink,
   Share2,
   Trophy,
   CheckCircle2,
-  RotateCcw,
   Filter,
   ArrowRight,
-  MoreVertical,
   ChevronRight,
-  UserCheck,
   History,
-  Sparkles,
+  Search,
+  SlidersHorizontal,
+  ArrowDownLeft,
+  ArrowUpRight,
 } from 'lucide-react';
 import { api, getAvatarUrl } from '@/lib/api-client';
 import {
@@ -45,11 +38,9 @@ import {
   TripBalances,
   SettlementSuggestion,
   Settlement,
-  TripReport,
   Friend,
-  TripInvitation,
 } from '@/types';
-import { formatPaise, formatDate } from '@/lib/currency';
+import { formatPaise, formatDate, rupeesToPaise } from '@/lib/currency';
 import { useAuth } from '@/features/auth/AuthContext';
 import { AddExpenseModal } from '@/features/expenses/AddExpenseModal';
 import { RecordSettlementModal } from '@/features/settlements/RecordSettlementModal';
@@ -81,9 +72,8 @@ export const TripDetailPage: React.FC = () => {
   const [isRecordSettlementOpen, setIsRecordSettlementOpen] = useState(false);
   const [isMembersModalOpen, setIsMembersModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
-  const [isAllExpensesModalOpen, setIsAllExpensesModalOpen] = useState(false);
   const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
-  const [isCompleteTripConfirmOpen, setIsCompleteTripConfirmOpen] = useState(false);
+  const [isEndTripModalOpen, setIsEndTripModalOpen] = useState(false);
   const [completingTrip, setCompletingTrip] = useState(false);
 
   // Settlement prefill
@@ -98,17 +88,20 @@ export const TripDetailPage: React.FC = () => {
   const [loadingFriends, setLoadingFriends] = useState(false);
   const [sendingInvites, setSendingInvites] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
+  const [showInviteCode, setShowInviteCode] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLocation, setCopiedLocation] = useState(false);
 
-  // Export states
-  const [downloadingPdf, setDownloadingPdf] = useState(false);
-  const [downloadingCsv, setDownloadingCsv] = useState(false);
-
-  // Expenses filtering inside the All Expenses modal
-  const [expenseFilterCategory, setExpenseFilterCategory] = useState<string>('All');
-  const [expenseFilterPayer, setExpenseFilterPayer] = useState<string>('All');
-  const [expenseSearch, setExpenseSearch] = useState<string>('');
+  // Expenses filtering suite
+  const [expenseSearch, setExpenseSearch] = useState('');
+  const [expenseFilterPayer, setExpenseFilterPayer] = useState('All');
+  const [expenseFilterSplitMethod, setExpenseFilterSplitMethod] = useState('All');
+  const [expenseFilterDateRange, setExpenseFilterDateRange] = useState<'all' | '7days' | 'month' | 'custom'>('all');
+  const [expenseFilterCustomStart, setExpenseFilterCustomStart] = useState('');
+  const [expenseFilterCustomEnd, setExpenseFilterCustomEnd] = useState('');
+  const [expenseFilterMinAmount, setExpenseFilterMinAmount] = useState('');
+  const [expenseFilterMaxAmount, setExpenseFilterMaxAmount] = useState('');
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   // Load all trip data
   const loadAllTripData = async () => {
@@ -152,10 +145,11 @@ export const TripDetailPage: React.FC = () => {
     return balances.balances.find((b) => b.user_id === user.id) || null;
   }, [balances, user?.id]);
 
-  const netBalancePaise = userBalanceItem?.net_balance_paise || 0;
-  const userSharePaise = userBalanceItem?.total_share_paise || 0;
-  const userPaidPaise = userBalanceItem?.total_spent_paise || 0;
-  const totalTripExpensesPaise = balances?.total_expenses_paise || trip?.total_expenses_paise || 0;
+  // Exact user-specific figures (fallback to backend trip response if balances is loading)
+  const netBalancePaise = userBalanceItem?.net_balance_paise ?? trip?.user_net_balance_paise ?? 0;
+  const userSharePaise = userBalanceItem?.total_share_paise ?? trip?.user_share_paise ?? 0;
+  const userPaidPaise = userBalanceItem?.total_spent_paise ?? trip?.user_contribution_paise ?? 0;
+  const totalTripExpensesPaise = balances?.total_expenses_paise ?? trip?.total_expenses_paise ?? 0;
 
   // Pending settlements
   const pendingSettlements = useMemo(() => {
@@ -174,10 +168,98 @@ export const TripDetailPage: React.FC = () => {
     return pendingSettlements.filter((s) => s.payer_id === user?.id);
   }, [pendingSettlements, user?.id]);
 
-  // Recent active expenses (last 5)
-  const recentExpenses = useMemo(() => {
-    return expenses.filter((e) => !e.is_void).slice(0, 5);
-  }, [expenses]);
+  // Unsettled balances across all members (for End Trip validation)
+  const unsettledMembers = useMemo(() => {
+    if (!balances?.balances) return [];
+    return balances.balances.filter((b) => Math.abs(b.net_balance_paise) > 1);
+  }, [balances]);
+
+  const canFinalizeTrip = unsettledMembers.length === 0 && pendingSettlements.length === 0;
+
+  // Filtered Expenses
+  const filteredExpenses = useMemo(() => {
+    return expenses.filter((e) => {
+      if (e.is_void) return false;
+
+      // Search description & payer
+      if (expenseSearch.trim()) {
+        const q = expenseSearch.toLowerCase().trim();
+        const matchesDesc = e.description.toLowerCase().includes(q);
+        const matchesPayer = e.payer_name?.toLowerCase().includes(q);
+        if (!matchesDesc && !matchesPayer) return false;
+      }
+
+      // Paid by
+      if (expenseFilterPayer !== 'All' && e.payer_id !== expenseFilterPayer) {
+        return false;
+      }
+
+      // Split method
+      if (expenseFilterSplitMethod !== 'All') {
+        if (expenseFilterSplitMethod === 'EQUAL' && e.split_method !== 'EQUAL') return false;
+        if (expenseFilterSplitMethod === 'SELECTED' && e.split_method !== 'SELECTED') return false;
+      }
+
+      // Date range
+      if (expenseFilterDateRange === '7days') {
+        const expDate = new Date(e.date);
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        if (expDate < sevenDaysAgo) return false;
+      } else if (expenseFilterDateRange === 'month') {
+        const expDate = new Date(e.date);
+        const now = new Date();
+        if (expDate.getMonth() !== now.getMonth() || expDate.getFullYear() !== now.getFullYear()) {
+          return false;
+        }
+      } else if (expenseFilterDateRange === 'custom') {
+        const expDate = new Date(e.date);
+        if (expenseFilterCustomStart && expDate < new Date(expenseFilterCustomStart)) return false;
+        if (expenseFilterCustomEnd && expDate > new Date(`${expenseFilterCustomEnd}T23:59:59`)) return false;
+      }
+
+      // Amount range
+      if (expenseFilterMinAmount) {
+        const minPaise = rupeesToPaise(expenseFilterMinAmount);
+        if (e.amount_paise < minPaise) return false;
+      }
+      if (expenseFilterMaxAmount) {
+        const maxPaise = rupeesToPaise(expenseFilterMaxAmount);
+        if (e.amount_paise > maxPaise) return false;
+      }
+
+      return true;
+    });
+  }, [
+    expenses,
+    expenseSearch,
+    expenseFilterPayer,
+    expenseFilterSplitMethod,
+    expenseFilterDateRange,
+    expenseFilterCustomStart,
+    expenseFilterCustomEnd,
+    expenseFilterMinAmount,
+    expenseFilterMaxAmount,
+  ]);
+
+  const hasActiveFilters =
+    Boolean(expenseSearch) ||
+    expenseFilterPayer !== 'All' ||
+    expenseFilterSplitMethod !== 'All' ||
+    expenseFilterDateRange !== 'all' ||
+    Boolean(expenseFilterMinAmount) ||
+    Boolean(expenseFilterMaxAmount);
+
+  const handleClearFilters = () => {
+    setExpenseSearch('');
+    setExpenseFilterPayer('All');
+    setExpenseFilterSplitMethod('All');
+    setExpenseFilterDateRange('all');
+    setExpenseFilterCustomStart('');
+    setExpenseFilterCustomEnd('');
+    setExpenseFilterMinAmount('');
+    setExpenseFilterMaxAmount('');
+  };
 
   // Helper to check if a suggested debt has a pending settlement record
   const getPendingSettlementForSuggestion = (sug: SettlementSuggestion) => {
@@ -290,24 +372,24 @@ export const TripDetailPage: React.FC = () => {
     setTimeout(() => setCopiedLocation(false), 2500);
   };
 
-  // Complete Trip
-  const handleCompleteTrip = async () => {
+  // Finalize & End Trip
+  const handleFinalizeTrip = async () => {
     if (!id || !trip) return;
     setCompletingTrip(true);
     try {
       await api.post(`/trips/${id}/complete`);
       playSound('settlement_success');
       showConfirmation({
-        title: 'Trip marked as completed!',
-        message: 'All records finalized and saved to permanent history.',
+        title: 'Trip Ended & Finalized! 🏁',
+        message: 'All balances confirmed and saved to permanent history archive.',
         sound: 'settlement_success',
       });
       await loadAllTripData();
-      setIsCompleteTripConfirmOpen(false);
+      setIsEndTripModalOpen(false);
       setIsSummaryModalOpen(true);
     } catch (err: any) {
       playSound('error');
-      alert(err.message || 'Failed to complete trip.');
+      alert(err.message || 'Failed to finalize trip.');
     } finally {
       setCompletingTrip(false);
     }
@@ -318,6 +400,7 @@ export const TripDetailPage: React.FC = () => {
     setIsMembersModalOpen(true);
     setLoadingFriends(true);
     setInviteError(null);
+    setShowInviteCode(false);
     try {
       const allFriends = await api.get<Friend[]>('/friends');
       const existingMemberUserIds = new Set(members.map((m) => m.user_id));
@@ -354,9 +437,11 @@ export const TripDetailPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex-1 p-12 flex flex-col items-center justify-center min-h-[60vh]">
-        <div className="w-8 h-8 border-2 border-[#E8E8E5] border-t-[#16834A] rounded-full animate-spin mb-3" />
-        <p className="text-sm font-medium text-[#737373]">Loading trip expenses and balances...</p>
+      <div className="flex-1 p-8 flex items-center justify-center min-h-[50vh]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-[#E8E8E5] border-t-[#16834A] rounded-full animate-spin" />
+          <p className="text-xs font-semibold text-[#737373]">Loading trip details...</p>
+        </div>
       </div>
     );
   }
@@ -395,7 +480,7 @@ export const TripDetailPage: React.FC = () => {
               {isTripCompleted && (
                 <span className="text-[11px] font-semibold text-[#16834A] bg-[#DDF5E5] border border-[#C6ECCF] px-2.5 py-0.5 rounded-md flex items-center gap-1">
                   <CheckCircle2 className="w-3 h-3" />
-                  <span>Completed</span>
+                  <span>Trip Ended</span>
                 </span>
               )}
             </div>
@@ -421,7 +506,7 @@ export const TripDetailPage: React.FC = () => {
                 </span>
               )}
               <button
-                onClick={() => setIsMembersModalOpen(true)}
+                onClick={openInviteFriendsModal}
                 className="flex items-center gap-1.5 font-semibold text-[#16834A] hover:underline cursor-pointer"
               >
                 <Users className="w-3.5 h-3.5" />
@@ -433,13 +518,15 @@ export const TripDetailPage: React.FC = () => {
           {/* Header Action Buttons */}
           <div className="flex flex-wrap items-center gap-2.5">
             {/* PROMINENT RECORD EXPENSE BUTTON */}
-            <button
-              onClick={() => setIsAddExpenseOpen(true)}
-              className="inline-flex items-center justify-center gap-2 bg-[#16834A] hover:bg-[#136F3F] text-white font-semibold py-2.5 px-4 rounded-xl shadow-xs transition-all active:scale-[0.98] text-sm cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Record Expense</span>
-            </button>
+            {!isTripCompleted && (
+              <button
+                onClick={() => setIsAddExpenseOpen(true)}
+                className="inline-flex items-center justify-center gap-2 bg-[#16834A] hover:bg-[#136F3F] text-white font-semibold py-2.5 px-4 rounded-xl shadow-xs transition-all active:scale-[0.98] text-sm cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Record Expense</span>
+              </button>
+            )}
 
             {/* Members & Invite Modal Button */}
             <button
@@ -448,86 +535,98 @@ export const TripDetailPage: React.FC = () => {
               title="View members and invitation code"
             >
               <UserPlus className="w-4 h-4 text-[#16834A]" />
-              <span>Members &amp; Invite</span>
+              <span>Members</span>
             </button>
 
-            {/* Settlement History Button */}
-            <button
-              onClick={() => setIsHistoryModalOpen(true)}
-              className="inline-flex items-center justify-center gap-1.5 bg-white hover:bg-[#FAFAF8] border border-[#E8E8E5] text-[#171717] font-semibold py-2.5 px-3 rounded-xl shadow-xs transition-all active:scale-[0.98] text-sm cursor-pointer"
-              title="Settlement audit history"
-            >
-              <History className="w-4 h-4 text-[#737373]" />
-              <span className="hidden sm:inline">History</span>
-            </button>
-
-            {/* Trip Reports Export */}
-            <button
-              onClick={() => {
-                downloadTripPdf(trip.id, trip.name);
-              }}
-              className="inline-flex items-center justify-center gap-1.5 bg-white hover:bg-[#FAFAF8] border border-[#E8E8E5] text-[#171717] font-semibold py-2.5 px-3 rounded-xl shadow-xs transition-all active:scale-[0.98] text-sm cursor-pointer"
-              title="Export Trip Report PDF"
-            >
-              <Download className="w-4 h-4 text-[#737373]" />
-              <span className="hidden sm:inline">PDF</span>
-            </button>
-
-            {/* Complete / Summary Actions */}
+            {/* End Trip Action (For trip owner/admin) */}
             {isOwnerOrAdmin && !isTripCompleted && (
               <button
-                onClick={() => setIsCompleteTripConfirmOpen(true)}
-                className="inline-flex items-center justify-center gap-1.5 bg-white hover:bg-[#FAFAF8] border border-[#E8E8E5] text-[#171717] font-semibold py-2.5 px-3 rounded-xl shadow-xs transition-all active:scale-[0.98] text-sm cursor-pointer"
-                title="Finalize & complete trip"
+                onClick={() => setIsEndTripModalOpen(true)}
+                className="inline-flex items-center justify-center gap-1.5 bg-[#171717] hover:bg-black text-white font-semibold py-2.5 px-3.5 rounded-xl shadow-xs transition-all active:scale-[0.98] text-sm cursor-pointer"
+                title="Settle all balances and finalize trip"
               >
-                <CheckCircle2 className="w-4 h-4 text-[#16834A]" />
-                <span className="hidden sm:inline">End Trip</span>
+                <CheckCircle2 className="w-4 h-4 text-[#C6ECCF]" />
+                <span>End Trip</span>
               </button>
             )}
 
+            {/* Completed Summary Action */}
             {isTripCompleted && (
               <button
                 onClick={() => setIsSummaryModalOpen(true)}
                 className="inline-flex items-center justify-center gap-1.5 bg-[#DDF5E5] text-[#16834A] border border-[#C6ECCF] font-semibold py-2.5 px-3.5 rounded-xl shadow-xs transition-all active:scale-[0.98] text-sm cursor-pointer"
               >
                 <Trophy className="w-4 h-4" />
-                <span>Summary</span>
+                <span>Trip Summary</span>
               </button>
             )}
+
+            {/* Settlement Audit History */}
+            <button
+              onClick={() => setIsHistoryModalOpen(true)}
+              className="inline-flex items-center justify-center gap-1.5 bg-white hover:bg-[#FAFAF8] border border-[#E8E8E5] text-[#737373] hover:text-[#171717] font-semibold py-2.5 px-3 rounded-xl shadow-xs transition-all active:scale-[0.98] text-sm cursor-pointer"
+              title="Settlement History"
+            >
+              <History className="w-4 h-4" />
+              <span className="hidden sm:inline">History</span>
+            </button>
+
+            {/* Reports Export */}
+            <button
+              onClick={() => downloadTripPdf(trip.id, trip.name)}
+              className="inline-flex items-center justify-center gap-1.5 bg-white hover:bg-[#FAFAF8] border border-[#E8E8E5] text-[#737373] hover:text-[#171717] font-semibold py-2.5 px-3 rounded-xl shadow-xs transition-all active:scale-[0.98] text-sm cursor-pointer"
+              title="Download PDF report"
+            >
+              <Download className="w-4 h-4" />
+              <span className="hidden sm:inline">PDF</span>
+            </button>
           </div>
         </div>
 
-        {/* --- THREE CORE FINANCIAL METRIC CARDS --- */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t border-[#E8E8E5]">
+        {/* --- FOUR USER-SPECIFIC FINANCIAL METRIC CARDS --- */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2 border-t border-[#E8E8E5]">
           {/* 1. Total Trip Expenses */}
-          <div className="bg-[#FAFAF8] border border-[#E8E8E5] rounded-2xl p-5 space-y-1">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#737373] block">
+          <div className="bg-[#FAFAF8] border border-[#E8E8E5] rounded-2xl p-4 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#737373] block">
               Total Trip Expenses
             </span>
-            <div className="text-2xl font-bold font-mono tracking-tight text-[#171717] tabular-nums">
+            <div className="text-xl font-bold font-mono tracking-tight text-[#171717] tabular-nums">
               {formatPaise(totalTripExpensesPaise, trip.currency)}
             </div>
             <p className="text-[11px] text-[#737373]">
-              Across {expenses.filter((e) => !e.is_void).length} active group expense(s)
+              Across {expenses.filter((e) => !e.is_void).length} group expense(s)
             </p>
           </div>
 
-          {/* 2. Current User's Share */}
-          <div className="bg-[#FAFAF8] border border-[#E8E8E5] rounded-2xl p-5 space-y-1">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#737373] block">
-              Your Share (Consumed)
+          {/* 2. You Paid */}
+          <div className="bg-[#FAFAF8] border border-[#E8E8E5] rounded-2xl p-4 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#737373] block">
+              You Paid
             </span>
-            <div className="text-2xl font-bold font-mono tracking-tight text-[#171717] tabular-nums">
+            <div className="text-xl font-bold font-mono tracking-tight text-[#171717] tabular-nums">
+              {formatPaise(userPaidPaise, trip.currency)}
+            </div>
+            <p className="text-[11px] text-[#737373]">
+              Paid out of pocket by you
+            </p>
+          </div>
+
+          {/* 3. Your Share */}
+          <div className="bg-[#FAFAF8] border border-[#E8E8E5] rounded-2xl p-4 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#737373] block">
+              Your Share
+            </span>
+            <div className="text-xl font-bold font-mono tracking-tight text-[#171717] tabular-nums">
               {formatPaise(userSharePaise, trip.currency)}
             </div>
             <p className="text-[11px] text-[#737373]">
-              You paid {formatPaise(userPaidPaise, trip.currency)} out of pocket
+              Your consumed expense share
             </p>
           </div>
 
-          {/* 3. Current User's Net Balance */}
+          {/* 4. Your Net Balance */}
           <div
-            className={`border rounded-2xl p-5 space-y-1 ${
+            className={`border rounded-2xl p-4 space-y-1 ${
               netBalancePaise > 0
                 ? 'bg-[#E8F8EE] border-[#C6ECCF]'
                 : netBalancePaise < 0
@@ -536,26 +635,26 @@ export const TripDetailPage: React.FC = () => {
             }`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#737373]">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#737373]">
                 Your Net Balance
               </span>
               {netBalancePaise > 0 ? (
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#16834A] bg-white px-2 py-0.5 rounded-md border border-[#C6ECCF]">
-                  Receiving
+                <span className="text-[9px] font-bold uppercase tracking-wider text-[#16834A] bg-white px-2 py-0.5 rounded-md border border-[#C6ECCF]">
+                  You Receive
                 </span>
               ) : netBalancePaise < 0 ? (
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#E11D48] bg-white px-2 py-0.5 rounded-md border border-[#FECDD3]">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-[#E11D48] bg-white px-2 py-0.5 rounded-md border border-[#FECDD3]">
                   You Owe
                 </span>
               ) : (
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#737373] bg-white px-2 py-0.5 rounded-md border border-[#E8E8E5]">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-[#737373] bg-white px-2 py-0.5 rounded-md border border-[#E8E8E5]">
                   Settled
                 </span>
               )}
             </div>
 
             <div
-              className={`text-2xl font-bold font-mono tracking-tight tabular-nums ${
+              className={`text-xl font-bold font-mono tracking-tight tabular-nums ${
                 netBalancePaise > 0
                   ? 'text-[#16834A]'
                   : netBalancePaise < 0
@@ -572,16 +671,16 @@ export const TripDetailPage: React.FC = () => {
 
             <p className="text-[11px] text-[#737373]">
               {netBalancePaise > 0
-                ? 'Other trip members owe you money'
+                ? 'Members owe this money to you'
                 : netBalancePaise < 0
-                ? 'You need to repay members below'
+                ? 'You need to pay members below'
                 : 'All your trip debts are fully settled'}
             </p>
           </div>
         </div>
       </div>
 
-      {/* --- PENDING PAYMENT CONFIRMATIONS (Relevant to Logged-in User) --- */}
+      {/* --- PENDING PAYMENT CONFIRMATIONS BANNER --- */}
       {pendingForMeAsReceiver.length > 0 && (
         <div className="bg-[#FEF3C7] border border-[#FDE68A] rounded-2xl p-5 space-y-3">
           <div className="flex items-center gap-2 text-xs font-bold text-[#B45309]">
@@ -598,14 +697,14 @@ export const TripDetailPage: React.FC = () => {
                 className="bg-white rounded-xl p-3.5 border border-[#FDE68A] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs"
               >
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs font-bold text-[#171717]">{st.payer_name}</span>
                     <span className="text-xs text-[#737373]">
-                      sent you{' '}
+                      says they paid you{' '}
                       <strong className="text-[#16834A] font-mono">
                         {formatPaise(st.amount_paise, trip.currency)}
                       </strong>{' '}
-                      via {st.payment_method}
+                      via {st.payment_method}.
                     </span>
                   </div>
                   {st.notes && (
@@ -649,7 +748,7 @@ export const TripDetailPage: React.FC = () => {
           <div className="flex items-center gap-2.5">
             <Clock className="w-4 h-4 text-[#2563EB] shrink-0" />
             <p className="text-xs text-[#1E40AF]">
-              You submitted {pendingFromMeAsPayer.length} payment(s) awaiting receiver confirmation.
+              Waiting for receiver confirmation: You marked {pendingFromMeAsPayer.length} payment(s) as paid.
               Your balance will update automatically once confirmed by the recipient.
             </p>
           </div>
@@ -657,12 +756,12 @@ export const TripDetailPage: React.FC = () => {
             onClick={() => setIsHistoryModalOpen(true)}
             className="text-xs font-bold text-[#2563EB] hover:underline shrink-0 cursor-pointer"
           >
-            View Details
+            View
           </button>
         </div>
       )}
 
-      {/* --- WHO OWES WHOM (SETTLEMENT PLAN) --- */}
+      {/* --- WHO OWES WHOM (SETTLEMENT SECTION) --- */}
       <div className="bg-white rounded-2xl border border-[#E8E8E5] p-6 md:p-7 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-[#E8E8E5]">
           <div>
@@ -671,7 +770,7 @@ export const TripDetailPage: React.FC = () => {
               <span>Who Owes Whom</span>
             </h2>
             <p className="text-xs text-[#737373] mt-0.5">
-              Optimized payment instructions calculated from net trip balances
+              Clear payment directions calculated from everyone's net trip balance
             </p>
           </div>
 
@@ -761,11 +860,15 @@ export const TripDetailPage: React.FC = () => {
                         {formatPaise(sug.amount_paise, trip.currency)}
                       </span>
                       <span className="text-[10px] text-[#737373]">
-                        {isDebtor ? 'You owe' : isReceiver ? 'You receive' : 'Transfer'}
+                        {isDebtor
+                          ? `You need to pay ${sug.to_user_name}`
+                          : isReceiver
+                          ? `You will receive from ${sug.from_user_name}`
+                          : `${sug.from_user_name} pays ${sug.to_user_name}`}
                       </span>
                     </div>
 
-                    {/* Pending State */}
+                    {/* Actions and Status */}
                     {pendingSt ? (
                       <div className="flex items-center gap-2">
                         <span className="px-2.5 py-1 rounded-lg bg-[#FEF3C7] text-[#B45309] border border-[#FDE68A] text-[11px] font-bold flex items-center gap-1">
@@ -783,7 +886,6 @@ export const TripDetailPage: React.FC = () => {
                         )}
                       </div>
                     ) : isDebtor ? (
-                      /* DEBTOR ACTION: Mark as Paid */
                       <button
                         onClick={() => handleOpenMarkAsPaid(sug)}
                         className="px-3.5 py-1.5 bg-[#171717] hover:bg-black text-white text-xs font-semibold rounded-xl shadow-xs transition-all active:scale-[0.98] cursor-pointer flex items-center gap-1"
@@ -792,12 +894,10 @@ export const TripDetailPage: React.FC = () => {
                         <span>Mark as Paid</span>
                       </button>
                     ) : isReceiver ? (
-                      /* RECEIVER STATUS */
                       <span className="px-3 py-1 rounded-xl bg-[#DDF5E5] text-[#16834A] text-[11px] font-semibold border border-[#C6ECCF]">
                         Awaiting payment
                       </span>
                     ) : (
-                      /* THIRD-PARTY OBSERVER */
                       <span className="px-3 py-1 rounded-xl bg-[#FAFAF8] text-[#737373] text-[11px] font-medium border border-[#E8E8E5]">
                         Pending
                       </span>
@@ -810,50 +910,193 @@ export const TripDetailPage: React.FC = () => {
         )}
       </div>
 
-      {/* --- RECENT EXPENSES SECTION --- */}
-      <div className="bg-white rounded-2xl border border-[#E8E8E5] p-6 md:p-7 shadow-xs space-y-4">
-        <div className="flex items-center justify-between pb-3 border-b border-[#E8E8E5]">
+      {/* --- EXPENSES & BEGINNER-FRIENDLY FILTERS --- */}
+      <div className="bg-white rounded-2xl border border-[#E8E8E5] p-6 md:p-7 shadow-xs space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E8E8E5]">
           <div>
             <h2 className="text-base font-bold text-[#171717] font-['Plus_Jakarta_Sans'] flex items-center gap-2">
               <Receipt className="w-4 h-4 text-[#16834A]" />
-              <span>Recent Expenses</span>
+              <span>Trip Expenses</span>
+              <span className="text-xs font-semibold text-[#737373] bg-[#FAFAF8] border border-[#E8E8E5] px-2 py-0.5 rounded-full">
+                {filteredExpenses.length} of {expenses.filter((e) => !e.is_void).length}
+              </span>
             </h2>
             <p className="text-xs text-[#737373] mt-0.5">
-              Latest expenses recorded and split across trip members
+              Review and filter all expenses recorded for this trip
             </p>
           </div>
 
-          {expenses.length > 0 && (
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => setIsAllExpensesModalOpen(true)}
-              className="text-xs font-semibold text-[#16834A] hover:underline flex items-center gap-1 cursor-pointer"
+              type="button"
+              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+              className={`text-xs font-semibold px-3 py-1.5 rounded-xl border transition-colors flex items-center gap-1.5 cursor-pointer ${
+                hasActiveFilters || showAdvancedFilters
+                  ? 'bg-[#16834A] text-white border-[#16834A]'
+                  : 'bg-white text-[#737373] hover:text-[#171717] border-[#E8E8E5]'
+              }`}
             >
-              <span>View all ({expenses.length})</span>
-              <ChevronRight className="w-3.5 h-3.5" />
+              <Filter className="w-3.5 h-3.5" />
+              <span>Filters {hasActiveFilters ? '• Active' : ''}</span>
             </button>
+
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={handleClearFilters}
+                className="text-xs font-semibold text-[#E11D48] hover:underline cursor-pointer"
+              >
+                Clear All
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Search & Filter Inputs */}
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            {/* Search description */}
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-[#A3A3A3] absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={expenseSearch}
+                onChange={(e) => setExpenseSearch(e.target.value)}
+                placeholder="Search description or payer..."
+                className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl pl-8 pr-3 py-2 text-xs text-[#171717] focus:outline-none focus:border-[#16834A]"
+              />
+            </div>
+
+            {/* Paid By Filter */}
+            <select
+              value={expenseFilterPayer}
+              onChange={(e) => setExpenseFilterPayer(e.target.value)}
+              className="bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-3 py-2 text-xs text-[#171717] focus:outline-none focus:border-[#16834A]"
+            >
+              <option value="All">Paid by: All Members</option>
+              {members.map((m) => (
+                <option key={m.user_id} value={m.user_id}>
+                  Paid by: {m.user_name}
+                </option>
+              ))}
+            </select>
+
+            {/* Split Method Filter */}
+            <select
+              value={expenseFilterSplitMethod}
+              onChange={(e) => setExpenseFilterSplitMethod(e.target.value)}
+              className="bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-3 py-2 text-xs text-[#171717] focus:outline-none focus:border-[#16834A]"
+            >
+              <option value="All">All Split Types</option>
+              <option value="EQUAL">Split Equally</option>
+              <option value="SELECTED">Selected Members</option>
+            </select>
+          </div>
+
+          {/* Advanced collapsible filters: Date Range & Amount Range */}
+          {showAdvancedFilters && (
+            <div className="p-3.5 bg-[#FAFAF8] rounded-xl border border-[#E8E8E5] space-y-3 animate-fadeIn">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Date range presets */}
+                <div>
+                  <span className="text-[10px] font-bold uppercase text-[#737373] block mb-1.5">
+                    Date Range
+                  </span>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {(['all', '7days', 'month', 'custom'] as const).map((r) => (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() => setExpenseFilterDateRange(r)}
+                        className={`py-1 text-[11px] font-semibold rounded-lg border text-center transition-colors cursor-pointer ${
+                          expenseFilterDateRange === r
+                            ? 'bg-[#171717] text-white border-[#171717]'
+                            : 'bg-white text-[#737373] hover:text-[#171717] border-[#E8E8E5]'
+                        }`}
+                      >
+                        {r === 'all'
+                          ? 'All Time'
+                          : r === '7days'
+                          ? 'Last 7D'
+                          : r === 'month'
+                          ? 'This Month'
+                          : 'Custom'}
+                      </button>
+                    ))}
+                  </div>
+
+                  {expenseFilterDateRange === 'custom' && (
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                      <input
+                        type="date"
+                        value={expenseFilterCustomStart}
+                        onChange={(e) => setExpenseFilterCustomStart(e.target.value)}
+                        className="bg-white border border-[#E8E8E5] rounded-lg p-1.5 text-[11px] text-[#171717]"
+                      />
+                      <input
+                        type="date"
+                        value={expenseFilterCustomEnd}
+                        onChange={(e) => setExpenseFilterCustomEnd(e.target.value)}
+                        className="bg-white border border-[#E8E8E5] rounded-lg p-1.5 text-[11px] text-[#171717]"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Amount range */}
+                <div>
+                  <span className="text-[10px] font-bold uppercase text-[#737373] block mb-1.5">
+                    Amount Range (₹)
+                  </span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="number"
+                      value={expenseFilterMinAmount}
+                      onChange={(e) => setExpenseFilterMinAmount(e.target.value)}
+                      placeholder="Min ₹"
+                      className="bg-white border border-[#E8E8E5] rounded-lg p-1.5 text-[11px] text-[#171717]"
+                    />
+                    <input
+                      type="number"
+                      value={expenseFilterMaxAmount}
+                      onChange={(e) => setExpenseFilterMaxAmount(e.target.value)}
+                      placeholder="Max ₹"
+                      className="bg-white border border-[#E8E8E5] rounded-lg p-1.5 text-[11px] text-[#171717]"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
         </div>
 
-        {recentExpenses.length === 0 ? (
-          <div className="p-8 text-center bg-[#FAFAF8] rounded-2xl border border-[#E8E8E5] space-y-3">
+        {/* Expenses List */}
+        {filteredExpenses.length === 0 ? (
+          <div className="p-8 text-center bg-[#FAFAF8] rounded-2xl border border-[#E8E8E5] space-y-2">
             <Receipt className="w-8 h-8 text-[#A3A3A3] mx-auto" />
-            <h3 className="text-sm font-bold text-[#171717]">No expenses recorded yet</h3>
+            <h3 className="text-sm font-bold text-[#171717]">
+              {hasActiveFilters ? 'No expenses match your filters' : 'No expenses recorded yet'}
+            </h3>
             <p className="text-xs text-[#737373] max-w-sm mx-auto">
-              Start recording food, stay, petrol, or tickets to automatically split costs.
+              {hasActiveFilters
+                ? 'Try adjusting your search query, payer, or date range to view matching trip expenses.'
+                : 'Click "Record Expense" above to add the first expense for this trip.'}
             </p>
-            <button
-              onClick={() => setIsAddExpenseOpen(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#16834A] text-white text-xs font-semibold rounded-xl shadow-xs cursor-pointer hover:bg-[#136F3F]"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Record First Expense</span>
-            </button>
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={handleClearFilters}
+                className="mt-2 px-3 py-1.5 bg-white border border-[#E8E8E5] text-xs font-semibold rounded-xl text-[#171717] hover:bg-[#F4F4F2] cursor-pointer"
+              >
+                Clear Filters
+              </button>
+            )}
           </div>
         ) : (
           <div className="divide-y divide-[#E8E8E5]">
-            {recentExpenses.map((exp) => {
+            {filteredExpenses.map((exp) => {
               const mySplit = exp.splits.find((s) => s.user_id === user?.id);
-              const isPayer = exp.payer_id === user?.id;
+              const canVoid = isOwnerOrAdmin || exp.created_by_id === user?.id;
 
               return (
                 <div
@@ -862,37 +1105,48 @@ export const TripDetailPage: React.FC = () => {
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="w-9 h-9 rounded-xl bg-[#FAFAF8] border border-[#E8E8E5] text-[#16834A] flex items-center justify-center font-bold text-xs shrink-0">
-                      {exp.category.charAt(0).toUpperCase()}
+                      {exp.category?.charAt(0) || '₹'}
                     </div>
+
                     <div className="min-w-0">
-                      <p className="text-xs sm:text-sm font-bold text-[#171717] truncate">
-                        {exp.description}
-                      </p>
-                      <div className="flex items-center gap-2 text-[11px] text-[#737373] mt-0.5 flex-wrap">
-                        <span>Paid by {exp.payer_name}</span>
-                        <span>•</span>
-                        <span>{formatDate(exp.date)}</span>
-                        <span>•</span>
-                        <span className="text-[#16834A] font-semibold">
-                          {exp.splits.length} split
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-bold text-[#171717] truncate">
+                          {exp.description}
+                        </span>
+                        <span className="text-[10px] font-semibold text-[#737373] bg-[#FAFAF8] border border-[#E8E8E5] px-2 py-0.5 rounded-md">
+                          {exp.split_method === 'EQUAL'
+                            ? `Split Equally (${exp.splits.length})`
+                            : `Split with ${exp.splits.length} member(s)`}
                         </span>
                       </div>
+                      <p className="text-[11px] text-[#737373] mt-0.5">
+                        Paid by <strong className="text-[#171717]">{exp.payer_name}</strong> •{' '}
+                        {formatDate(exp.date)}
+                      </p>
                     </div>
                   </div>
 
-                  <div className="text-right shrink-0">
-                    <span className="text-sm font-bold font-mono text-[#171717] block tabular-nums">
-                      {formatPaise(exp.amount_paise, trip.currency)}
-                    </span>
-                    <span className="text-[11px] text-[#737373]">
-                      {mySplit ? (
-                        <span>
-                          Your share: <strong className="text-[#171717] font-mono">{formatPaise(mySplit.amount_paise, trip.currency)}</strong>
-                        </span>
-                      ) : (
-                        <span>Not in split</span>
-                      )}
-                    </span>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <div className="text-right">
+                      <span className="text-sm font-bold font-mono text-[#171717] block tabular-nums">
+                        {formatPaise(exp.amount_paise, trip.currency)}
+                      </span>
+                      <span className="text-[11px] font-semibold text-[#16834A] block">
+                        {mySplit
+                          ? `Your share: ${formatPaise(mySplit.amount_paise, trip.currency)}`
+                          : 'Not in split'}
+                      </span>
+                    </div>
+
+                    {canVoid && !isTripCompleted && (
+                      <button
+                        onClick={() => handleVoidExpense(exp.id, exp.description)}
+                        className="p-1.5 text-[#A3A3A3] hover:text-[#E11D48] rounded-lg transition-colors cursor-pointer"
+                        title="Void expense"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -904,14 +1158,14 @@ export const TripDetailPage: React.FC = () => {
       {/* --- MEMBERS & INVITE MODAL --- */}
       {isMembersModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl border border-[#E8E8E5] shadow-2xl max-w-lg w-full p-6 sm:p-7 relative max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-4 border-b border-[#E8E8E5]">
+          <div className="bg-white rounded-2xl border border-[#E8E8E5] shadow-2xl max-w-lg w-full p-6 sm:p-7 relative max-h-[90vh] overflow-y-auto space-y-5 animate-scaleUp">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E8E8E5]">
               <div>
                 <h3 className="text-lg font-bold text-[#171717] font-['Plus_Jakarta_Sans']">
-                  Trip Members &amp; Invitations
+                  Trip Members ({members.length})
                 </h3>
                 <p className="text-xs text-[#737373] mt-0.5">
-                  Manage participants and invite friends to {trip.name}
+                  Manage members and invite friends to join {trip.name}
                 </p>
               </div>
               <button
@@ -922,131 +1176,164 @@ export const TripDetailPage: React.FC = () => {
               </button>
             </div>
 
-            <div className="mt-5 space-y-6">
-              {/* Trip Invite Code Card (Hidden from main page, accessible here) */}
-              <div className="bg-[#FAFAF8] border border-[#E8E8E5] rounded-2xl p-4 space-y-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-[#737373]">
-                  Trip Invite Code
-                </span>
-                <div className="flex items-center justify-between gap-3 bg-white border border-[#E8E8E5] rounded-xl px-4 py-3">
-                  <span className="text-lg font-mono font-bold tracking-widest text-[#171717]">
+            {/* Invite Code Accordion Section */}
+            <div className="p-4 bg-[#FAFAF8] rounded-xl border border-[#E8E8E5] space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-bold text-[#171717] block">Trip Invite Code</span>
+                  <span className="text-[11px] text-[#737373]">
+                    Share this code with travelers so they can join
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowInviteCode(!showInviteCode)}
+                  className="px-3 py-1 bg-white hover:bg-[#F4F4F2] border border-[#E8E8E5] text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                >
+                  {showInviteCode ? 'Hide Code' : 'Show Invite Code'}
+                </button>
+              </div>
+
+              {showInviteCode && (
+                <div className="pt-2 flex items-center justify-between gap-3 border-t border-[#E8E8E5] animate-fadeIn">
+                  <span className="font-mono font-bold text-lg text-[#16834A] tracking-widest">
                     {trip.invite_code}
                   </span>
                   <button
+                    type="button"
                     onClick={handleCopyCode}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#171717] hover:bg-black text-white text-xs font-semibold rounded-lg shadow-xs cursor-pointer transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#16834A] hover:bg-[#136F3F] text-white text-xs font-semibold rounded-lg shadow-2xs transition-colors cursor-pointer"
                   >
-                    {copiedCode ? <Check className="w-3.5 h-3.5 text-[#16834A]" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copiedCode ? 'Copied' : 'Copy Code'}</span>
+                    {copiedCode ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedCode ? 'Copied!' : 'Copy Code'}</span>
                   </button>
                 </div>
-                <p className="text-[11px] text-[#737373]">
-                  Anyone with this code can join this trip from their dashboard.
-                </p>
-              </div>
+              )}
+            </div>
 
-              {/* Members List */}
-              <div className="space-y-3">
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-[#737373]">
-                  Current Members ({members.length})
-                </h4>
-                <div className="space-y-2 max-h-52 overflow-y-auto">
-                  {members.map((m) => (
-                    <div
-                      key={m.user_id}
-                      className="flex items-center justify-between p-3 rounded-xl border border-[#E8E8E5] bg-white"
-                    >
+            {/* Current Members List */}
+            <div className="space-y-2">
+              <span className="text-xs font-bold text-[#171717] uppercase tracking-wider block">
+                Current Members
+              </span>
+              <div className="divide-y divide-[#E8E8E5] border border-[#E8E8E5] rounded-xl bg-white max-h-52 overflow-y-auto">
+                {members.map((m) => {
+                  const isUser = m.user_id === user?.id;
+                  const memberBalance = balances?.balances.find((b) => b.user_id === m.user_id);
+                  const paid = memberBalance?.total_spent_paise || 0;
+                  const share = memberBalance?.total_share_paise || 0;
+                  const net = memberBalance?.net_balance_paise || 0;
+
+                  return (
+                    <div key={m.id} className="p-3 flex items-center justify-between gap-3 text-xs">
                       <div className="flex items-center gap-2.5 min-w-0">
                         <div className="w-8 h-8 rounded-full bg-[#171717] text-white flex items-center justify-center font-bold text-xs shrink-0">
                           {m.user_name.charAt(0).toUpperCase()}
                         </div>
                         <div className="min-w-0">
-                          <p className="text-xs font-bold text-[#171717] truncate">
-                            {m.user_name} {m.user_id === user?.id ? '(You)' : ''}
-                          </p>
-                          <p className="text-[10px] text-[#737373] truncate">{m.user_email}</p>
+                          <span className="font-bold text-[#171717] block truncate">
+                            {m.user_name} {isUser ? ' (You)' : ''}
+                          </span>
+                          <span className="text-[10px] text-[#737373]">
+                            Paid {formatPaise(paid, trip.currency)} • Share {formatPaise(share, trip.currency)}
+                          </span>
                         </div>
                       </div>
-                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-[#FAFAF8] text-[#737373] border border-[#E8E8E5]">
-                        {m.role}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
 
-              {/* Invite Friends from Friends List */}
+                      <div className="text-right shrink-0">
+                        <span
+                          className={`font-mono font-bold block tabular-nums ${
+                            net > 0 ? 'text-[#16834A]' : net < 0 ? 'text-[#E11D48]' : 'text-[#737373]'
+                          }`}
+                        >
+                          {net > 0
+                            ? `+${formatPaise(net, trip.currency)}`
+                            : net < 0
+                            ? `-${formatPaise(Math.abs(net), trip.currency)}`
+                            : formatPaise(0, trip.currency)}
+                        </span>
+                        <span className="text-[10px] uppercase font-semibold text-[#737373]">
+                          {m.role}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Invite Registered Friends */}
+            {!isTripCompleted && (
               <div className="space-y-3 pt-2 border-t border-[#E8E8E5]">
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-[#737373]">
-                  Invite Friends Directly
-                </h4>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-[#171717] uppercase tracking-wider">
+                    Invite Registered Friends
+                  </span>
+                  {friends.length > 0 && (
+                    <span className="text-[11px] text-[#737373]">{friends.length} available</span>
+                  )}
+                </div>
+
                 {loadingFriends ? (
-                  <div className="p-4 text-center text-xs text-[#737373]">
-                    <Loader2 className="w-4 h-4 animate-spin mx-auto mb-1" />
-                    <span>Loading friends...</span>
+                  <div className="p-4 text-center">
+                    <Loader2 className="w-5 h-5 animate-spin mx-auto text-[#16834A]" />
                   </div>
                 ) : friends.length === 0 ? (
-                  <p className="text-xs text-[#737373] p-3 rounded-xl bg-[#FAFAF8] border border-[#E8E8E5] text-center">
-                    All your friends are already in this trip, or you have not added friends yet.{' '}
-                    <a href="/friends" className="text-[#16834A] font-semibold hover:underline">
-                      Find friends here
-                    </a>.
+                  <p className="text-xs text-[#737373] italic bg-[#FAFAF8] p-3 rounded-xl border border-[#E8E8E5]">
+                    No new friends available to invite. Add friends from the Friends tab first or share the invite code above.
                   </p>
                 ) : (
                   <div className="space-y-2">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto">
+                    <div className="max-h-36 overflow-y-auto space-y-1 border border-[#E8E8E5] rounded-xl p-2 bg-[#FAFAF8]">
                       {friends.map((f) => {
                         const isSelected = selectedFriendsToInvite.includes(f.id);
                         return (
-                          <button
+                          <label
                             key={f.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedFriendsToInvite((prev) =>
-                                isSelected ? prev.filter((uid) => uid !== f.id) : [...prev, f.id]
-                              );
-                            }}
-                            className={`flex items-center justify-between p-2.5 rounded-xl border text-left text-xs transition-colors cursor-pointer ${
+                            className={`flex items-center justify-between p-2 rounded-lg border transition-all cursor-pointer ${
                               isSelected
-                                ? 'bg-[#FAFAF8] border-[#16834A] text-[#171717]'
-                                : 'bg-white border-[#E8E8E5] text-[#737373]'
+                                ? 'bg-white border-[#16834A] shadow-2xs'
+                                : 'bg-transparent border-transparent hover:bg-white'
                             }`}
                           >
-                            <span className="font-semibold truncate">{f.display_name}</span>
-                            <div
-                              className={`w-4 h-4 rounded border flex items-center justify-center ${
-                                isSelected ? 'bg-[#16834A] border-[#16834A] text-white' : 'border-[#D4D4D0]'
-                              }`}
-                            >
-                              {isSelected && <Check className="w-3 h-3" />}
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => {
+                                  setSelectedFriendsToInvite((prev) =>
+                                    isSelected ? prev.filter((id) => id !== f.id) : [...prev, f.id]
+                                  );
+                                }}
+                                className="accent-[#16834A] rounded"
+                              />
+                              <span className="text-xs font-bold text-[#171717]">{f.display_name}</span>
+                              {f.username && (
+                                <span className="text-[11px] text-[#737373]">@{f.username}</span>
+                              )}
                             </div>
-                          </button>
+                          </label>
                         );
                       })}
                     </div>
 
-                    {inviteError && (
-                      <p className="text-xs text-[#E11D48] mt-1">{inviteError}</p>
-                    )}
-
                     <button
+                      type="button"
                       onClick={handleSendInvitations}
-                      disabled={sendingInvites || selectedFriendsToInvite.length === 0}
-                      className="w-full mt-2 py-2.5 bg-[#16834A] hover:bg-[#136F3F] text-white text-xs font-semibold rounded-xl shadow-xs transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer"
+                      disabled={selectedFriendsToInvite.length === 0 || sendingInvites}
+                      className="w-full py-2 bg-[#16834A] hover:bg-[#136F3F] text-white text-xs font-semibold rounded-xl shadow-xs transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
                     >
                       {sendingInvites ? (
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
                       ) : (
                         <UserPlus className="w-3.5 h-3.5" />
                       )}
-                      <span>
-                        Send Invitations ({selectedFriendsToInvite.length} selected)
-                      </span>
+                      <span>Invite Selected Friends ({selectedFriendsToInvite.length})</span>
                     </button>
                   </div>
                 )}
               </div>
-            </div>
+            )}
           </div>
         </div>
       )}
@@ -1054,14 +1341,14 @@ export const TripDetailPage: React.FC = () => {
       {/* --- SETTLEMENT AUDIT HISTORY MODAL --- */}
       {isHistoryModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl border border-[#E8E8E5] shadow-2xl max-w-lg w-full p-6 sm:p-7 relative max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-4 border-b border-[#E8E8E5]">
+          <div className="bg-white rounded-2xl border border-[#E8E8E5] shadow-2xl max-w-xl w-full p-6 sm:p-7 relative max-h-[90vh] overflow-y-auto space-y-4 animate-scaleUp">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E8E8E5]">
               <div>
                 <h3 className="text-lg font-bold text-[#171717] font-['Plus_Jakarta_Sans']">
-                  Settlement History
+                  Settlement History ({settlements.length})
                 </h3>
                 <p className="text-xs text-[#737373] mt-0.5">
-                  Audit log of all payment reports and confirmations
+                  Audit trail of repayments recorded for {trip.name}
                 </p>
               </div>
               <button
@@ -1072,176 +1359,165 @@ export const TripDetailPage: React.FC = () => {
               </button>
             </div>
 
-            <div className="mt-5 space-y-3">
-              {settlements.length === 0 ? (
-                <p className="text-xs text-[#737373] text-center p-6 bg-[#FAFAF8] rounded-xl border border-[#E8E8E5]">
-                  No settlements recorded yet for this trip.
-                </p>
-              ) : (
-                <div className="space-y-2.5">
-                  {settlements.map((st) => (
-                    <div
-                      key={st.id}
-                      className="p-3.5 rounded-xl border border-[#E8E8E5] bg-white flex items-center justify-between gap-3 text-xs"
-                    >
-                      <div>
-                        <div className="flex items-center gap-1.5 font-semibold text-[#171717]">
-                          <span>{st.payer_name}</span>
-                          <ArrowRight className="w-3 h-3 text-[#A3A3A3]" />
-                          <span>{st.payee_name}</span>
-                        </div>
-                        <p className="text-[11px] text-[#737373] mt-0.5">
-                          Method: {st.payment_method} • {formatDate(st.created_at)}
-                        </p>
-                        {st.notes && (
-                          <p className="text-[10px] text-[#A3A3A3] italic mt-0.5">"{st.notes}"</p>
-                        )}
+            {settlements.length === 0 ? (
+              <p className="text-xs text-[#737373] text-center py-8">
+                No repayments have been recorded yet.
+              </p>
+            ) : (
+              <div className="divide-y divide-[#E8E8E5] border border-[#E8E8E5] rounded-xl overflow-hidden">
+                {settlements.map((st) => (
+                  <div key={st.id} className="p-3.5 flex items-center justify-between gap-4 text-xs">
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <strong className="text-[#171717]">{st.payer_name}</strong>
+                        <span className="text-[#737373]">paid</span>
+                        <strong className="text-[#171717]">{st.payee_name}</strong>
                       </div>
-
-                      <div className="text-right shrink-0">
-                        <span className="font-mono font-bold text-sm text-[#171717] block tabular-nums">
-                          {formatPaise(st.amount_paise, trip.currency)}
-                        </span>
-                        <span
-                          className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md inline-block mt-1 ${
-                            st.status === 'CONFIRMED'
-                              ? 'bg-[#DDF5E5] text-[#16834A]'
-                              : st.status === 'REJECTED' || st.status === 'CANCELLED'
-                              ? 'bg-[#FFE4E6] text-[#E11D48]'
-                              : 'bg-[#FEF3C7] text-[#B45309]'
-                          }`}
-                        >
-                          {st.status}
-                        </span>
-                      </div>
+                      <p className="text-[11px] text-[#737373] mt-0.5">
+                        via {st.payment_method} • {formatDate(st.created_at)}
+                      </p>
+                      {st.notes && (
+                        <p className="text-[10px] text-[#A3A3A3] italic mt-0.5">"{st.notes}"</p>
+                      )}
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
+
+                    <div className="text-right shrink-0">
+                      <span className="font-mono font-bold text-sm text-[#171717] block tabular-nums">
+                        {formatPaise(st.amount_paise, trip.currency)}
+                      </span>
+                      <span
+                        className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md inline-block mt-1 ${
+                          st.status === 'CONFIRMED'
+                            ? 'bg-[#DDF5E5] text-[#16834A]'
+                            : st.status === 'REJECTED' || st.status === 'CANCELLED'
+                            ? 'bg-[#FFE4E6] text-[#E11D48]'
+                            : 'bg-[#FEF3C7] text-[#B45309]'
+                        }`}
+                      >
+                        {st.status}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* --- ALL EXPENSES MODAL --- */}
-      {isAllExpensesModalOpen && (
+      {/* --- END TRIP MODAL (STEP-BY-STEP FINALIZATION) --- */}
+      {isEndTripModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl border border-[#E8E8E5] shadow-2xl max-w-2xl w-full p-6 sm:p-7 relative max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-4 border-b border-[#E8E8E5]">
-              <div>
-                <h3 className="text-lg font-bold text-[#171717] font-['Plus_Jakarta_Sans']">
-                  All Trip Expenses ({expenses.filter((e) => !e.is_void).length})
-                </h3>
-                <p className="text-xs text-[#737373] mt-0.5">
-                  Complete list of expenses recorded for {trip.name}
-                </p>
+          <div className="bg-white rounded-2xl border border-[#E8E8E5] shadow-2xl max-w-lg w-full p-6 sm:p-7 relative max-h-[90vh] overflow-y-auto space-y-5 animate-scaleUp">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E8E8E5]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-[#171717] text-white flex items-center justify-center font-bold">
+                  <CheckCircle2 className="w-5 h-5 text-[#C6ECCF]" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#171717] font-['Plus_Jakarta_Sans']">
+                    End Trip: Final Settlement
+                  </h3>
+                  <p className="text-xs text-[#737373]">
+                    Verify all balances before permanently archiving {trip.name}
+                  </p>
+                </div>
               </div>
               <button
-                onClick={() => setIsAllExpensesModalOpen(false)}
+                onClick={() => setIsEndTripModalOpen(false)}
                 className="p-1.5 text-[#737373] hover:text-[#171717] rounded-lg hover:bg-[#F4F4F2] transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Filter controls */}
-            <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <input
-                type="text"
-                value={expenseSearch}
-                onChange={(e) => setExpenseSearch(e.target.value)}
-                placeholder="Search description..."
-                className="bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-3 py-2 text-xs text-[#171717]"
-              />
-
-              <select
-                value={expenseFilterCategory}
-                onChange={(e) => setExpenseFilterCategory(e.target.value)}
-                className="bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-3 py-2 text-xs text-[#171717]"
-              >
-                <option value="All">All Categories</option>
-                {['Food', 'Fuel', 'Transport', 'Stay', 'Activities', 'Shopping', 'Tickets', 'Other'].map(
-                  (c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  )
-                )}
-              </select>
-
-              <select
-                value={expenseFilterPayer}
-                onChange={(e) => setExpenseFilterPayer(e.target.value)}
-                className="bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-3 py-2 text-xs text-[#171717]"
-              >
-                <option value="All">All Payers</option>
-                {members.map((m) => (
-                  <option key={m.user_id} value={m.user_id}>
-                    {m.user_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Expenses list */}
-            <div className="mt-4 divide-y divide-[#E8E8E5]">
-              {expenses
-                .filter((e) => {
-                  if (e.is_void) return false;
-                  if (expenseFilterCategory !== 'All' && e.category !== expenseFilterCategory)
-                    return false;
-                  if (expenseFilterPayer !== 'All' && e.payer_id !== expenseFilterPayer) return false;
-                  if (
-                    expenseSearch &&
-                    !e.description.toLowerCase().includes(expenseSearch.toLowerCase())
-                  )
-                    return false;
-                  return true;
-                })
-                .map((exp) => {
-                  const mySplit = exp.splits.find((s) => s.user_id === user?.id);
-                  const canVoid = isOwnerOrAdmin || exp.created_by_id === user?.id;
+            {/* Step 2: Member Balance Breakdown */}
+            <div className="space-y-2">
+              <span className="text-xs font-bold text-[#171717] uppercase tracking-wider block">
+                Member Balances Summary
+              </span>
+              <div className="border border-[#E8E8E5] rounded-xl overflow-hidden divide-y divide-[#E8E8E5]">
+                {members.map((m) => {
+                  const b = balances?.balances.find((item) => item.user_id === m.user_id);
+                  const paid = b?.total_spent_paise || 0;
+                  const share = b?.total_share_paise || 0;
+                  const net = b?.net_balance_paise || 0;
 
                   return (
-                    <div
-                      key={exp.id}
-                      className="py-3 flex items-center justify-between gap-4 first:pt-0 last:pb-0"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-8 h-8 rounded-xl bg-[#FAFAF8] border border-[#E8E8E5] text-[#16834A] flex items-center justify-center font-bold text-xs shrink-0">
-                          {exp.category.charAt(0)}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-xs font-bold text-[#171717] truncate">{exp.description}</p>
-                          <p className="text-[11px] text-[#737373]">
-                            Paid by {exp.payer_name} • {formatDate(exp.date)}
-                          </p>
-                        </div>
+                    <div key={m.id} className="p-2.5 flex items-center justify-between text-xs">
+                      <div>
+                        <span className="font-bold text-[#171717] block">{m.user_name}</span>
+                        <span className="text-[10px] text-[#737373]">
+                          Paid {formatPaise(paid, trip.currency)} • Share {formatPaise(share, trip.currency)}
+                        </span>
                       </div>
-
-                      <div className="flex items-center gap-3 shrink-0">
-                        <div className="text-right">
-                          <span className="text-xs font-bold font-mono text-[#171717] block tabular-nums">
-                            {formatPaise(exp.amount_paise, trip.currency)}
-                          </span>
-                          <span className="text-[10px] text-[#737373]">
-                            {mySplit ? `Your share: ${formatPaise(mySplit.amount_paise, trip.currency)}` : 'Not in split'}
-                          </span>
-                        </div>
-
-                        {canVoid && (
-                          <button
-                            onClick={() => handleVoidExpense(exp.id, exp.description)}
-                            className="p-1.5 text-[#A3A3A3] hover:text-[#E11D48] rounded-lg transition-colors cursor-pointer"
-                            title="Void expense"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
+                      <div className="text-right">
+                        <span
+                          className={`font-mono font-bold block tabular-nums ${
+                            net > 0 ? 'text-[#16834A]' : net < 0 ? 'text-[#E11D48]' : 'text-[#737373]'
+                          }`}
+                        >
+                          {net > 0
+                            ? `+${formatPaise(net, trip.currency)}`
+                            : net < 0
+                            ? `-${formatPaise(Math.abs(net), trip.currency)}`
+                            : 'Settled (₹0.00)'}
+                        </span>
                       </div>
                     </div>
                   );
                 })}
+              </div>
+            </div>
+
+            {/* Step 3: Outstanding Debts Alert */}
+            {!canFinalizeTrip ? (
+              <div className="p-4 bg-[#FFF1F2] border border-[#FECDD3] rounded-xl space-y-3">
+                <div className="flex items-center gap-2 text-xs font-bold text-[#E11D48]">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>Outstanding payments must be completed before ending this trip</span>
+                </div>
+                <div className="space-y-1.5 text-xs text-[#BE123C]">
+                  {suggestions.map((sug, i) => (
+                    <div key={i} className="flex items-center justify-between bg-white p-2.5 rounded-lg border border-[#FDA4AF]">
+                      <span>
+                        <strong>{sug.from_user_name}</strong> needs to pay <strong>{sug.to_user_name}</strong>
+                      </span>
+                      <span className="font-mono font-bold">{formatPaise(sug.amount_paise, trip.currency)}</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[11px] text-[#737373]">
+                  All debtors must mark payments as paid and receivers must confirm them so that all balances reach zero.
+                </p>
+              </div>
+            ) : (
+              <div className="p-4 bg-[#DDF5E5] border border-[#C6ECCF] rounded-xl flex items-center gap-2.5 text-[#16834A]">
+                <CheckCircle2 className="w-5 h-5 shrink-0" />
+                <p className="text-xs font-semibold">
+                  All debts have been completely settled! You are ready to finalize and archive this trip.
+                </p>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex items-center gap-3 pt-2 border-t border-[#E8E8E5]">
+              <button
+                type="button"
+                onClick={() => setIsEndTripModalOpen(false)}
+                className="flex-1 py-2.5 bg-white hover:bg-[#FAFAF8] border border-[#E8E8E5] text-xs font-semibold rounded-xl text-[#737373] cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleFinalizeTrip}
+                disabled={!canFinalizeTrip || completingTrip}
+                className="flex-1 py-2.5 bg-[#16834A] hover:bg-[#136F3F] text-white text-xs font-semibold rounded-xl shadow-xs cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {completingTrip ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                <span>Confirm End Trip</span>
+              </button>
             </div>
           </div>
         </div>
@@ -1280,42 +1556,6 @@ export const TripDetailPage: React.FC = () => {
         onClose={() => setIsSummaryModalOpen(false)}
         tripId={trip.id}
       />
-
-      {/* --- COMPLETE TRIP CONFIRMATION DIALOG --- */}
-      {isCompleteTripConfirmOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl border border-[#E8E8E5] shadow-2xl max-w-md w-full p-6 text-center space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-[#DDF5E5] text-[#16834A] flex items-center justify-center mx-auto">
-              <CheckCircle2 className="w-6 h-6" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-[#171717]">Finalize &amp; End Trip?</h3>
-              <p className="text-xs text-[#737373] mt-1">
-                Marking this trip as completed will permanently finalize balances and save it to your trip history archive. You can still export reports and view summaries anytime.
-              </p>
-            </div>
-            <div className="flex items-center gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setIsCompleteTripConfirmOpen(false)}
-                className="flex-1 py-2.5 bg-white hover:bg-[#FAFAF8] border border-[#E8E8E5] text-xs font-semibold rounded-xl text-[#737373] cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleCompleteTrip}
-                disabled={completingTrip}
-                className="flex-1 py-2.5 bg-[#16834A] hover:bg-[#136F3F] text-white text-xs font-semibold rounded-xl shadow-xs cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
-              >
-                {completingTrip ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                <span>End Trip</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
-

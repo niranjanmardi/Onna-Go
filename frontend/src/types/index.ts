@@ -52,6 +52,8 @@ export interface Trip {
   user_role?: 'OWNER' | 'ADMIN' | 'MEMBER';
   status?: 'ACTIVE' | 'COMPLETED';
   user_contribution_paise?: number;
+  user_share_paise?: number;
+  user_net_balance_paise?: number;
   user_owes_paise?: number;
   user_receives_paise?: number;
   pending_settlements_count?: number;
@@ -102,7 +104,7 @@ export interface Expense {
   amount_paise: number;
   currency: string;
   category: string;
-  split_method: 'EQUAL' | 'EXACT' | 'PERCENTAGE' | 'CUSTOM';
+  split_method: 'EQUAL' | 'SELECTED' | 'EXACT' | 'PERCENTAGE' | 'CUSTOM';
   date: string;
   notes?: string | null;
   receipt_filename?: string | null;

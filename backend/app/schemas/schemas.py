@@ -184,6 +184,8 @@ class TripResponse(TripBase):
     user_role: Optional[str] = None
     status: Optional[str] = None
     user_contribution_paise: int = 0
+    user_share_paise: int = 0
+    user_net_balance_paise: int = 0
     user_owes_paise: int = 0
     user_receives_paise: int = 0
     pending_settlements_count: int = 0

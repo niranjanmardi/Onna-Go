@@ -90,6 +90,7 @@ def enrich_trip_response(
     calc_t = calculate_trip_balances(member_ids, exp_dicts, st_dicts)
     
     user_spent = calc_t["total_spent_paise"].get(current_user_id, 0)
+    user_share = calc_t["total_share_paise"].get(current_user_id, 0)
     user_bal = calc_t["net_balances"].get(current_user_id, 0)
     user_owes = -user_bal if user_bal < 0 else 0
     user_receives = user_bal if user_bal > 0 else 0
@@ -114,6 +115,8 @@ def enrich_trip_response(
     item.user_role = member_role or ("OWNER" if trip.created_by_id == current_user_id else "MEMBER")
     item.status = compute_trip_status(trip)
     item.user_contribution_paise = user_spent
+    item.user_share_paise = user_share
+    item.user_net_balance_paise = user_bal
     item.user_owes_paise = user_owes
     item.user_receives_paise = user_receives
     item.pending_settlements_count = pending_count
@@ -495,7 +498,64 @@ def complete_trip(
     if trip.completed_at is not None or trip.is_archived:
         # Idempotent return for already-completed trip
         return enrich_trip_response(trip, member.user_id, db, member_role=member.role)
-        
+
+    # 1. Check for any pending or initiated settlements
+    pending_st_count = db.query(Settlement).filter(
+        Settlement.trip_id == trip.id,
+        Settlement.status.in_(["PENDING_CONFIRMATION", "INITIATED"])
+    ).count()
+    if pending_st_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot end trip: {pending_st_count} pending settlement(s) require confirmation before finalizing."
+        )
+
+    # 2. Check that all member net balances are settled to zero (with 1 paise rounding tolerance)
+    all_m = (
+        db.query(TripMember, User)
+        .join(User, User.id == TripMember.user_id)
+        .filter(TripMember.trip_id == trip.id)
+        .all()
+    )
+    expenses_t = db.query(Expense).filter(Expense.trip_id == trip.id, Expense.is_void == False).all()
+    confirmed_st_t = db.query(Settlement).filter(Settlement.trip_id == trip.id, Settlement.status == "CONFIRMED").all()
+    
+    exp_dicts = [
+        {
+            "id": e.id,
+            "payer_id": e.payer_id,
+            "amount_paise": e.amount_paise,
+            "is_void": e.is_void,
+            "splits": [{"user_id": s.user_id, "amount_paise": s.amount_paise} for s in e.splits]
+        }
+        for e in expenses_t
+    ]
+    st_dicts = [
+        {
+            "id": s.id,
+            "payer_id": s.payer_id,
+            "payee_id": s.payee_id,
+            "amount_paise": s.amount_paise,
+            "status": s.status
+        }
+        for s in confirmed_st_t
+    ]
+    member_ids = [m.user_id for m, _ in all_m]
+    calc_t = calculate_trip_balances(member_ids, exp_dicts, st_dicts)
+    
+    unsettled = []
+    user_map = {u.id: u.full_name for _, u in all_m}
+    for uid, bal in calc_t["net_balances"].items():
+        if abs(bal) > 1:
+            name = user_map.get(uid, "Member")
+            unsettled.append(f"{name} ({'+' if bal > 0 else ''}₹{bal / 100:.2f})")
+            
+    if unsettled:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot end trip: Outstanding balances remain unsettled ({', '.join(unsettled)}). All settlements must be confirmed before ending the trip."
+        )
+
     now = datetime.now(timezone.utc)
     trip.completed_at = now
     trip.is_archived = True

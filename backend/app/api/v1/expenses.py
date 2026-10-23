@@ -76,6 +76,15 @@ def create_expense(
     if not membership:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not a member of this trip.")
         
+    trip = db.query(Trip).filter(Trip.id == exp_in.trip_id).first()
+    if not trip:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found.")
+    if trip.completed_at is not None or trip.is_archived:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot add expenses to an ended/completed trip. This trip is finalized and read-only."
+        )
+        
     trip_members = db.query(TripMember).filter(TripMember.trip_id == exp_in.trip_id).all()
     valid_member_ids = {m.user_id for m in trip_members}
     
