@@ -1,7 +1,7 @@
 import json
 import secrets
 from datetime import datetime, timedelta, timezone
-from typing import List
+from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
@@ -43,6 +43,82 @@ def compute_trip_status(trip: Trip) -> str:
         if trip_end < now:
             return "COMPLETED"
     return "ACTIVE"
+
+def enrich_trip_response(
+    trip: Trip,
+    current_user_id: str,
+    db: Session,
+    member_role: Optional[str] = None
+) -> TripResponse:
+    all_m = (
+        db.query(TripMember, User)
+        .join(User, User.id == TripMember.user_id)
+        .filter(TripMember.trip_id == trip.id)
+        .all()
+    )
+    m_count = len(all_m)
+    e_sum = (
+        db.query(func.sum(Expense.amount_paise))
+        .filter(Expense.trip_id == trip.id, Expense.is_void == False)
+        .scalar() or 0
+    )
+    
+    expenses_t = db.query(Expense).filter(Expense.trip_id == trip.id, Expense.is_void == False).all()
+    confirmed_st_t = db.query(Settlement).filter(Settlement.trip_id == trip.id, Settlement.status == "CONFIRMED").all()
+    
+    exp_dicts = [
+        {
+            "id": e.id,
+            "payer_id": e.payer_id,
+            "amount_paise": e.amount_paise,
+            "is_void": e.is_void,
+            "splits": [{"user_id": s.user_id, "amount_paise": s.amount_paise} for s in e.splits]
+        }
+        for e in expenses_t
+    ]
+    st_dicts = [
+        {
+            "id": s.id,
+            "payer_id": s.payer_id,
+            "payee_id": s.payee_id,
+            "amount_paise": s.amount_paise,
+            "status": s.status
+        }
+        for s in confirmed_st_t
+    ]
+    member_ids = [m.user_id for m, _ in all_m]
+    calc_t = calculate_trip_balances(member_ids, exp_dicts, st_dicts)
+    
+    user_spent = calc_t["total_spent_paise"].get(current_user_id, 0)
+    user_bal = calc_t["net_balances"].get(current_user_id, 0)
+    user_owes = -user_bal if user_bal < 0 else 0
+    user_receives = user_bal if user_bal > 0 else 0
+    
+    member_contribs = []
+    for m, u in all_m:
+        member_contribs.append({
+            "user_id": u.id,
+            "user_name": u.full_name,
+            "amount_paise": calc_t["total_spent_paise"].get(u.id, 0)
+        })
+    member_contribs.sort(key=lambda x: -x["amount_paise"])
+    
+    pending_count = db.query(Settlement).filter(
+        Settlement.trip_id == trip.id,
+        Settlement.status.in_(["PENDING_CONFIRMATION", "INITIATED"])
+    ).count()
+    
+    item = TripResponse.model_validate(trip)
+    item.members_count = m_count
+    item.total_expenses_paise = e_sum
+    item.user_role = member_role or ("OWNER" if trip.created_by_id == current_user_id else "MEMBER")
+    item.status = compute_trip_status(trip)
+    item.user_contribution_paise = user_spent
+    item.user_owes_paise = user_owes
+    item.user_receives_paise = user_receives
+    item.pending_settlements_count = pending_count
+    item.member_contributions = member_contribs
+    return item
 
 @router.post("/", response_model=TripResponse, status_code=status.HTTP_201_CREATED)
 def create_trip(
@@ -107,18 +183,7 @@ def list_my_trips(
     trips_with_roles = query.order_by(Trip.created_at.desc()).all()
     results = []
     for t, member_role in trips_with_roles:
-        members_count = db.query(TripMember).filter(TripMember.trip_id == t.id).count()
-        exp_sum = (
-            db.query(func.sum(Expense.amount_paise))
-            .filter(Expense.trip_id == t.id, Expense.is_void == False)
-            .scalar() or 0
-        )
-        item = TripResponse.model_validate(t)
-        item.members_count = members_count
-        item.total_expenses_paise = exp_sum
-        item.user_role = member_role or ("OWNER" if t.created_by_id == current_user.id else "MEMBER")
-        item.status = compute_trip_status(t)
-        results.append(item)
+        results.append(enrich_trip_response(t, current_user.id, db, member_role=member_role))
     return results
 
 @router.get("/invitations/pending", response_model=List[TripInvitationResponse])
@@ -324,30 +389,35 @@ def get_user_travel_stats(
         recent_trips=recent_trip_responses
     )
 
+@router.get("/history", response_model=List[TripResponse])
+def list_trip_history(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Returns all completed/archived trips in permanent trip history.
+    """
+    query = (
+        db.query(Trip, TripMember.role)
+        .join(TripMember, TripMember.trip_id == Trip.id)
+        .filter(TripMember.user_id == current_user.id)
+        .filter(or_(Trip.is_archived == True, Trip.completed_at != None))
+        .order_by(Trip.completed_at.desc(), Trip.created_at.desc())
+    )
+    trips_with_roles = query.all()
+    results = []
+    for t, member_role in trips_with_roles:
+        results.append(enrich_trip_response(t, current_user.id, db, member_role=member_role))
+    return results
+
 @router.get("/{trip_id}", response_model=TripResponse)
 def get_trip(
     trip_id: str,
     membership_data = Depends(require_trip_membership),
     db: Session = Depends(get_db)
 ):
-    trip, current_user = membership_data
-    members_count = db.query(TripMember).filter(TripMember.trip_id == trip.id).count()
-    exp_sum = (
-        db.query(func.sum(Expense.amount_paise))
-        .filter(Expense.trip_id == trip.id, Expense.is_void == False)
-        .scalar() or 0
-    )
-    membership = (
-        db.query(TripMember)
-        .filter(TripMember.trip_id == trip.id, TripMember.user_id == current_user.id)
-        .first()
-    )
-    item = TripResponse.model_validate(trip)
-    item.members_count = members_count
-    item.total_expenses_paise = exp_sum
-    item.user_role = membership.role if membership else ("OWNER" if trip.created_by_id == current_user.id else "MEMBER")
-    item.status = compute_trip_status(trip)
-    return item
+    trip, member = membership_data
+    return enrich_trip_response(trip, member.user_id, db, member_role=member.role)
 
 @router.put("/{trip_id}", response_model=TripResponse)
 def update_trip(
@@ -424,18 +494,7 @@ def complete_trip(
     
     if trip.completed_at is not None or trip.is_archived:
         # Idempotent return for already-completed trip
-        members_count = db.query(TripMember).filter(TripMember.trip_id == trip.id).count()
-        exp_sum = (
-            db.query(func.sum(Expense.amount_paise))
-            .filter(Expense.trip_id == trip.id, Expense.is_void == False)
-            .scalar() or 0
-        )
-        item = TripResponse.model_validate(trip)
-        item.members_count = members_count
-        item.total_expenses_paise = exp_sum
-        item.user_role = member.role
-        item.status = "COMPLETED"
-        return item
+        return enrich_trip_response(trip, member.user_id, db, member_role=member.role)
         
     now = datetime.now(timezone.utc)
     trip.completed_at = now
@@ -468,18 +527,7 @@ def complete_trip(
     db.commit()
     db.refresh(trip)
     
-    members_count = len(all_members)
-    exp_sum = (
-        db.query(func.sum(Expense.amount_paise))
-        .filter(Expense.trip_id == trip.id, Expense.is_void == False)
-        .scalar() or 0
-    )
-    item = TripResponse.model_validate(trip)
-    item.members_count = members_count
-    item.total_expenses_paise = exp_sum
-    item.user_role = member.role
-    item.status = "COMPLETED"
-    return item
+    return enrich_trip_response(trip, member.user_id, db, member_role=member.role)
 
 @router.get("/{trip_id}/summary", response_model=TripSummaryResponse)
 def get_trip_summary(

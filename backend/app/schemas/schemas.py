@@ -1,4 +1,4 @@
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Dict
 from datetime import datetime
 from pydantic import BaseModel, EmailStr, Field, field_validator, ConfigDict
 
@@ -181,6 +181,11 @@ class TripResponse(TripBase):
     updated_at: datetime
     user_role: Optional[str] = None
     status: Optional[str] = None
+    user_contribution_paise: int = 0
+    user_owes_paise: int = 0
+    user_receives_paise: int = 0
+    pending_settlements_count: int = 0
+    member_contributions: Optional[List[Dict[str, Any]]] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -333,7 +338,7 @@ class SettlementCreate(BaseModel):
     notes: Optional[str] = None
 
 class SettlementStatusUpdate(BaseModel):
-    status: str  # PENDING_CONFIRMATION, INITIATED, CONFIRMED, DISPUTED, CANCELLED
+    status: str  # PENDING_CONFIRMATION, INITIATED, CONFIRMED, DISPUTED, CANCELLED, REJECTED
     reason: Optional[str] = None
 
 class SettlementResponse(BaseModel):

@@ -50,10 +50,10 @@ import { formatPaise, formatDate } from '@/lib/currency';
 import { useAuth } from '@/features/auth/AuthContext';
 import { AddExpenseModal } from '@/features/expenses/AddExpenseModal';
 import { RecordSettlementModal } from '@/features/settlements/RecordSettlementModal';
-import { UPIPaymentModal } from '@/features/settlements/UPIPaymentModal';
 import { TripSummaryModal } from '@/features/trips/TripSummaryModal';
 import { useFeedback } from '@/context/FeedbackContext';
 import { playSound } from '@/lib/sounds';
+import { downloadTripPdf, downloadTripCsv } from '@/lib/export-utils';
 
 export const TripDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -90,12 +90,11 @@ export const TripDetailPage: React.FC = () => {
   const [settlePayer, setSettlePayer] = useState<string | undefined>(undefined);
   const [settlePayee, setSettlePayee] = useState<string | undefined>(undefined);
   const [settleAmount, setSettleAmount] = useState<number | undefined>(undefined);
+  const [settlePaymentMethod, setSettlePaymentMethod] = useState<string>('CASH');
 
-  // UPI payment state
-  const [isUPIPaymentOpen, setIsUPIPaymentOpen] = useState(false);
-  const [upiPayer, setUpiPayer] = useState<{ id: string; name: string } | null>(null);
-  const [upiPayee, setUpiPayee] = useState<{ id: string; name: string; upiId?: string | null } | null>(null);
-  const [upiAmount, setUpiAmount] = useState<number>(0);
+  // Export states
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [downloadingCsv, setDownloadingCsv] = useState(false);
 
   // Trip Completion & Summary Modal
   const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
@@ -108,6 +107,7 @@ export const TripDetailPage: React.FC = () => {
   const [expensePayerFilter, setExpensePayerFilter] = useState('All');
   const [expenseStartDate, setExpenseStartDate] = useState('');
   const [expenseEndDate, setExpenseEndDate] = useState('');
+  const [reportCategoryFilter, setReportCategoryFilter] = useState('All');
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLocation, setCopiedLocation] = useState(false);
 
@@ -273,23 +273,31 @@ export const TripDetailPage: React.FC = () => {
     }
   };
 
-  const handleTriggerSuggestion = (sug: SettlementSuggestion) => {
+  const handleRejectSettlement = async (settlementId: string) => {
+    const reason = window.prompt('Enter reason for rejecting settlement confirmation (optional):') || 'Payment not received';
+    try {
+      await api.put(`/settlements/${settlementId}/status`, {
+        status: 'REJECTED',
+        reason,
+      });
+      showConfirmation({
+        title: 'Settlement rejected',
+        message: 'The settlement remains unpaid.',
+        sound: 'error',
+      });
+      await loadAllTripData();
+    } catch (err: any) {
+      playSound('error');
+      alert(err.message || 'Failed to reject settlement.');
+    }
+  };
+
+  const handleTriggerSuggestion = (sug: SettlementSuggestion, method: 'CASH' | 'UPI' | 'BANK_TRANSFER' = 'CASH') => {
     setSettlePayer(sug.from_user_id);
     setSettlePayee(sug.to_user_id);
     setSettleAmount(sug.amount_paise);
+    setSettlePaymentMethod(method);
     setIsRecordSettlementOpen(true);
-  };
-
-  const handleInitiateUPI = (sug: SettlementSuggestion) => {
-    const payeeMember = members.find((m) => m.user_id === sug.to_user_id);
-    setUpiPayer({ id: sug.from_user_id, name: sug.from_user_name });
-    setUpiPayee({
-      id: sug.to_user_id,
-      name: sug.to_user_name,
-      upiId: sug.to_user_upi_id || payeeMember?.user_upi_id || null,
-    });
-    setUpiAmount(sug.amount_paise);
-    setIsUPIPaymentOpen(true);
   };
 
   const handleShareLocation = () => {
@@ -485,25 +493,31 @@ export const TripDetailPage: React.FC = () => {
               </button>
             </div>
 
-            {/* Complete Trip Button (Owner/Admin only) */}
+            {/* End Trip Button (Owner/Admin only) */}
             {isOwnerOrAdmin && !isTripCompleted && (
               <button
                 onClick={() => setIsCompleteTripConfirmOpen(true)}
                 className="inline-flex items-center justify-center gap-1.5 bg-white hover:bg-[#FAFAF8] border border-[#E8E8E5] text-[#171717] font-semibold py-2.5 px-3.5 rounded-xl shadow-xs transition-all active:scale-[0.98] text-sm"
               >
                 <CheckCircle2 className="w-4 h-4 text-[#16834A]" />
-                <span>Complete Trip</span>
+                <span>End Trip</span>
               </button>
             )}
 
             {isTripCompleted && (
-              <button
-                onClick={() => setIsSummaryModalOpen(true)}
-                className="inline-flex items-center justify-center gap-1.5 bg-white hover:bg-[#FAFAF8] border border-[#E8E8E5] text-[#171717] font-semibold py-2.5 px-3.5 rounded-xl shadow-xs transition-all active:scale-[0.98] text-sm"
-              >
-                <Trophy className="w-4 h-4 text-[#16834A]" />
-                <span>Trip Summary</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#DDF5E5] text-[#16834A] border border-[#C6ECCF] text-xs font-bold">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Trip Completed</span>
+                </span>
+                <button
+                  onClick={() => setIsSummaryModalOpen(true)}
+                  className="inline-flex items-center justify-center gap-1.5 bg-white hover:bg-[#FAFAF8] border border-[#E8E8E5] text-[#171717] font-semibold py-2.5 px-3.5 rounded-xl shadow-xs transition-all active:scale-[0.98] text-sm"
+                >
+                  <Trophy className="w-4 h-4 text-[#16834A]" />
+                  <span>Trip Summary &amp; Report</span>
+                </button>
+              </div>
             )}
 
             <button
@@ -909,147 +923,365 @@ export const TripDetailPage: React.FC = () => {
         </div>
       )}
 
-      {/* --- TAB 2: BALANCES & DEBT SIMPLIFICATION --- */}
+      {/* --- TAB 2: EXPENSE SUMMARY & WHO PAYS WHOM --- */}
       {activeTab === 'balances' && (
         <div className="space-y-6">
-          {/* Member Net Balances */}
-          <div className="bg-white rounded-2xl border border-[#E8E8E5] p-6 shadow-xs">
-            <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#F4F4F2]">
+          {/* FEATURE 1: SIMPLE EXPENSE SUMMARY */}
+          <div className="bg-white rounded-2xl border border-[#E8E8E5] p-6 shadow-xs space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-[#F4F4F2] gap-2">
               <div>
                 <h3 className="text-base font-bold text-[#171717] font-['Plus_Jakarta_Sans']">
-                  Member Net Balances
+                  Member Expense Summary
                 </h3>
                 <p className="text-xs text-[#737373]">
-                  Calculated using ONNA-GO zero-sum conservation invariant
+                  All contributions, fair shares, and individual expenses calculated from recorded database data
                 </p>
               </div>
-              <div className="px-2.5 py-1 rounded-full bg-[#DDF5E5] text-[#16834A] text-xs font-semibold flex items-center gap-1.5 border border-[#C6ECCF]">
-                <Check className="w-3.5 h-3.5" />
-                <span>∑ Net = 0.00</span>
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <span className="text-[10px] text-[#A3A3A3] uppercase font-semibold block">Total Trip Expenses</span>
+                  <span className="text-base font-bold font-mono text-[#171717] tabular-nums">
+                    {formatPaise(trip.total_expenses_paise, trip.currency)}
+                  </span>
+                </div>
               </div>
             </div>
 
-            <div className="divide-y divide-[#F4F4F2]">
-              {balances?.balances.map((item) => (
-                <div key={item.user_id} className="py-3.5 flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-[#171717] text-white font-bold flex items-center justify-center text-xs">
-                      {item.user_name[0].toUpperCase()}
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-[#171717]">{item.user_name}</p>
-                      <p className="text-xs text-[#737373]">
-                        Paid {formatPaise(item.total_spent_paise)} • Share {formatPaise(item.total_share_paise)}
-                      </p>
-                    </div>
-                  </div>
+            {/* Member Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {members.map((m) => {
+                const memberExpenses = expenses.filter((e) => e.payer_id === m.user_id && !e.is_void);
+                const memberBalance = balances?.balances.find((b) => b.user_id === m.user_id);
+                const totalPaid = memberBalance?.total_spent_paise || 0;
+                const fairShare = memberBalance?.total_share_paise || 0;
+                const netBal = memberBalance?.net_balance_paise || 0;
 
-                  <div className="text-right">
-                    <p
-                      className={`text-base font-bold font-mono tabular-nums ${
-                        item.net_balance_paise > 0
-                          ? 'text-[#16834A]'
-                          : item.net_balance_paise < 0
-                          ? 'text-[#B45309]'
-                          : 'text-[#737373]'
-                      }`}
-                    >
-                      {item.net_balance_paise > 0
-                        ? `+${formatPaise(item.net_balance_paise)}`
-                        : formatPaise(item.net_balance_paise)}
-                    </p>
-                    <span
-                      className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded ${
-                        item.status === 'IS_OWED'
-                          ? 'bg-[#DDF5E5] text-[#16834A]'
-                          : item.status === 'OWES'
-                          ? 'bg-[#FEF3C7] text-[#B45309]'
-                          : 'bg-[#F4F4F2] text-[#737373]'
-                      }`}
-                    >
-                      {item.status === 'IS_OWED' ? 'Receives' : item.status === 'OWES' ? 'Owes' : 'Settled'}
-                    </span>
+                return (
+                  <div
+                    key={m.user_id}
+                    className="p-4 rounded-2xl bg-[#FAFAF8] border border-[#E8E8E5] flex flex-col justify-between space-y-3.5 hover:border-[#16834A]/40 transition-colors"
+                  >
+                    <div>
+                      {/* Member Header */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-[#171717] text-white flex items-center justify-center font-bold text-xs shrink-0">
+                            {m.user_name[0].toUpperCase()}
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-bold text-[#171717] font-['Plus_Jakarta_Sans']">
+                              {m.user_name}'s Expenses
+                            </h4>
+                            <span className="text-[10px] text-[#737373]">
+                              {m.role === 'OWNER' ? 'Trip Organizer' : m.role}
+                            </span>
+                          </div>
+                        </div>
+
+                        <span
+                          className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded border ${
+                            netBal > 0
+                              ? 'bg-[#DDF5E5] text-[#16834A] border-[#C6ECCF]'
+                              : netBal < 0
+                              ? 'bg-[#FEF3C7] text-[#B45309] border-[#FDE68A]'
+                              : 'bg-white text-[#737373] border-[#E8E8E5]'
+                          }`}
+                        >
+                          {netBal > 0 ? 'Receives' : netBal < 0 ? 'Owes' : 'Settled'}
+                        </span>
+                      </div>
+
+                      {/* Member's Individual Recorded Expenses */}
+                      <div className="mt-3.5 space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                        {memberExpenses.length === 0 ? (
+                          <p className="text-xs text-[#A3A3A3] italic py-2">
+                            No recorded expenses paid yet by this member.
+                          </p>
+                        ) : (
+                          memberExpenses.map((exp) => (
+                            <div
+                              key={exp.id}
+                              className="flex items-center justify-between text-xs py-1 px-2 rounded-lg bg-white border border-[#E8E8E5]/60"
+                            >
+                              <div className="min-w-0 pr-2">
+                                <span className="font-semibold text-[#171717] block truncate">
+                                  {exp.description}
+                                </span>
+                                <span className="text-[10px] text-[#737373]">{exp.category}</span>
+                              </div>
+                              <span className="font-mono font-bold text-[#171717] tabular-nums shrink-0">
+                                {formatPaise(exp.amount_paise, exp.currency)}
+                              </span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Member Totals & Share Pills */}
+                    <div className="pt-3 border-t border-[#E8E8E5] grid grid-cols-3 gap-2 text-center text-xs">
+                      <div className="bg-white p-2 rounded-xl border border-[#E8E8E5]/70">
+                        <span className="text-[10px] text-[#737373] uppercase font-semibold block">Total Paid</span>
+                        <span className="font-mono font-bold text-sm text-[#171717] tabular-nums block mt-0.5">
+                          {formatPaise(totalPaid)}
+                        </span>
+                      </div>
+                      <div className="bg-white p-2 rounded-xl border border-[#E8E8E5]/70">
+                        <span className="text-[10px] text-[#737373] uppercase font-semibold block">Fair Share</span>
+                        <span className="font-mono font-bold text-sm text-[#737373] tabular-nums block mt-0.5">
+                          {formatPaise(fairShare)}
+                        </span>
+                      </div>
+                      <div
+                        className={`p-2 rounded-xl border ${
+                          netBal > 0
+                            ? 'bg-[#DDF5E5]/50 border-[#C6ECCF]'
+                            : netBal < 0
+                            ? 'bg-[#FEF3C7]/50 border-[#FDE68A]'
+                            : 'bg-white border-[#E8E8E5]/70'
+                        }`}
+                      >
+                        <span className="text-[10px] text-[#737373] uppercase font-semibold block">Balance</span>
+                        <span
+                          className={`font-mono font-bold text-sm tabular-nums block mt-0.5 ${
+                            netBal > 0
+                              ? 'text-[#16834A]'
+                              : netBal < 0
+                              ? 'text-[#B45309]'
+                              : 'text-[#737373]'
+                          }`}
+                        >
+                          {netBal > 0 ? `+${formatPaise(netBal)}` : formatPaise(netBal)}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
-          {/* Optimal Settlement Suggestions */}
-          <div className="bg-white rounded-2xl border border-[#E8E8E5] p-6 shadow-xs space-y-4">
-            <div className="flex items-center justify-between">
+          {/* FEATURE 2 & FEATURE 3 & FEATURE 4: WHO PAYS WHOM */}
+          <div className="bg-white rounded-2xl border border-[#E8E8E5] p-6 shadow-xs space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-[#F4F4F2] gap-3">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-[#DDF5E5] text-[#16834A] flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-[#DDF5E5] text-[#16834A] flex items-center justify-center shrink-0">
                   <TrendingDown className="w-4 h-4" />
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-[#171717] font-['Plus_Jakarta_Sans']">
-                    Optimal Debt Simplification
+                    Who Pays Whom
                   </h3>
                   <p className="text-xs text-[#737373]">
-                    Minimum transfers required to fully settle all group debts
+                    Net outstanding settlement transfers required to balance group debts
                   </p>
                 </div>
               </div>
+
+              <button
+                onClick={() => {
+                  setSettlePayer(undefined);
+                  setSettlePayee(undefined);
+                  setSettleAmount(undefined);
+                  setSettlePaymentMethod('CASH');
+                  setIsRecordSettlementOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-[#16834A] hover:bg-[#136F3F] rounded-xl shadow-xs transition-colors self-start sm:self-auto"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Record Settlement</span>
+              </button>
             </div>
 
+            {/* Pending In-App Settlement Confirmations */}
+            {settlements.filter((s) => s.status === 'PENDING_CONFIRMATION' || s.status === 'INITIATED').length > 0 && (
+              <div className="space-y-3 p-4 bg-[#FEF3C7]/30 border border-[#FDE68A] rounded-2xl">
+                <div className="flex items-center gap-2 text-xs font-bold text-[#B45309] uppercase tracking-wider">
+                  <Clock className="w-4 h-4" />
+                  <span>
+                    Pending Confirmation Requests ({settlements.filter((s) => s.status === 'PENDING_CONFIRMATION' || s.status === 'INITIATED').length})
+                  </span>
+                </div>
+
+                <div className="space-y-2.5">
+                  {settlements
+                    .filter((s) => s.status === 'PENDING_CONFIRMATION' || s.status === 'INITIATED')
+                    .map((st) => {
+                      const isPayee = user?.id === st.payee_id;
+                      const isPayer = user?.id === st.payer_id;
+                      const isCash = st.payment_method === 'CASH';
+
+                      return (
+                        <div
+                          key={st.id}
+                          className="p-3.5 bg-white rounded-xl border border-[#E8E8E5] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs"
+                        >
+                          <div className="space-y-1">
+                            <p className="text-xs font-semibold text-[#171717]">
+                              {isPayee ? (
+                                <>
+                                  <strong className="text-[#B45309]">{st.payer_name}</strong> says they gave you{' '}
+                                  <strong className="font-mono text-[#16834A]">{formatPaise(st.amount_paise)}</strong>{' '}
+                                  in {isCash ? 'cash' : st.payment_method}. Did you receive it?
+                                </>
+                              ) : isPayer ? (
+                                <>
+                                  You reported paying <strong className="font-mono">{formatPaise(st.amount_paise)}</strong> in{' '}
+                                  {isCash ? 'cash' : st.payment_method} to{' '}
+                                  <strong className="text-[#16834A]">{st.payee_name}</strong>. Awaiting their confirmation.
+                                </>
+                              ) : (
+                                <>
+                                  {st.payer_name} reported paying {formatPaise(st.amount_paise)} to {st.payee_name} via {st.payment_method}.
+                                </>
+                              )}
+                            </p>
+                            <p className="text-[11px] text-[#737373]">
+                              Method: {st.payment_method} {st.reference_id ? `• Ref: ${st.reference_id}` : ''} • Date: {formatDate(st.created_at)}
+                              {st.notes ? ` • Note: "${st.notes}"` : ''}
+                            </p>
+                          </div>
+
+                          {isPayee ? (
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button
+                                onClick={() => handleConfirmSettlement(st.id)}
+                                className="px-3.5 py-1.5 bg-[#16834A] hover:bg-[#136F3F] text-white text-xs font-semibold rounded-xl shadow-xs transition-colors"
+                              >
+                                Confirm Received
+                              </button>
+                              <button
+                                onClick={() => handleRejectSettlement(st.id)}
+                                className="px-3 py-1.5 bg-white hover:bg-[#FFE4E6] border border-[#FDA4AF] text-[#E11D48] text-xs font-semibold rounded-xl transition-colors"
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          ) : isPayer ? (
+                            <span className="text-[11px] font-semibold text-[#B45309] bg-[#FEF3C7] px-2.5 py-1 rounded-lg border border-[#FDE68A] shrink-0">
+                              Awaiting Payee Confirmation
+                            </span>
+                          ) : isOwnerOrAdmin ? (
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button
+                                onClick={() => handleConfirmSettlement(st.id)}
+                                className="px-2.5 py-1 bg-[#16834A] text-white text-[11px] font-semibold rounded-lg"
+                              >
+                                Admin Confirm
+                              </button>
+                              <button
+                                onClick={() => handleRejectSettlement(st.id)}
+                                className="px-2.5 py-1 bg-white border border-[#FDA4AF] text-[#E11D48] text-[11px] font-semibold rounded-lg"
+                              >
+                                Admin Reject
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-[#737373] italic">Pending</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
+
+            {/* Who Pays Whom List */}
             {suggestions.length === 0 ? (
-              <div className="p-6 text-center text-xs text-[#737373] bg-[#FAFAF8] rounded-xl border border-[#E8E8E5]">
-                Everyone in this trip is completely settled up!
+              <div className="p-8 text-center bg-[#DDF5E5]/30 rounded-2xl border border-[#C6ECCF] space-y-2">
+                <CheckCircle2 className="w-8 h-8 text-[#16834A] mx-auto" />
+                <h4 className="text-base font-bold text-[#16834A]">All settled!</h4>
+                <p className="text-xs text-[#737373]">
+                  No money is owed between any members. Group balances reconcile to zero.
+                </p>
               </div>
             ) : (
               <div className="space-y-3">
-                {suggestions.map((sug, idx) => (
-                  <div
-                    key={idx}
-                    className="p-4 rounded-xl bg-[#FAFAF8] border border-[#E8E8E5] flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-7 h-7 rounded-full bg-[#171717] text-white flex items-center justify-center font-bold text-xs">
-                        #{idx + 1}
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-[#171717]">
-                          <strong className="text-[#B45309] font-medium">{sug.from_user_name}</strong> pays{' '}
-                          <strong className="text-[#16834A] font-medium">{sug.to_user_name}</strong>
-                        </p>
-                        <p className="text-xs text-[#737373]">Direct transfer via UPI / Cash</p>
-                      </div>
-                    </div>
+                {suggestions.map((sug, idx) => {
+                  const isYouOwe = user?.id === sug.from_user_id;
+                  const isYouReceive = user?.id === sug.to_user_id;
 
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between sm:justify-end gap-2.5">
-                      <span className="text-base font-bold font-mono text-[#171717] tabular-nums">
-                        {formatPaise(sug.amount_paise)}
-                      </span>
-
-                      {/* If debtor is current user, offer one-click UPI handoff */}
-                      {user?.id === sug.from_user_id ? (
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleInitiateUPI(sug)}
-                            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#16834A] hover:bg-[#136F3F] text-white font-semibold text-xs shadow-xs transition-all active:scale-[0.98]"
-                          >
-                            <Smartphone className="w-3.5 h-3.5" />
-                            <span>Pay via UPI</span>
-                          </button>
-                          <button
-                            onClick={() => handleTriggerSuggestion(sug)}
-                            className="px-3 py-1.5 rounded-xl bg-white hover:bg-[#F4F4F2] border border-[#E8E8E5] text-[#737373] hover:text-[#171717] font-medium text-xs transition-colors"
-                          >
-                            Offline / Cash
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => handleTriggerSuggestion(sug)}
-                          className="px-3.5 py-1.5 rounded-xl bg-[#16834A] hover:bg-[#136F3F] text-white font-medium text-xs shadow-xs transition-all active:scale-[0.98]"
+                  return (
+                    <div
+                      key={idx}
+                      className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${
+                        isYouOwe
+                          ? 'bg-[#FEF3C7]/40 border-[#FDE68A]'
+                          : isYouReceive
+                          ? 'bg-[#DDF5E5]/40 border-[#C6ECCF]'
+                          : 'bg-[#FAFAF8] border-[#E8E8E5]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
+                            isYouOwe
+                              ? 'bg-[#B45309] text-white'
+                              : isYouReceive
+                              ? 'bg-[#16834A] text-white'
+                              : 'bg-[#171717] text-white'
+                          }`}
                         >
-                          Record Payment
-                        </button>
-                      )}
+                          #{idx + 1}
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-[#171717]">
+                            <strong className={isYouOwe ? 'text-[#B45309]' : 'text-[#171717]'}>
+                              {isYouOwe ? 'You' : sug.from_user_name}
+                            </strong>{' '}
+                            →{' '}
+                            <strong className={isYouReceive ? 'text-[#16834A]' : 'text-[#171717]'}>
+                              {isYouReceive ? 'You' : sug.to_user_name}
+                            </strong>
+                          </p>
+                          <p className="text-xs text-[#737373]">
+                            {isYouOwe ? (
+                              <span className="text-[#B45309] font-medium">You owe {sug.to_user_name}</span>
+                            ) : isYouReceive ? (
+                              <span className="text-[#16834A] font-medium">{sug.from_user_name} owes you</span>
+                            ) : (
+                              <span>Outstanding group payment</span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between sm:justify-end gap-3">
+                        <span className="text-base font-bold font-mono text-[#171717] tabular-nums">
+                          {formatPaise(sug.amount_paise)}
+                        </span>
+
+                        {isYouOwe ? (
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleTriggerSuggestion(sug, 'CASH')}
+                              className="px-3.5 py-1.5 rounded-xl bg-[#16834A] hover:bg-[#136F3F] text-white font-semibold text-xs shadow-xs transition-all active:scale-[0.98]"
+                            >
+                              I Gave Cash
+                            </button>
+                            <button
+                              onClick={() => handleTriggerSuggestion(sug, 'UPI')}
+                              className="px-3 py-1.5 rounded-xl bg-white hover:bg-[#F4F4F2] border border-[#E8E8E5] text-[#171717] font-semibold text-xs shadow-xs transition-colors"
+                            >
+                              I Paid
+                            </button>
+                          </div>
+                        ) : isYouReceive ? (
+                          <span className="text-xs font-semibold text-[#16834A] bg-[#DDF5E5] px-2.5 py-1 rounded-lg border border-[#C6ECCF]">
+                            You will receive
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => handleTriggerSuggestion(sug, 'CASH')}
+                            className="px-3 py-1.5 rounded-xl bg-white hover:bg-[#F4F4F2] border border-[#E8E8E5] text-[#171717] font-semibold text-xs shadow-xs transition-colors"
+                          >
+                            Settle
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1231,66 +1463,186 @@ export const TripDetailPage: React.FC = () => {
         </div>
       )}
 
-      {/* --- TAB 6: REPORTS & EXPORTS --- */}
+      {/* --- TAB 6: REPORTS & EXPORTS (FEATURE 7) --- */}
       {activeTab === 'reports' && (
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h3 className="text-base font-bold text-[#171717] font-['Plus_Jakarta_Sans']">
-                Financial Reports &amp; Export
+                Financial Statement &amp; Export
               </h3>
               <p className="text-xs text-[#737373]">
-                Formula injection-protected CSV and PDF invoices
+                Official audit statements with zero-discrepancy balance verification
               </p>
             </div>
 
             <div className="flex items-center gap-2">
-              <a
-                href={`/api/v1/reports/trip/${trip.id}/export/csv`}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-[#F4F4F2] text-[#171717] border border-[#E8E8E5] text-xs font-semibold shadow-xs transition-colors"
+              <button
+                onClick={async () => {
+                  if (downloadingCsv) return;
+                  setDownloadingCsv(true);
+                  try {
+                    await downloadTripCsv(trip.id, trip.name);
+                  } catch (err: any) {
+                    alert(err.message || 'Failed to download CSV');
+                  } finally {
+                    setDownloadingCsv(false);
+                  }
+                }}
+                disabled={downloadingCsv}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-[#F4F4F2] text-[#171717] border border-[#E8E8E5] text-xs font-semibold shadow-xs transition-colors disabled:opacity-50"
               >
-                <FileSpreadsheet className="w-3.5 h-3.5 text-[#16834A]" />
-                <span>Export CSV</span>
-              </a>
+                {downloadingCsv ? <Loader2 className="w-3.5 h-3.5 animate-spin text-[#16834A]" /> : <FileSpreadsheet className="w-3.5 h-3.5 text-[#16834A]" />}
+                <span>{downloadingCsv ? 'Preparing CSV...' : 'Download CSV'}</span>
+              </button>
 
-              <a
-                href={`/api/v1/reports/trip/${trip.id}/export/pdf`}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#16834A] hover:bg-[#136F3F] text-white text-xs font-semibold shadow-xs transition-colors"
+              <button
+                onClick={async () => {
+                  if (downloadingPdf) return;
+                  setDownloadingPdf(true);
+                  try {
+                    await downloadTripPdf(trip.id, trip.name);
+                  } catch (err: any) {
+                    alert(err.message || 'Failed to download PDF');
+                  } finally {
+                    setDownloadingPdf(false);
+                  }
+                }}
+                disabled={downloadingPdf}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#16834A] hover:bg-[#136F3F] text-white text-xs font-semibold shadow-xs transition-colors disabled:opacity-50"
               >
-                <FileText className="w-3.5 h-3.5" />
-                <span>Export PDF</span>
-              </a>
+                {downloadingPdf ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
+                <span>{downloadingPdf ? 'Generating PDF...' : 'Download PDF'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Category Filter for Report Analysis */}
+          <div className="bg-white p-4 rounded-2xl border border-[#E8E8E5] shadow-xs space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-[#16834A]" />
+                <span className="text-xs font-bold text-[#171717]">Filter by Category</span>
+              </div>
+              <span className="text-xs text-[#737373]">
+                Total: <strong className="font-mono text-[#171717]">{formatPaise(trip.total_expenses_paise)}</strong>
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+              {[
+                'All',
+                'Food',
+                'Petrol / Fuel',
+                'Transport',
+                'Accommodation',
+                'Activities',
+                'Shopping',
+                'Other',
+              ].map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setReportCategoryFilter(cat)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                    reportCategoryFilter === cat
+                      ? 'bg-[#16834A] text-white shadow-xs'
+                      : 'bg-[#FAFAF8] text-[#737373] hover:text-[#171717] hover:bg-[#F4F4F2] border border-[#E8E8E5]'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
             </div>
           </div>
 
           {/* Category Spending Breakdown */}
           {report && (
             <div className="bg-white p-6 rounded-2xl border border-[#E8E8E5] shadow-xs space-y-4">
-              <h4 className="text-sm font-bold text-[#171717]">Category Spending Breakdown</h4>
+              <h4 className="text-sm font-bold text-[#171717]">Category-Wise Spending Breakdown</h4>
               <div className="space-y-3">
-                {report.category_breakdown.map((cat) => (
-                  <div key={cat.category} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-medium text-[#171717]">{cat.category}</span>
-                      <span className="font-mono text-[#737373] tabular-nums">
-                        {formatPaise(cat.amount_paise)} ({cat.percentage}%)
-                      </span>
+                {report.category_breakdown
+                  .filter((cat) => reportCategoryFilter === 'All' || cat.category.toLowerCase().includes(reportCategoryFilter.toLowerCase()))
+                  .map((cat) => (
+                    <div key={cat.category} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-semibold text-[#171717]">{cat.category}</span>
+                        <span className="font-mono text-[#737373] tabular-nums">
+                          {formatPaise(cat.amount_paise)} ({cat.percentage}%)
+                        </span>
+                      </div>
+                      <div className="w-full bg-[#F4F4F2] h-2 rounded-full overflow-hidden">
+                        <div
+                          className="bg-[#16834A] h-full rounded-full"
+                          style={{ width: `${Math.min(100, cat.percentage)}%` }}
+                        />
+                      </div>
                     </div>
-                    <div className="w-full bg-[#F4F4F2] h-2 rounded-full overflow-hidden">
-                      <div
-                        className="bg-[#16834A] h-full rounded-full"
-                        style={{ width: `${cat.percentage}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             </div>
           )}
+
+          {/* Member Spending & Balances Summary Table */}
+          {report && (
+            <div className="bg-white p-6 rounded-2xl border border-[#E8E8E5] shadow-xs space-y-4">
+              <h4 className="text-sm font-bold text-[#171717]">Member Contribution &amp; Fair Share Summary</h4>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-[#E8E8E5] text-[11px] font-bold uppercase text-[#737373]">
+                      <th className="pb-3">Member</th>
+                      <th className="pb-3 text-right">Amount Paid</th>
+                      <th className="pb-3 text-right">Fair Share</th>
+                      <th className="pb-3 text-right">Net Balance</th>
+                      <th className="pb-3 text-center">Position</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#F4F4F2] text-xs">
+                    {report.participant_breakdown.map((p) => (
+                      <tr key={p.user_id} className="hover:bg-[#FAFAF8]">
+                        <td className="py-3 font-semibold text-[#171717]">{p.user_name}</td>
+                        <td className="py-3 text-right font-mono tabular-nums">{formatPaise(p.amount_spent_paise)}</td>
+                        <td className="py-3 text-right font-mono tabular-nums text-[#737373]">{formatPaise(p.amount_consumed_paise)}</td>
+                        <td className={`py-3 text-right font-mono font-bold tabular-nums ${p.net_balance_paise > 0 ? 'text-[#16834A]' : p.net_balance_paise < 0 ? 'text-[#B45309]' : 'text-[#737373]'}`}>
+                          {p.net_balance_paise > 0 ? `+${formatPaise(p.net_balance_paise)}` : formatPaise(p.net_balance_paise)}
+                        </td>
+                        <td className="py-3 text-center">
+                          <span className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded border ${
+                            p.net_balance_paise > 0 ? 'bg-[#DDF5E5] text-[#16834A] border-[#C6ECCF]' : p.net_balance_paise < 0 ? 'bg-[#FEF3C7] text-[#B45309] border-[#FDE68A]' : 'bg-[#FAFAF8] text-[#737373] border-[#E8E8E5]'
+                          }`}>
+                            {p.net_balance_paise > 0 ? 'Is Owed' : p.net_balance_paise < 0 ? 'Owes' : 'Settled'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Settlements Overview in Report */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="bg-white p-5 rounded-2xl border border-[#E8E8E5] shadow-xs space-y-2">
+              <span className="text-[10px] uppercase font-semibold text-[#16834A] tracking-wider block">Completed Settlements</span>
+              <span className="text-2xl font-bold font-mono text-[#16834A] tabular-nums block">
+                {formatPaise(settlements.filter((s) => s.status === 'CONFIRMED').reduce((acc, s) => acc + s.amount_paise, 0))}
+              </span>
+              <p className="text-xs text-[#737373]">
+                {settlements.filter((s) => s.status === 'CONFIRMED').length} verified transactions
+              </p>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-[#E8E8E5] shadow-xs space-y-2">
+              <span className="text-[10px] uppercase font-semibold text-[#B45309] tracking-wider block">Outstanding Unpaid Debts</span>
+              <span className="text-2xl font-bold font-mono text-[#B45309] tabular-nums block">
+                {formatPaise(suggestions.reduce((acc, s) => acc + s.amount_paise, 0))}
+              </span>
+              <p className="text-xs text-[#737373]">
+                {suggestions.length === 0 ? 'Zero outstanding balances' : `${suggestions.length} payment(s) pending`}
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1551,56 +1903,115 @@ export const TripDetailPage: React.FC = () => {
         </div>
       )}
 
-      {/* Complete Trip Confirmation Modal */}
+      {/* Complete / End Trip Confirmation Modal (FEATURE 6) */}
       {isCompleteTripConfirmOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl border border-[#E8E8E5] p-6 max-w-md w-full shadow-2xl space-y-4 animate-scaleUp">
-            <div className="flex items-center gap-3">
+          <div className="bg-white rounded-3xl border border-[#E8E8E5] p-6 max-w-lg w-full shadow-2xl space-y-4 animate-scaleUp max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center gap-3 pb-3 border-b border-[#F4F4F2]">
               <div className="w-10 h-10 rounded-2xl bg-[#DDF5E5] text-[#16834A] flex items-center justify-center shrink-0">
                 <CheckCircle2 className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-[#171717]">
-                  Complete &amp; Finalize Trip?
+                <h3 className="text-base font-bold text-[#171717] font-['Plus_Jakarta_Sans']">
+                  End Trip: {trip.name}
                 </h3>
                 <p className="text-xs text-[#737373]">
-                  Permanent history &amp; settlement lock
+                  Review financial standing before marking trip as completed
                 </p>
               </div>
             </div>
 
-            <div className="bg-[#FAFAF8] border border-[#E8E8E5] rounded-2xl p-4 text-xs text-[#737373] space-y-2">
-              <p>
-                Marking <strong className="text-[#171717]">{trip.name}</strong> as completed will:
-              </p>
-              <ul className="list-disc list-inside space-y-1 text-[11px] text-[#737373]">
-                <li>Finalize the expense pool and debt allocation ledger</li>
-                <li>Archive this trip into your permanent travel history</li>
-                <li>Generate the official trip financial summary report</li>
-                <li>Notify all trip members that the trip has concluded</li>
-              </ul>
-              <p className="text-[11px] text-[#16834A] font-semibold pt-1">
-                Note: You and your group members will always be able to view details and settle remaining debts.
-              </p>
+            {/* Total Expenses & Summary Figures */}
+            <div className="p-3.5 bg-[#FAFAF8] rounded-2xl border border-[#E8E8E5] grid grid-cols-2 gap-3 text-center">
+              <div>
+                <span className="text-[10px] text-[#737373] uppercase font-semibold block">Total Group Expenses</span>
+                <span className="text-base font-bold font-mono text-[#171717] tabular-nums mt-0.5 block">
+                  {formatPaise(trip.total_expenses_paise, trip.currency)}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] text-[#737373] uppercase font-semibold block">Outstanding Balances</span>
+                <span className="text-base font-bold font-mono text-[#B45309] tabular-nums mt-0.5 block">
+                  {formatPaise(suggestions.reduce((acc, s) => acc + s.amount_paise, 0))}
+                </span>
+              </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2.5 pt-2">
+            {/* Member Contributions & Fair Shares */}
+            <div className="space-y-2">
+              <span className="text-xs font-bold text-[#171717] uppercase tracking-wider block">
+                Member Standing &amp; Fair Shares
+              </span>
+              <div className="max-h-40 overflow-y-auto divide-y divide-[#F4F4F2] border border-[#E8E8E5] rounded-xl bg-white">
+                {members.map((m) => {
+                  const b = balances?.balances.find((item) => item.user_id === m.user_id);
+                  const paid = b?.total_spent_paise || 0;
+                  const share = b?.total_share_paise || 0;
+                  const net = b?.net_balance_paise || 0;
+                  return (
+                    <div key={m.user_id} className="p-2.5 flex items-center justify-between text-xs">
+                      <div>
+                        <span className="font-semibold text-[#171717] block">{m.user_name}</span>
+                        <span className="text-[11px] text-[#737373]">
+                          Paid: {formatPaise(paid)} • Share: {formatPaise(share)}
+                        </span>
+                      </div>
+                      <span className={`font-mono font-bold text-xs ${net > 0 ? 'text-[#16834A]' : net < 0 ? 'text-[#B45309]' : 'text-[#737373]'}`}>
+                        {net > 0 ? `+${formatPaise(net)}` : formatPaise(net)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Outstanding Settlements & Pending Confirmations Warning */}
+            {(() => {
+              const pendingCount = settlements.filter(
+                (s) => s.status === 'PENDING_CONFIRMATION' || s.status === 'INITIATED'
+              ).length;
+              const hasDebts = suggestions.length > 0 || pendingCount > 0;
+
+              return hasDebts ? (
+                <div className="p-3.5 rounded-2xl bg-[#FEF3C7]/60 border border-[#FDE68A] text-[#B45309] text-xs space-y-1.5">
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-[#B45309]" />
+                    <span>Outstanding Payments Pending</span>
+                  </div>
+                  <p className="leading-relaxed text-[11px] text-[#92400E]">
+                    There {suggestions.length === 1 ? 'is' : 'are'} <strong>{suggestions.length} unpaid settlement(s)</strong> and{' '}
+                    <strong>{pendingCount} pending confirmation request(s)</strong>. You can return to settle them first, or complete the trip now. Unpaid balances will remain safely preserved in your Trip History.
+                  </p>
+                </div>
+              ) : (
+                <div className="p-3 rounded-2xl bg-[#DDF5E5]/50 border border-[#C6ECCF] text-[#16834A] text-xs flex items-center gap-2 font-semibold">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span>All debts are fully settled! Ready for permanent completion.</span>
+                </div>
+              );
+            })()}
+
+            {/* Actions */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2.5 pt-3 border-t border-[#E8E8E5]">
               <button
                 type="button"
-                onClick={() => setIsCompleteTripConfirmOpen(false)}
+                onClick={() => {
+                  setIsCompleteTripConfirmOpen(false);
+                  setActiveTab('balances');
+                }}
                 disabled={completingTrip}
-                className="px-4 py-2 text-xs font-semibold text-[#737373] hover:text-[#171717] rounded-xl transition-colors"
+                className="px-4 py-2.5 text-xs font-semibold text-[#171717] bg-white hover:bg-[#F4F4F2] border border-[#E8E8E5] rounded-xl transition-colors"
               >
-                Cancel
+                Return &amp; Settle First
               </button>
               <button
                 type="button"
                 onClick={handleCompleteTrip}
                 disabled={completingTrip}
-                className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-[#16834A] hover:bg-[#136F3F] text-white text-xs font-semibold rounded-xl shadow-xs transition-all active:scale-[0.98] disabled:opacity-50"
+                className="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 bg-[#16834A] hover:bg-[#136F3F] text-white text-xs font-semibold rounded-xl shadow-xs transition-all active:scale-[0.98] disabled:opacity-50"
               >
                 {completingTrip && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                <span>Confirm &amp; Complete Trip</span>
+                <span>Confirm &amp; End Trip</span>
               </button>
             </div>
           </div>
@@ -1626,28 +2037,9 @@ export const TripDetailPage: React.FC = () => {
         initialPayerId={settlePayer}
         initialPayeeId={settlePayee}
         initialAmountPaise={settleAmount}
+        initialPaymentMethod={settlePaymentMethod}
         onSettlementRecorded={loadAllTripData}
       />
-
-      {/* UPI Payment Modal */}
-      {upiPayer && upiPayee && (
-        <UPIPaymentModal
-          isOpen={isUPIPaymentOpen}
-          onClose={() => setIsUPIPaymentOpen(false)}
-          tripId={trip.id}
-          tripName={trip.name}
-          payerId={upiPayer.id}
-          payerName={upiPayer.name}
-          payeeId={upiPayee.id}
-          payeeName={upiPayee.name}
-          payeeUpiId={upiPayee.upiId}
-          amountPaise={upiAmount}
-          onSettlementInitiated={async () => {
-            setIsUPIPaymentOpen(false);
-            await loadAllTripData();
-          }}
-        />
-      )}
 
       {/* Trip Summary Modal */}
       <TripSummaryModal

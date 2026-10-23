@@ -102,14 +102,69 @@ def get_dashboard_summary(
     )
     
     active_trips_resp = []
-    for t in active_trips_db[:4]:
-        m_count = db.query(TripMember).filter(TripMember.trip_id == t.id).count()
+    for t in active_trips_db[:6]:
+        all_m = db.query(TripMember, User).join(User, User.id == TripMember.user_id).filter(TripMember.trip_id == t.id).all()
+        m_count = len(all_m)
         e_sum = db.query(func.sum(Expense.amount_paise)).filter(Expense.trip_id == t.id, Expense.is_void == False).scalar() or 0
+        
+        # calculate trip balances for this trip
+        expenses_t = db.query(Expense).filter(Expense.trip_id == t.id, Expense.is_void == False).all()
+        confirmed_st_t = db.query(Settlement).filter(Settlement.trip_id == t.id, Settlement.status == "CONFIRMED").all()
+        exp_dicts = [
+            {
+                "id": e.id,
+                "payer_id": e.payer_id,
+                "amount_paise": e.amount_paise,
+                "is_void": e.is_void,
+                "splits": [{"user_id": s.user_id, "amount_paise": s.amount_paise} for s in e.splits]
+            }
+            for e in expenses_t
+        ]
+        st_dicts = [
+            {
+                "id": s.id,
+                "payer_id": s.payer_id,
+                "payee_id": s.payee_id,
+                "amount_paise": s.amount_paise,
+                "status": s.status
+            }
+            for s in confirmed_st_t
+        ]
+        member_ids = [m.user_id for m, _ in all_m]
+        calc_t = calculate_trip_balances(member_ids, exp_dicts, st_dicts)
+        
+        # User contribution and balances
+        user_spent = calc_t["total_spent_paise"].get(current_user.id, 0)
+        user_bal = calc_t["net_balances"].get(current_user.id, 0)
+        user_owes = -user_bal if user_bal < 0 else 0
+        user_receives = user_bal if user_bal > 0 else 0
+        
+        # Member contributions
+        member_contribs = []
+        for m, u in all_m:
+            member_contribs.append({
+                "user_id": u.id,
+                "user_name": u.full_name,
+                "amount_paise": calc_t["total_spent_paise"].get(u.id, 0)
+            })
+        member_contribs.sort(key=lambda x: -x["amount_paise"])
+        
+        # Pending settlements count for this trip
+        pending_count = db.query(Settlement).filter(
+            Settlement.trip_id == t.id,
+            Settlement.status.in_(["PENDING_CONFIRMATION", "INITIATED"])
+        ).count()
+        
         tr = TripResponse.model_validate(t)
         tr.members_count = m_count
         tr.total_expenses_paise = e_sum
         tr.user_role = "OWNER" if t.created_by_id == current_user.id else "MEMBER"
         tr.status = "ACTIVE"
+        tr.user_contribution_paise = user_spent
+        tr.user_owes_paise = user_owes
+        tr.user_receives_paise = user_receives
+        tr.pending_settlements_count = pending_count
+        tr.member_contributions = member_contribs
         active_trips_resp.append(tr)
         
     return DashboardSummary(

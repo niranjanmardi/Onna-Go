@@ -15,11 +15,15 @@ import {
   KeyRound,
   MapPin,
   Calendar,
+  FileText,
+  FileSpreadsheet,
+  Loader2,
 } from 'lucide-react';
 import { api } from '@/lib/api-client';
 import { DashboardSummary } from '@/types';
 import { formatPaise, formatDate } from '@/lib/currency';
 import { useAuth } from '@/features/auth/AuthContext';
+import { downloadHistoryPdf, downloadHistoryCsv } from '@/lib/export-utils';
 
 export const DashboardPage: React.FC = () => {
   const { user } = useAuth();
@@ -27,6 +31,8 @@ export const DashboardPage: React.FC = () => {
   const [data, setData] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const [exportingCsv, setExportingCsv] = useState(false);
 
   const fetchDashboard = async () => {
     setLoading(true);
@@ -72,19 +78,57 @@ export const DashboardPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={async () => {
+              if (exportingPdf) return;
+              setExportingPdf(true);
+              try {
+                await downloadHistoryPdf();
+              } catch (err: any) {
+                alert(err.message || 'Failed to download travel history PDF');
+              } finally {
+                setExportingPdf(false);
+              }
+            }}
+            disabled={exportingPdf}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-[#171717] bg-white hover:bg-[#F4F4F2] border border-[#E8E8E5] rounded-xl shadow-xs transition-colors disabled:opacity-50"
+            title="Download complete personal travel & expense history report"
+          >
+            {exportingPdf ? <Loader2 className="w-3.5 h-3.5 animate-spin text-[#16834A]" /> : <FileText className="w-3.5 h-3.5 text-[#16834A]" />}
+            <span>{exportingPdf ? 'Exporting PDF...' : 'History PDF'}</span>
+          </button>
+          <button
+            onClick={async () => {
+              if (exportingCsv) return;
+              setExportingCsv(true);
+              try {
+                await downloadHistoryCsv();
+              } catch (err: any) {
+                alert(err.message || 'Failed to download travel history CSV');
+              } finally {
+                setExportingCsv(false);
+              }
+            }}
+            disabled={exportingCsv}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-[#171717] bg-white hover:bg-[#F4F4F2] border border-[#E8E8E5] rounded-xl shadow-xs transition-colors disabled:opacity-50"
+            title="Download personal travel expenses spreadsheet"
+          >
+            {exportingCsv ? <Loader2 className="w-3.5 h-3.5 animate-spin text-[#16834A]" /> : <FileSpreadsheet className="w-3.5 h-3.5 text-[#16834A]" />}
+            <span>{exportingCsv ? 'Exporting CSV...' : 'History CSV'}</span>
+          </button>
           <button
             onClick={() => navigate('/trips/join')}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium text-[#171717] bg-white hover:bg-[#F4F4F2] border border-[#E8E8E5] rounded-xl shadow-xs transition-colors"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium text-[#171717] bg-white hover:bg-[#F4F4F2] border border-[#E8E8E5] rounded-xl shadow-xs transition-colors"
           >
-            <KeyRound className="w-4 h-4 text-[#737373]" />
+            <KeyRound className="w-3.5 h-3.5 text-[#737373]" />
             <span>Join with Code</span>
           </button>
           <button
             onClick={() => navigate('/trips/new')}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-[#16834A] hover:bg-[#136F3F] rounded-xl shadow-xs transition-all active:scale-[0.98]"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-[#16834A] hover:bg-[#136F3F] rounded-xl shadow-xs transition-all active:scale-[0.98]"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-3.5 h-3.5" />
             <span>Create Trip</span>
           </button>
         </div>
@@ -188,53 +232,133 @@ export const DashboardPage: React.FC = () => {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {data?.active_trips.map((trip) => (
-                <div
-                  key={trip.id}
-                  onClick={() => navigate(`/trips/${trip.id}`)}
-                  className="bg-white p-5 rounded-2xl border border-[#E8E8E5] shadow-xs hover:border-[#16834A]/50 hover:shadow-md cursor-pointer transition-all duration-200 flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-md bg-[#FAFAF8] text-[#737373] border border-[#E8E8E5]">
-                        {trip.currency}
-                      </span>
-                      <span className="text-xs text-[#737373] flex items-center gap-1">
-                        <Users className="w-3.5 h-3.5 text-[#A3A3A3]" />
-                        <span>{trip.members_count} members</span>
-                      </span>
-                    </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {data?.active_trips.map((trip) => {
+                const userOwes = trip.user_owes_paise || 0;
+                const userReceives = trip.user_receives_paise || 0;
+                const userPaid = trip.user_contribution_paise || 0;
+                const pendingCount = trip.pending_settlements_count || 0;
+                const contributions = trip.member_contributions || [];
 
-                    <h3 className="text-base font-bold text-[#171717] mt-3 truncate">
-                      {trip.name}
-                    </h3>
-                    <p className="text-xs text-[#737373] mt-1 line-clamp-1 flex items-center gap-1">
-                      {trip.destination ? (
-                        <>
-                          <MapPin className="w-3 h-3 text-[#16834A] flex-shrink-0" />
-                          <span>{trip.destination}</span>
-                        </>
-                      ) : (
-                        <span>{trip.description || 'Shared group journey'}</span>
-                      )}
-                    </p>
-                  </div>
-
-                  <div className="mt-5 pt-3.5 border-t border-[#F4F4F2] flex items-center justify-between">
+                return (
+                  <div
+                    key={trip.id}
+                    className="bg-white p-5 rounded-2xl border border-[#E8E8E5] shadow-xs hover:border-[#16834A]/50 hover:shadow-md transition-all duration-200 flex flex-col justify-between"
+                  >
                     <div>
-                      <span className="text-[10px] text-[#A3A3A3] uppercase font-semibold block">Total Pool</span>
-                      <span className="text-sm font-bold font-mono text-[#171717] tabular-nums">
-                        {formatPaise(trip.total_expenses_paise, trip.currency)}
-                      </span>
+                      {/* Header */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-[#FAFAF8] text-[#16834A] border border-[#E8E8E5]">
+                            {trip.currency}
+                          </span>
+                          {trip.destination && (
+                            <span className="text-xs text-[#737373] truncate flex items-center gap-1">
+                              <MapPin className="w-3 h-3 text-[#16834A] flex-shrink-0" />
+                              <span className="truncate">{trip.destination}</span>
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-xs text-[#737373] flex items-center gap-1 flex-shrink-0">
+                          <Users className="w-3.5 h-3.5 text-[#A3A3A3]" />
+                          <span>{trip.members_count} members</span>
+                        </span>
+                      </div>
+
+                      <h3 className="text-base font-bold text-[#171717] mt-2 font-['Plus_Jakarta_Sans'] truncate">
+                        {trip.name}
+                      </h3>
+
+                      {/* Total Expenses & Your Contribution */}
+                      <div className="mt-3 grid grid-cols-2 gap-2 p-3 bg-[#FAFAF8] rounded-xl border border-[#E8E8E5]/70">
+                        <div>
+                          <span className="text-[10px] font-semibold text-[#737373] uppercase tracking-wider block">
+                            Total Expenses
+                          </span>
+                          <span className="text-sm font-bold font-mono text-[#171717] tabular-nums">
+                            {formatPaise(trip.total_expenses_paise, trip.currency)}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] font-semibold text-[#737373] uppercase tracking-wider block">
+                            You Paid
+                          </span>
+                          <span className="text-sm font-bold font-mono text-[#16834A] tabular-nums">
+                            {formatPaise(userPaid, trip.currency)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Your Net Balance Status */}
+                      <div className="mt-2.5 flex items-center justify-between text-xs px-1">
+                        <span className="text-[#737373] font-medium">
+                          You owe:{' '}
+                          <strong className={userOwes > 0 ? 'text-[#B45309]' : 'text-[#171717]'}>
+                            {formatPaise(userOwes, trip.currency)}
+                          </strong>
+                        </span>
+                        <span className="text-[#737373] font-medium">
+                          You will receive:{' '}
+                          <strong className={userReceives > 0 ? 'text-[#16834A]' : 'text-[#171717]'}>
+                            {formatPaise(userReceives, trip.currency)}
+                          </strong>
+                        </span>
+                      </div>
+
+                      {/* Member Contributions Summary */}
+                      {contributions.length > 0 && (
+                        <div className="mt-3 pt-2.5 border-t border-[#F4F4F2] space-y-1">
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-[#A3A3A3] block">
+                            Member Contributions
+                          </span>
+                          <div className="space-y-1 max-h-16 overflow-y-auto">
+                            {contributions.slice(0, 3).map((c) => (
+                              <div key={c.user_id} className="flex items-center justify-between text-xs text-[#737373]">
+                                <span className="truncate pr-2">{c.user_name}</span>
+                                <span className="font-mono font-medium text-[#171717] tabular-nums flex-shrink-0">
+                                  {formatPaise(c.amount_paise, trip.currency)}
+                                </span>
+                              </div>
+                            ))}
+                            {contributions.length > 3 && (
+                              <p className="text-[10px] text-[#A3A3A3] italic">
+                                +{contributions.length - 3} more members
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Pending Settlement Alert */}
+                      {pendingCount > 0 && (
+                        <div className="mt-2.5 px-2.5 py-1.5 rounded-lg bg-[#FEF3C7] border border-[#FDE68A] text-[#B45309] text-xs flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5 flex-shrink-0" />
+                          <span className="font-medium text-[11px]">
+                            {pendingCount} settlement {pendingCount === 1 ? 'request' : 'requests'} pending confirmation
+                          </span>
+                        </div>
+                      )}
                     </div>
-                    <div className="text-[#16834A] text-xs font-semibold flex items-center gap-0.5">
-                      <span>Open</span>
-                      <ChevronRight className="w-3.5 h-3.5" />
+
+                    {/* Action Buttons */}
+                    <div className="mt-4 pt-3 border-t border-[#F4F4F2] flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => navigate(`/trips/${trip.id}?tab=settlements`)}
+                        className="px-3 py-1.5 text-xs font-semibold text-[#171717] bg-white hover:bg-[#F4F4F2] border border-[#E8E8E5] rounded-xl shadow-xs transition-colors"
+                      >
+                        View Settlement
+                      </button>
+                      <button
+                        onClick={() => navigate(`/trips/${trip.id}`)}
+                        className="inline-flex items-center gap-1 px-3.5 py-1.5 text-xs font-semibold text-white bg-[#16834A] hover:bg-[#136F3F] rounded-xl shadow-xs transition-colors"
+                      >
+                        <span>View Trip</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 

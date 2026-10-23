@@ -101,10 +101,22 @@ def create_settlement(
     
     # Notify payee to verify and confirm receipt
     payer_user = db.query(User).filter(User.id == st_in.payer_id).first()
+    payer_name = payer_user.full_name if payer_user else "Member"
+    amt_str = f"₹{st_in.amount_paise / 100:.2f}"
+    
+    if st_in.payment_method == "CASH":
+        notif_msg = f"{payer_name} says they gave you {amt_str} in cash. Did you receive it?"
+    elif st_in.payment_method == "UPI":
+        notif_msg = f"{payer_name} reported paying you {amt_str} via UPI outside ONNA-GO. Did you receive it?"
+    elif st_in.payment_method == "BANK_TRANSFER":
+        notif_msg = f"{payer_name} reported sending you {amt_str} via Bank Transfer. Did you receive it?"
+    else:
+        notif_msg = f"{payer_name} reported paying you {amt_str} via {st_in.payment_method}. Did you receive it?"
+
     notif = Notification(
         user_id=st_in.payee_id,
-        title="Payment initiated for confirmation",
-        message=f"{payer_user.full_name if payer_user else 'Member'} reported initiating a payment of ₹{st_in.amount_paise / 100:.2f}. Please verify in your bank/UPI app and confirm receipt.",
+        title="Settlement Confirmation Request",
+        message=notif_msg,
         type="SETTLEMENT",
         link_url=f"/trips/{st_in.trip_id}"
     )
@@ -129,6 +141,7 @@ def list_trip_settlements(
     return [build_settlement_response(s, db) for s in settlements]
 
 @router.put("/{settlement_id}/status", response_model=SettlementResponse)
+@router.patch("/{settlement_id}/status", response_model=SettlementResponse)
 def update_settlement_status(
     settlement_id: str,
     status_update: SettlementStatusUpdate,
@@ -147,12 +160,18 @@ def update_settlement_status(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden.")
         
     target_status = status_update.status.upper()
-    valid_statuses = ["PENDING_CONFIRMATION", "INITIATED", "CONFIRMED", "DISPUTED", "CANCELLED"]
+    valid_statuses = ["PENDING_CONFIRMATION", "INITIATED", "CONFIRMED", "DISPUTED", "CANCELLED", "REJECTED"]
     if target_status not in valid_statuses:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid status: {target_status}")
+
+    # Idempotent return for repeated confirmation clicks
+    if settlement.status == "CONFIRMED" and target_status == "CONFIRMED":
+        return build_settlement_response(settlement, db)
+    if settlement.status == "REJECTED" and target_status == "REJECTED":
+        return build_settlement_response(settlement, db)
         
     # Permission rules:
-    # To CONFIRM: Payee (who receives money) or Trip OWNER/ADMIN
+    # To CONFIRM: Only Payee (recipient) or Trip OWNER/ADMIN
     if target_status == "CONFIRMED":
         if current_user.id != settlement.payee_id and member.role not in ["OWNER", "ADMIN"]:
             raise HTTPException(
@@ -160,6 +179,14 @@ def update_settlement_status(
                 detail="Only the payee (recipient) or trip owner/admin can confirm settlement receipt."
             )
         settlement.confirmed_at = datetime.now(timezone.utc)
+
+    # To REJECT: Only Payee (recipient) or Trip OWNER/ADMIN
+    elif target_status == "REJECTED":
+        if current_user.id != settlement.payee_id and member.role not in ["OWNER", "ADMIN"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only the payee (recipient) or trip owner/admin can reject settlement confirmation."
+            )
         
     # To CANCEL: Creator or Payer
     elif target_status == "CANCELLED":
@@ -196,10 +223,25 @@ def update_settlement_status(
     
     # Notification
     other_party_id = settlement.payer_id if current_user.id == settlement.payee_id else settlement.payee_id
+    payee_user = db.query(User).filter(User.id == settlement.payee_id).first()
+    payee_name = payee_user.full_name if payee_user else "Payee"
+    amt_str = f"₹{settlement.amount_paise / 100:.2f}"
+
+    if target_status == "CONFIRMED":
+        notif_title = "Payment Confirmed! ✅"
+        notif_msg = f"{payee_name} confirmed receiving {amt_str}. The settlement is complete."
+    elif target_status == "REJECTED":
+        notif_title = "Payment Not Confirmed ❌"
+        reason_suffix = f": '{status_update.reason}'" if status_update.reason else ""
+        notif_msg = f"{payee_name} did not confirm receiving {amt_str}{reason_suffix}. The balance remains unpaid."
+    else:
+        notif_title = f"Settlement {target_status.replace('_', ' ').title()}"
+        notif_msg = f"A payment of {amt_str} is now {target_status}."
+
     notif = Notification(
         user_id=other_party_id,
-        title=f"Settlement marked as {target_status.replace('_', ' ').title()}",
-        message=f"A payment of ₹{settlement.amount_paise / 100:.2f} is now {target_status}.",
+        title=notif_title,
+        message=notif_msg,
         type="SETTLEMENT",
         link_url=f"/trips/{settlement.trip_id}"
     )

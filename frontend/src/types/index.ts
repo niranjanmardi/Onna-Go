@@ -51,6 +51,11 @@ export interface Trip {
   updated_at: string;
   user_role?: 'OWNER' | 'ADMIN' | 'MEMBER';
   status?: 'ACTIVE' | 'COMPLETED';
+  user_contribution_paise?: number;
+  user_owes_paise?: number;
+  user_receives_paise?: number;
+  pending_settlements_count?: number;
+  member_contributions?: { user_id: string; user_name: string; amount_paise: number }[];
 }
 
 export interface TravelStats {

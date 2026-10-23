@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, HandCoins, ArrowRight, AlertCircle, ShieldCheck } from 'lucide-react';
 import { api } from '@/lib/api-client';
 import { TripMember, Settlement } from '@/types';
@@ -14,6 +14,7 @@ interface RecordSettlementModalProps {
   initialPayerId?: string;
   initialPayeeId?: string;
   initialAmountPaise?: number;
+  initialPaymentMethod?: string;
   onSettlementRecorded: (st: Settlement) => void;
 }
 
@@ -25,6 +26,7 @@ export const RecordSettlementModal: React.FC<RecordSettlementModalProps> = ({
   initialPayerId,
   initialPayeeId,
   initialAmountPaise,
+  initialPaymentMethod = 'CASH',
   onSettlementRecorded,
 }) => {
   const { showConfirmation } = useFeedback();
@@ -35,13 +37,29 @@ export const RecordSettlementModal: React.FC<RecordSettlementModalProps> = ({
   const [amountRupees, setAmountRupees] = useState(
     initialAmountPaise ? (initialAmountPaise / 100).toString() : ''
   );
-  const [paymentMethod, setPaymentMethod] = useState('UPI');
+  const [paymentMethod, setPaymentMethod] = useState(initialPaymentMethod);
   const [referenceId, setReferenceId] = useState('');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Sync state when modal opens or initial props change
+  useEffect(() => {
+    if (isOpen) {
+      if (initialPayerId) setPayerId(initialPayerId);
+      if (initialPayeeId) setPayeeId(initialPayeeId);
+      if (initialAmountPaise) setAmountRupees((initialAmountPaise / 100).toString());
+      if (initialPaymentMethod) setPaymentMethod(initialPaymentMethod);
+      setError(null);
+      setReferenceId('');
+      setNotes('');
+    }
+  }, [isOpen, initialPayerId, initialPayeeId, initialAmountPaise, initialPaymentMethod]);
+
   if (!isOpen) return null;
+
+  const payerMember = members.find((m) => m.user_id === payerId);
+  const payeeMember = members.find((m) => m.user_id === payeeId);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,9 +87,10 @@ export const RecordSettlementModal: React.FC<RecordSettlementModalProps> = ({
         reference_id: referenceId || null,
         notes: notes || null,
       });
+
       showConfirmation({
-        title: 'Settlement recorded successfully',
-        message: 'Payment recorded and pending recipient confirmation.',
+        title: 'Settlement request created',
+        message: `${payeeMember?.user_name || 'Payee'} will receive a notification to verify and confirm receipt.`,
         sound: 'settlement_success',
       });
       onSettlementRecorded(recorded);
@@ -96,7 +115,7 @@ export const RecordSettlementModal: React.FC<RecordSettlementModalProps> = ({
               <h3 className="text-lg font-bold text-[#171717] font-['Plus_Jakarta_Sans']">
                 Record Payment / Settlement
               </h3>
-              <p className="text-xs text-[#737373]">Record an off-app payment to settle balances</p>
+              <p className="text-xs text-[#737373]">Internal payment report requiring recipient confirmation</p>
             </div>
           </div>
           <button
@@ -118,7 +137,7 @@ export const RecordSettlementModal: React.FC<RecordSettlementModalProps> = ({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1">
-                Sender (Paid by) *
+                Payer (Who Paid) *
               </label>
               <select
                 value={payerId}
@@ -135,7 +154,7 @@ export const RecordSettlementModal: React.FC<RecordSettlementModalProps> = ({
 
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1">
-                Receiver (Paid to) *
+                Receiver (Paid To) *
               </label>
               <select
                 value={payeeId}
@@ -170,29 +189,29 @@ export const RecordSettlementModal: React.FC<RecordSettlementModalProps> = ({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1">
-                Payment Mode
+                Payment Method *
               </label>
               <select
                 value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value)}
                 className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-3 py-2 text-xs font-medium text-[#171717] focus:outline-none focus:border-[#16834A] transition-colors"
               >
-                <option value="UPI">UPI (GPay / PhonePe / Paytm)</option>
-                <option value="CASH">Cash</option>
-                <option value="BANK_TRANSFER">Bank IMPS / NEFT</option>
+                <option value="CASH">Cash (Given in hand)</option>
+                <option value="UPI">UPI paid outside ONNA-GO</option>
+                <option value="BANK_TRANSFER">Bank transfer (IMPS / NEFT)</option>
                 <option value="OTHER">Other</option>
               </select>
             </div>
 
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1">
-                Reference ID (UPI Ref)
+                Reference / Note
               </label>
               <input
                 type="text"
                 value={referenceId}
                 onChange={(e) => setReferenceId(e.target.value)}
-                placeholder="e.g. 402919293123"
+                placeholder={paymentMethod === 'CASH' ? 'e.g. In-person handoff' : 'e.g. UTR / Ref No'}
                 className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-3 py-2 text-xs text-[#171717] focus:outline-none focus:border-[#16834A] font-mono transition-colors"
               />
             </div>
@@ -200,24 +219,24 @@ export const RecordSettlementModal: React.FC<RecordSettlementModalProps> = ({
 
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1">
-              Notes
+              Optional Note
             </label>
             <input
               type="text"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Settled after dinner, hotel deposit return..."
+              placeholder="e.g. Settled for dinner and petrol..."
               className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-4 py-2 text-xs text-[#171717] focus:outline-none focus:border-[#16834A] transition-colors"
             />
           </div>
 
-          <div className="p-3 rounded-xl bg-[#FAFAF8] border border-[#E8E8E5] text-[#737373] text-[11px] space-y-1">
+          <div className="p-3 rounded-xl bg-[#FAFAF8] border border-[#E8E8E5] text-[#737373] text-[11px] space-y-1.5">
             <div className="flex items-center gap-1.5 font-semibold text-[#171717]">
               <ShieldCheck className="w-3.5 h-3.5 text-[#16834A]" />
-              <span>Settlement Verification Policy</span>
+              <span>In-App Settlement Policy</span>
             </div>
-            <p>
-              This payment begins in <strong>Pending Confirmation</strong> status. Once the recipient confirms receipt, effective group balances are updated.
+            <p className="leading-relaxed">
+              ONNA-GO records this settlement and does not independently verify an external bank or UPI transfer. The payment will remain in <strong>Pending Confirmation</strong> until the receiver ({payeeMember?.user_name || 'recipient'}) explicitly confirms receipt.
             </p>
           </div>
 
@@ -234,7 +253,7 @@ export const RecordSettlementModal: React.FC<RecordSettlementModalProps> = ({
               disabled={loading}
               className="inline-flex items-center gap-1.5 bg-[#16834A] hover:bg-[#136F3F] text-white font-semibold text-xs py-2 px-5 rounded-xl shadow-xs transition-all active:scale-[0.98] disabled:opacity-50"
             >
-              <span>{loading ? 'Recording...' : 'Record Payment'}</span>
+              <span>{loading ? 'Submitting...' : paymentMethod === 'CASH' ? 'I Gave Cash' : 'I Paid / Submit'}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>

@@ -17,6 +17,7 @@ import {
 import { api } from '@/lib/api-client';
 import { TripSummary } from '@/types';
 import { formatPaise, formatDate } from '@/lib/currency';
+import { downloadTripPdf, downloadTripCsv } from '@/lib/export-utils';
 
 interface TripSummaryModalProps {
   isOpen: boolean;
@@ -35,6 +36,8 @@ export const TripSummaryModal: React.FC<TripSummaryModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiedSummary, setCopiedSummary] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [downloadingCsv, setDownloadingCsv] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -317,7 +320,7 @@ export const TripSummaryModal: React.FC<TripSummaryModalProps> = ({
 
         {/* Modal Footer */}
         <div className="px-6 py-4 bg-[#FAFAF8] border-t border-[#E8E8E5] flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <button
               onClick={handleShareSummary}
               className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-[#F4F4F2] border border-[#E8E8E5] text-xs font-semibold text-[#171717] transition-colors"
@@ -325,15 +328,42 @@ export const TripSummaryModal: React.FC<TripSummaryModalProps> = ({
               {copiedSummary ? <Check className="w-3.5 h-3.5 text-[#16834A]" /> : <Share2 className="w-3.5 h-3.5" />}
               <span>{copiedSummary ? 'Summary Copied!' : 'Copy Summary'}</span>
             </button>
-            <a
-              href={`/api/v1/reports/trip/${tripId}/export/pdf`}
-              target="_blank"
-              rel="noreferrer"
-              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-[#F4F4F2] border border-[#E8E8E5] text-xs font-semibold text-[#171717] transition-colors"
+            <button
+              onClick={async () => {
+                if (downloadingPdf) return;
+                setDownloadingPdf(true);
+                try {
+                  await downloadTripPdf(tripId, summary?.trip_name || 'Trip');
+                } catch (err: any) {
+                  alert(err.message || 'Failed to download PDF');
+                } finally {
+                  setDownloadingPdf(false);
+                }
+              }}
+              disabled={downloadingPdf}
+              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-[#F4F4F2] border border-[#E8E8E5] text-xs font-semibold text-[#171717] transition-colors disabled:opacity-50"
             >
-              <FileText className="w-3.5 h-3.5 text-[#16834A]" />
-              <span>Export PDF</span>
-            </a>
+              {downloadingPdf ? <Loader2 className="w-3.5 h-3.5 animate-spin text-[#16834A]" /> : <FileText className="w-3.5 h-3.5 text-[#16834A]" />}
+              <span>{downloadingPdf ? 'Generating PDF...' : 'Download PDF'}</span>
+            </button>
+            <button
+              onClick={async () => {
+                if (downloadingCsv) return;
+                setDownloadingCsv(true);
+                try {
+                  await downloadTripCsv(tripId, summary?.trip_name || 'Trip');
+                } catch (err: any) {
+                  alert(err.message || 'Failed to download CSV');
+                } finally {
+                  setDownloadingCsv(false);
+                }
+              }}
+              disabled={downloadingCsv}
+              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-[#F4F4F2] border border-[#E8E8E5] text-xs font-semibold text-[#171717] transition-colors disabled:opacity-50"
+            >
+              {downloadingCsv ? <Loader2 className="w-3.5 h-3.5 animate-spin text-[#16834A]" /> : <FileSpreadsheet className="w-3.5 h-3.5 text-[#16834A]" />}
+              <span>{downloadingCsv ? 'Preparing CSV...' : 'Download CSV'}</span>
+            </button>
           </div>
 
           <button

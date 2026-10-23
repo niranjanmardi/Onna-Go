@@ -58,10 +58,13 @@ def get_token_from_request(
     request: Request,
     bearer_creds: Optional[HTTPAuthorizationCredentials] = Depends(security_bearer)
 ) -> Optional[str]:
-    """Extract token from Authorization Bearer header or HttpOnly session cookie."""
+    """Extract token from Authorization Bearer header, HttpOnly session cookie, or query parameter."""
     if bearer_creds and bearer_creds.credentials:
         return bearer_creds.credentials
     cookie_token = request.cookies.get(settings.COOKIE_NAME)
     if cookie_token:
         return cookie_token
+    query_token = request.query_params.get("token")
+    if query_token:
+        return query_token
     return None
