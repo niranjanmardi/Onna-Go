@@ -15,6 +15,9 @@ if (container) {
         </ErrorBoundary>
       </StrictMode>,
     );
+    if (typeof (window as any).__onReactMounted === 'function') {
+      (window as any).__onReactMounted();
+    }
   } catch (err) {
     console.error('Fatal mount error:', err);
     container.innerHTML = `

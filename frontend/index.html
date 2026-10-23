@@ -2,22 +2,178 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <link rel="icon" type="image/svg+xml" href="/logo.svg" />
     <link rel="manifest" href="/manifest.json" />
-    <title>ONNA-GO — Plan Together. Spend Smarter. Settle Fairly.</title>
+    <title>ONNA-GO — Ride Together. Vibe Together. Split Together.</title>
     
     <!-- Meta & SEO -->
     <meta name="description" content="Plan trips, organize rides, share experiences, and split expenses with friends — all in one place with ONNA-GO." />
     <meta name="theme-color" content="#16834A" />
-    <meta property="og:title" content="ONNA-GO — Good trips. Great friends. No awkward splits." />
+    <meta property="og:title" content="ONNA-GO — Ride Together. Vibe Together. Split Together." />
     <meta property="og:description" content="Plan trips, organize rides, share experiences, and split expenses with friends — all in one place." />
     <meta property="og:type" content="website" />
     
-    <!-- Typography: Plus Jakarta Sans & Inter -->
+    <!-- Typography: Plus Jakarta Sans & Inter with font-display: swap -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <!-- Critical Splash Screen & Pre-Paint Inline CSS (Zero external CSS dependency) -->
+    <style id="splash-critical-css">
+      :root {
+        --splash-bg: #FAFAF8;
+        --splash-text: #171717;
+        --splash-subtext: #737373;
+        --splash-green: #16834A;
+        --splash-green-soft: #DDF5E5;
+        --splash-border: #E8E8E5;
+      }
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: var(--splash-bg);
+        color: var(--splash-text);
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      #splash-screen {
+        position: fixed;
+        inset: 0;
+        z-index: 999999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background-color: var(--splash-bg);
+        padding: 24px;
+        text-align: center;
+        box-sizing: border-box;
+        transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      .splash-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        max-width: 420px;
+        width: 100%;
+      }
+      .splash-brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 28px;
+      }
+      .splash-icon-wrapper {
+        position: relative;
+        width: 52px;
+        height: 52px;
+        background: #171717;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+      }
+      .splash-icon-pulse {
+        position: absolute;
+        inset: -3px;
+        border-radius: 17px;
+        border: 2px solid rgba(22, 131, 74, 0.4);
+        animation: splash-pulse 2.2s infinite ease-in-out;
+      }
+      .splash-brand-text {
+        text-align: left;
+      }
+      .splash-wordmark {
+        font-size: 24px;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        color: #171717;
+        font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+        line-height: 1.1;
+      }
+      .splash-tagline {
+        font-size: 12px;
+        color: var(--splash-subtext);
+        font-weight: 500;
+        margin-top: 3px;
+      }
+      .splash-spinner {
+        width: 32px;
+        height: 32px;
+        border: 2.5px solid var(--splash-border);
+        border-top-color: var(--splash-green);
+        border-radius: 50%;
+        animation: splash-spin 0.8s linear infinite;
+        margin: 8px 0;
+      }
+      .splash-title {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--splash-text);
+        margin-top: 14px;
+        min-height: 22px;
+      }
+      .splash-submessage {
+        font-size: 13px;
+        color: var(--splash-subtext);
+        margin-top: 4px;
+        min-height: 20px;
+        transition: opacity 0.25s ease;
+      }
+      .splash-elapsed-hint {
+        display: none;
+        margin-top: 16px;
+        padding: 6px 14px;
+        background: #F0F0ED;
+        border: 1px solid var(--splash-border);
+        border-radius: 9999px;
+        font-size: 11.5px;
+        color: #666660;
+        line-height: 1.4;
+      }
+      .splash-error-box {
+        display: none;
+        margin-top: 20px;
+        background: #FFF1F2;
+        border: 1px solid #FECDD3;
+        border-radius: 12px;
+        padding: 14px 18px;
+        text-align: center;
+      }
+      .splash-retry-btn {
+        margin-top: 12px;
+        padding: 9px 20px;
+        background: var(--splash-green);
+        color: #FFFFFF;
+        font-weight: 600;
+        font-size: 13px;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: background 0.15s ease, transform 0.1s ease;
+      }
+      .splash-retry-btn:hover {
+        background: #136F3F;
+      }
+      .splash-retry-btn:active {
+        transform: scale(0.97);
+      }
+      @keyframes splash-spin {
+        to { transform: rotate(360deg); }
+      }
+      @keyframes splash-pulse {
+        0%, 100% { transform: scale(1); opacity: 0.3; }
+        50% { transform: scale(1.08); opacity: 0.9; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #splash-screen, .splash-spinner, .splash-icon-pulse {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+    </style>
 
     <!-- Global Early Diagnostic Handler -->
     <script>
@@ -34,13 +190,15 @@
       });
     </script>
   </head>
-  <body class="bg-[#FAFAF8] text-[#171717] antialiased selection:bg-[#DDF5E5] selection:text-[#16834A]" style="margin: 0; background-color: #FAFAF8; color: #171717;">
-    <div id="root">
-      <!-- Fallback / Initial Branded Loading Screen (Replaced once React mounts) -->
-      <div style="min-height: 100vh; background-color: #FAFAF8; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: 'Inter', system-ui, -apple-system, sans-serif; text-align: center; padding: 24px;">
-        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 24px;">
-          <div style="width: 44px; height: 44px; background: #171717; border-radius: 12px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+  <body class="bg-[#FAFAF8] text-[#171717] antialiased selection:bg-[#DDF5E5] selection:text-[#16834A]">
+    <!-- Instant Zero-Layout-Shift Branded Splash Overlay -->
+    <div id="splash-screen" role="status" aria-live="polite">
+      <div class="splash-card">
+        <div class="splash-brand">
+          <div class="splash-icon-wrapper">
+            <div class="splash-icon-pulse"></div>
+            <!-- ONNA-GO Wheel & Kinetic Loop Signature Logo -->
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <circle cx="12" cy="12" r="8" />
               <line x1="12" y1="2" x2="12" y2="6" />
               <line x1="12" y1="18" x2="12" y2="22" />
@@ -48,29 +206,210 @@
               <line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
             </svg>
           </div>
-          <div style="text-align: left;">
-            <div style="font-size: 22px; font-weight: 700; letter-spacing: -0.02em; color: #171717; font-family: 'Plus Jakarta Sans', sans-serif;">
-              ONNA-GO
-            </div>
-            <div style="font-size: 12px; color: #737373;">Ride Together. Vibe Together. Split Together.</div>
+          <div class="splash-brand-text">
+            <div class="splash-wordmark">ONNA-GO</div>
+            <div class="splash-tagline">Ride Together. Vibe Together. Split Together.</div>
           </div>
         </div>
 
-        <div style="width: 28px; height: 28px; border: 2.5px solid #E8E8E5; border-top-color: #16834A; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
-        <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
-        
-        <p style="margin-top: 14px; font-size: 13px; color: #737373;">Loading ONNA-GO...</p>
+        <div id="splash-loading-ring" class="splash-spinner"></div>
+        <div id="splash-title" class="splash-title">Loading ONNA-GO...</div>
+        <div id="splash-submessage" class="splash-submessage">Preparing your travel circle...</div>
+
+        <!-- Elapsed hint after 15s cold starts -->
+        <div id="splash-elapsed-hint" class="splash-elapsed-hint">
+          First load can take up to a minute while the server wakes up.
+        </div>
+
+        <!-- Timeout error state after 90s -->
+        <div id="splash-error-box" class="splash-error-box">
+          <div style="font-weight: 600; font-size: 13.5px; color: #E11D48;">Server wake-up took longer than expected</div>
+          <div style="font-size: 12px; color: #881337; margin-top: 4px;">Render free instances sleep after inactivity. Click below to reconnect.</div>
+          <button id="splash-retry-btn" class="splash-retry-btn" onclick="window.__retrySplashConnection && window.__retrySplashConnection()">Retry Connection</button>
+        </div>
 
         <!-- Dynamic error banner if JS fails to execute -->
         <div id="onna-early-error" style="display: none; margin-top: 20px; max-width: 480px; padding: 12px 16px; background: #FFE4E6; border: 1px solid #FDA4AF; border-radius: 10px; color: #E11D48; font-size: 12px; font-family: monospace; text-align: left;"></div>
 
         <noscript>
-          <div style="margin-top: 20px; padding: 12px; background: #F4F4F2; border-radius: 8px; color: #E11D48; font-size: 13px;">
-            JavaScript is required to run ONNA-GO. Please enable JavaScript in your browser.
+          <div style="margin-top: 20px; padding: 12px 18px; background: #FEE2E2; border-radius: 8px; color: #991B1B; font-size: 13px;">
+            JavaScript is required to run ONNA-GO. Please enable JavaScript in your browser settings.
           </div>
         </noscript>
       </div>
     </div>
+
+    <!-- Health Check & Wake-Up Controller Script -->
+    <script>
+      (function() {
+        var startTime = Date.now();
+        var wakeUpTriggered = false;
+        var healthCheckComplete = false;
+        var reactMounted = false;
+        var currentRetryDelay = 1500;
+        var timeoutLimit = 90000; // 90 seconds
+        var slowThreshold = 2000; // 2 seconds
+        var elapsedHintThreshold = 15000; // 15 seconds
+        
+        var friendlyMessages = [
+          "Packing the snacks for the road...",
+          "Warming up the engine...",
+          "Checking tyre pressures & route maps...",
+          "Connecting riders & splitting fares...",
+          "Almost there, putting helmets on...",
+          "Syncing travel groups...",
+          "Fueling up for the journey..."
+        ];
+        var msgIndex = 0;
+        var msgInterval = null;
+        var slowTimer = null;
+        var elapsedHintTimer = null;
+        var timeoutTimer = null;
+        var retryTimeout = null;
+
+        function updateMessage(text) {
+          var el = document.getElementById('splash-submessage');
+          if (el) {
+            el.style.opacity = '0.3';
+            setTimeout(function() {
+              el.innerText = text;
+              el.style.opacity = '1';
+            }, 150);
+          }
+        }
+
+        function showWakeUpState() {
+          if (wakeUpTriggered || healthCheckComplete) return;
+          wakeUpTriggered = true;
+          var titleEl = document.getElementById('splash-title');
+          var subEl = document.getElementById('splash-submessage');
+          if (titleEl) titleEl.innerText = "Waking things up...";
+          if (subEl) subEl.innerText = friendlyMessages[0];
+
+          msgInterval = setInterval(function() {
+            if (healthCheckComplete) {
+              if (msgInterval) clearInterval(msgInterval);
+              return;
+            }
+            msgIndex = (msgIndex + 1) % friendlyMessages.length;
+            updateMessage(friendlyMessages[msgIndex]);
+          }, 3200);
+        }
+
+        function showElapsedHint() {
+          var hintEl = document.getElementById('splash-elapsed-hint');
+          if (hintEl && !healthCheckComplete) {
+            hintEl.style.display = 'inline-block';
+          }
+        }
+
+        function showTimeoutError() {
+          if (healthCheckComplete) return;
+          if (msgInterval) clearInterval(msgInterval);
+          var titleEl = document.getElementById('splash-title');
+          var subEl = document.getElementById('splash-submessage');
+          var hintEl = document.getElementById('splash-elapsed-hint');
+          var ringEl = document.getElementById('splash-loading-ring');
+          var errEl = document.getElementById('splash-error-box');
+
+          if (titleEl) titleEl.innerText = "Waking up took longer than expected";
+          if (subEl) subEl.innerText = "Your free cloud instance might need another wake-up nudge.";
+          if (hintEl) hintEl.style.display = 'none';
+          if (ringEl) ringEl.style.display = 'none';
+          if (errEl) errEl.style.display = 'block';
+        }
+
+        function dismissSplash() {
+          var splash = document.getElementById('splash-screen');
+          if (!splash) return;
+          if (msgInterval) clearInterval(msgInterval);
+          if (slowTimer) clearTimeout(slowTimer);
+          if (elapsedHintTimer) clearTimeout(elapsedHintTimer);
+          if (timeoutTimer) clearTimeout(timeoutTimer);
+          if (retryTimeout) clearTimeout(retryTimeout);
+
+          var prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          if (prefersReduced) {
+            if (splash.parentNode) splash.parentNode.removeChild(splash);
+            return;
+          }
+
+          splash.style.opacity = '0';
+          splash.style.pointerEvents = 'none';
+          setTimeout(function() {
+            if (splash.parentNode) splash.parentNode.removeChild(splash);
+          }, 420);
+        }
+
+        function checkReady() {
+          if (healthCheckComplete && reactMounted) {
+            dismissSplash();
+          }
+        }
+
+        window.__onReactMounted = function() {
+          reactMounted = true;
+          checkReady();
+        };
+
+        window.__retrySplashConnection = function() {
+          var ringEl = document.getElementById('splash-loading-ring');
+          var errEl = document.getElementById('splash-error-box');
+          var titleEl = document.getElementById('splash-title');
+          if (ringEl) ringEl.style.display = 'block';
+          if (errEl) errEl.style.display = 'none';
+          if (titleEl) titleEl.innerText = "Waking things up...";
+          startTime = Date.now();
+          wakeUpTriggered = false;
+          currentRetryDelay = 1500;
+          showWakeUpState();
+          ping();
+        };
+
+        // Trigger wake-up state if server takes >2s
+        slowTimer = setTimeout(showWakeUpState, slowThreshold);
+        // Trigger elapsed hint if server takes >15s
+        elapsedHintTimer = setTimeout(showElapsedHint, elapsedHintThreshold);
+        // Trigger timeout error if server takes >90s
+        timeoutTimer = setTimeout(showTimeoutError, timeoutLimit);
+
+        function ping() {
+          var controller = window.AbortController ? new AbortController() : null;
+          var timeoutId = controller ? setTimeout(function() { controller.abort(); }, 8000) : null;
+          
+          fetch('/health', {
+            method: 'GET',
+            signal: controller ? controller.signal : undefined,
+            headers: { 'Accept': 'application/json' }
+          })
+          .then(function(res) {
+            if (timeoutId) clearTimeout(timeoutId);
+            if (res.ok) {
+              healthCheckComplete = true;
+              checkReady();
+            } else {
+              throw new Error('Health returned ' + res.status);
+            }
+          })
+          .catch(function(err) {
+            if (timeoutId) clearTimeout(timeoutId);
+            if (Date.now() - startTime >= timeoutLimit) {
+              showTimeoutError();
+              return;
+            }
+            // Exponential backoff with random jitter (±300ms)
+            var jitter = (Math.random() - 0.5) * 600;
+            var nextDelay = Math.min(Math.max(1000, currentRetryDelay + jitter), 8000);
+            currentRetryDelay = Math.min(currentRetryDelay * 1.5, 8000);
+            retryTimeout = setTimeout(ping, nextDelay);
+          });
+        }
+
+        ping();
+      })();
+    </script>
+
+    <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -1,20 +1,29 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './features/auth/AuthContext';
-import { LandingPage } from './features/landing/LandingPage';
-import { LoginPage } from './features/auth/LoginPage';
-import { RegisterPage } from './features/auth/RegisterPage';
-import { ForgotPasswordPage } from './features/auth/ForgotPasswordPage';
 import { AppLayout } from './components/layout/AppLayout';
-import { DashboardPage } from './features/dashboard/DashboardPage';
-import { TripsListPage } from './features/trips/TripsListPage';
-import { TripDetailPage } from './features/trips/TripDetailPage';
-import { NotificationsPage } from './features/notifications/NotificationsPage';
-import { SettingsPage } from './features/settings/SettingsPage';
-import { FriendsPage } from './features/friends/FriendsPage';
 import { FeedbackProvider } from './context/FeedbackContext';
 import { Logo } from './components/brand/Logo';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+
+// Lazy-loaded route components for high performance and fast initial load
+const LandingPage = React.lazy(() => import('./features/landing/LandingPage').then(m => ({ default: m.LandingPage })));
+const LoginPage = React.lazy(() => import('./features/auth/LoginPage').then(m => ({ default: m.LoginPage })));
+const RegisterPage = React.lazy(() => import('./features/auth/RegisterPage').then(m => ({ default: m.RegisterPage })));
+const ForgotPasswordPage = React.lazy(() => import('./features/auth/ForgotPasswordPage').then(m => ({ default: m.ForgotPasswordPage })));
+const DashboardPage = React.lazy(() => import('./features/dashboard/DashboardPage').then(m => ({ default: m.DashboardPage })));
+const TripsListPage = React.lazy(() => import('./features/trips/TripsListPage').then(m => ({ default: m.TripsListPage })));
+const TripDetailPage = React.lazy(() => import('./features/trips/TripDetailPage').then(m => ({ default: m.TripDetailPage })));
+const NotificationsPage = React.lazy(() => import('./features/notifications/NotificationsPage').then(m => ({ default: m.NotificationsPage })));
+const SettingsPage = React.lazy(() => import('./features/settings/SettingsPage').then(m => ({ default: m.SettingsPage })));
+const FriendsPage = React.lazy(() => import('./features/friends/FriendsPage').then(m => ({ default: m.FriendsPage })));
+
+const RouteLoadingFallback: React.FC = () => (
+  <div className="min-h-[50vh] flex flex-col items-center justify-center p-8 text-center" aria-live="polite">
+    <div className="w-7 h-7 border-2 border-[#E8E8E5] border-t-[#16834A] rounded-full animate-spin" />
+    <span className="sr-only">Loading section...</span>
+  </div>
+);
 
 // Protected Route Guard
 const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -83,52 +92,54 @@ export const App: React.FC = () => {
       <AuthProvider>
         <FeedbackProvider>
           <BrowserRouter>
-            <Routes>
-              {/* Public landing */}
-              <Route path="/" element={<LandingPage />} />
+            <Suspense fallback={<RouteLoadingFallback />}>
+              <Routes>
+                {/* Public landing */}
+                <Route path="/" element={<LandingPage />} />
 
-              {/* Auth routes */}
-              <Route
-                path="/login"
-                element={
-                  <RedirectIfAuth>
-                    <LoginPage />
-                  </RedirectIfAuth>
-                }
-              />
-              <Route
-                path="/register"
-                element={
-                  <RedirectIfAuth>
-                    <RegisterPage />
-                  </RedirectIfAuth>
-                }
-              />
-              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                {/* Auth routes */}
+                <Route
+                  path="/login"
+                  element={
+                    <RedirectIfAuth>
+                      <LoginPage />
+                    </RedirectIfAuth>
+                  }
+                />
+                <Route
+                  path="/register"
+                  element={
+                    <RedirectIfAuth>
+                      <RegisterPage />
+                    </RedirectIfAuth>
+                  }
+                />
+                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
-              {/* Protected Application Routes */}
-              <Route
-                element={
-                  <RequireAuth>
-                    <AppLayout />
-                  </RequireAuth>
-                }
-              >
-                <Route path="/dashboard" element={<DashboardPage />} />
-                <Route path="/trips" element={<TripsListPage />} />
-                <Route path="/trips/new" element={<TripsListPage />} />
-                <Route path="/trips/join" element={<TripsListPage />} />
-                <Route path="/history" element={<TripsListPage />} />
-                <Route path="/trips/:id" element={<TripDetailPage />} />
-                <Route path="/notifications" element={<NotificationsPage />} />
-                <Route path="/friends" element={<FriendsPage />} />
-                <Route path="/settings" element={<SettingsPage />} />
-                <Route path="/profile" element={<SettingsPage />} />
-              </Route>
+                {/* Protected Application Routes */}
+                <Route
+                  element={
+                    <RequireAuth>
+                      <AppLayout />
+                    </RequireAuth>
+                  }
+                >
+                  <Route path="/dashboard" element={<DashboardPage />} />
+                  <Route path="/trips" element={<TripsListPage />} />
+                  <Route path="/trips/new" element={<TripsListPage />} />
+                  <Route path="/trips/join" element={<TripsListPage />} />
+                  <Route path="/history" element={<TripsListPage />} />
+                  <Route path="/trips/:id" element={<TripDetailPage />} />
+                  <Route path="/notifications" element={<NotificationsPage />} />
+                  <Route path="/friends" element={<FriendsPage />} />
+                  <Route path="/settings" element={<SettingsPage />} />
+                  <Route path="/profile" element={<SettingsPage />} />
+                </Route>
 
-              {/* Catch-all 404 */}
-              <Route path="*" element={<NotFoundPage />} />
-            </Routes>
+                {/* Catch-all 404 */}
+                <Route path="*" element={<NotFoundPage />} />
+              </Routes>
+            </Suspense>
           </BrowserRouter>
         </FeedbackProvider>
       </AuthProvider>
@@ -137,3 +148,4 @@ export const App: React.FC = () => {
 };
 
 export default App;
+

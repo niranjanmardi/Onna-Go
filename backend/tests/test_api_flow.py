@@ -16,7 +16,7 @@ def test_health_check_branding():
     data = response.json()
     assert data["app"] == "ONNA-GO"
     assert data["tagline"] == "Ride Together. Vibe Together. Split Together."
-    assert data["status"] == "healthy"
+    assert data["status"] in ("ok", "healthy")
 
 def test_full_trip_expense_settlement_workflow():
     # 1. Register User 1 (Rider Alice)

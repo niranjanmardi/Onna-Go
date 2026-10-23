@@ -58,12 +58,13 @@ async def add_security_and_timing_headers(request: Request, call_next):
     response.headers["X-XSS-Protection"] = "1; mode=block"
     return response
 
-# Health check
+# Health check (lightweight, zero DB calls, instant response)
 @app.get("/health", tags=["Health"])
 @app.get(f"{settings.API_V1_STR}/health", tags=["Health"])
 def health_check():
     return {
-        "status": "healthy",
+        "status": "ok",
+        "health": "healthy",
         "app": settings.PROJECT_NAME,
         "tagline": settings.TAGLINE,
         "version": settings.VERSION,
@@ -90,11 +91,17 @@ import os
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
+class ImmutableStaticFiles(StaticFiles):
+    async def get_response(self, path: str, scope):
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return response
+
 frontend_dist = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "frontend", "dist")
 if os.path.isdir(frontend_dist):
     assets_dir = os.path.join(frontend_dist, "assets")
     if os.path.isdir(assets_dir):
-        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+        app.mount("/assets", ImmutableStaticFiles(directory=assets_dir), name="assets")
 
     @app.get("/{full_path:path}", include_in_schema=False)
     async def serve_spa(full_path: str):
@@ -102,10 +109,13 @@ if os.path.isdir(frontend_dist):
             return JSONResponse(status_code=404, content={"detail": "Not Found"})
         file_path = os.path.join(frontend_dist, full_path)
         if full_path and os.path.isfile(file_path):
-            return FileResponse(file_path)
+            headers = {}
+            if full_path.startswith("assets/"):
+                headers["Cache-Control"] = "public, max-age=31536000, immutable"
+            return FileResponse(file_path, headers=headers)
         index_file = os.path.join(frontend_dist, "index.html")
         if os.path.isfile(index_file):
-            return FileResponse(index_file)
+            return FileResponse(index_file, headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
         return JSONResponse(status_code=404, content={"detail": "Not Found"})
 
 if __name__ == "__main__":
