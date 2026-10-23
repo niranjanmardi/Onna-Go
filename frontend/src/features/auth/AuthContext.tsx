@@ -5,9 +5,14 @@ import { User } from '@/types';
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, fullName: string, password: string, defaultCurrency?: string) => Promise<void>;
-  googleLogin: (credential: string) => Promise<void>;
+  login: (identifier: string, password: string) => Promise<void>;
+  register: (
+    username: string,
+    fullName: string,
+    email: string,
+    password: string,
+    defaultCurrency?: string
+  ) => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
@@ -52,11 +57,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     refreshUser();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (identifier: string, password: string) => {
     setIsLoading(true);
     try {
       const data = await api.post<{ access_token: string; user: User }>('/auth/login', {
-        email,
+        email: identifier.trim(),
         password,
       });
       localStorage.setItem('onnago_token', data.access_token);
@@ -68,32 +73,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const register = async (
-    email: string,
+    username: string,
     fullName: string,
+    email: string,
     password: string,
     defaultCurrency = 'INR'
   ) => {
     setIsLoading(true);
     try {
       const data = await api.post<{ access_token: string; user: User }>('/auth/register', {
-        email,
-        full_name: fullName,
+        username: username.trim().toLowerCase(),
+        full_name: fullName.trim(),
+        email: email.trim().toLowerCase(),
         password,
         default_currency: defaultCurrency,
-      });
-      localStorage.setItem('onnago_token', data.access_token);
-      localStorage.setItem('onnago_user', JSON.stringify(data.user));
-      setUser(data.user);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const googleLogin = async (credential: string) => {
-    setIsLoading(true);
-    try {
-      const data = await api.post<{ access_token: string; user: User }>('/auth/google', {
-        credential,
       });
       localStorage.setItem('onnago_token', data.access_token);
       localStorage.setItem('onnago_user', JSON.stringify(data.user));
@@ -131,10 +124,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const uploadAvatar = async (file: File): Promise<string> => {
-    const formData = new FormData();
-    formData.append('file', file);
-    const res = await api.post<{ message: string; avatar_url: string }>('/auth/avatar', formData);
-    if (res.avatar_url) {
+    const res = await api.uploadFile('/auth/avatar', file);
+    if (res && res.avatar_url) {
       const updatedUser = { ...user!, avatar_url: res.avatar_url };
       setUser(updatedUser);
       localStorage.setItem('onnago_user', JSON.stringify(updatedUser));
@@ -159,7 +150,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoading,
         login,
         register,
-        googleLogin,
         logout,
         updateProfile,
         changePassword,

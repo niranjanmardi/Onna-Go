@@ -22,6 +22,7 @@ def test_full_trip_expense_settlement_workflow():
     # 1. Register User 1 (Rider Alice)
     alice_email = "alice_rider@rupaii.app"
     res1 = client.post("/api/v1/auth/register", json={
+        "username": "alice_rider",
         "email": alice_email,
         "full_name": "Alice Sharma",
         "password": "Password123!",
@@ -41,6 +42,7 @@ def test_full_trip_expense_settlement_workflow():
     # 2. Register User 2 (Rider Bob)
     bob_email = "bob_biker@rupaii.app"
     res2 = client.post("/api/v1/auth/register", json={
+        "username": "bob_biker",
         "email": bob_email,
         "full_name": "Bob Verma",
         "password": "Password123!",

@@ -122,3 +122,27 @@ export const api = {
     return response.json();
   },
 };
+
+export function getAvatarUrl(avatarUrl?: string | null): string | undefined {
+  if (!avatarUrl) return undefined;
+  if (
+    avatarUrl.startsWith('http://') ||
+    avatarUrl.startsWith('https://') ||
+    avatarUrl.startsWith('data:') ||
+    avatarUrl.startsWith('blob:')
+  ) {
+    return avatarUrl;
+  }
+  if (avatarUrl.startsWith('/api/')) {
+    if (API_BASE_URL.startsWith('http')) {
+      try {
+        const parsedBase = new URL(API_BASE_URL);
+        return `${parsedBase.origin}${avatarUrl}`;
+      } catch {
+        // Fallback
+      }
+    }
+  }
+  return avatarUrl;
+}
+

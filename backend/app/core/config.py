@@ -9,10 +9,6 @@ class Settings(BaseSettings):
     VERSION: str = "1.0.0"
     API_V1_STR: str = "/api/v1"
     
-    # Google OAuth
-    GOOGLE_CLIENT_ID: str = ""
-    GOOGLE_CLIENT_SECRET: str = ""
-    
     # Security
     SECRET_KEY: str = "onnago-super-secret-key-change-in-production-2026-xyz-security"
     ALGORITHM: str = "HS256"

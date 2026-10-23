@@ -5,8 +5,10 @@ from fastapi.responses import JSONResponse
 
 from backend.app.core.config import settings
 from backend.app.core.database import Base, engine
+from backend.app.core.migration import run_migrations
 from backend.app.api.v1.auth import router as auth_router
 from backend.app.api.v1.trips import router as trips_router
+from backend.app.api.v1.friends import router as friends_router
 from backend.app.api.v1.activities import router as activities_router
 from backend.app.api.v1.expenses import router as expenses_router
 from backend.app.api.v1.balances import router as balances_router
@@ -17,8 +19,13 @@ from backend.app.api.v1.notifications import router as notifications_router
 from backend.app.api.v1.receipts import router as receipts_router
 from backend.app.api.v1.dashboard import router as dashboard_router
 
-# Ensure tables exist
+# Ensure tables and migrations exist
 Base.metadata.create_all(bind=engine)
+try:
+    run_migrations()
+except Exception as e:
+    import logging
+    logging.getLogger(__name__).warning(f"Schema migration warning: {e}")
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -67,6 +74,7 @@ def health_check():
 api_v1_prefix = settings.API_V1_STR
 app.include_router(auth_router, prefix=api_v1_prefix)
 app.include_router(trips_router, prefix=api_v1_prefix)
+app.include_router(friends_router, prefix=api_v1_prefix)
 app.include_router(activities_router, prefix=api_v1_prefix)
 app.include_router(expenses_router, prefix=api_v1_prefix)
 app.include_router(balances_router, prefix=api_v1_prefix)

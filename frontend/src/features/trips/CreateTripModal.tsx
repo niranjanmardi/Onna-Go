@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { X, Compass, MapPin, Calendar, Coins, ArrowRight, AlertCircle } from 'lucide-react';
-import { api } from '@/lib/api-client';
-import { Trip } from '@/types';
+import React, { useState, useEffect } from 'react';
+import { X, Compass, MapPin, Calendar, Coins, ArrowRight, AlertCircle, Users, Check, Loader2 } from 'lucide-react';
+import { api, getAvatarUrl } from '@/lib/api-client';
+import { Trip, Friend } from '@/types';
 import { rupeesToPaise } from '@/lib/currency';
 
 interface CreateTripModalProps {
@@ -25,7 +25,31 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Friends selection state
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>([]);
+  const [loadingFriends, setLoadingFriends] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setLoadingFriends(true);
+      api.get<Friend[]>('/friends')
+        .then((data) => setFriends(data))
+        .catch(() => setFriends([]))
+        .finally(() => setLoadingFriends(false));
+    } else {
+      setSelectedFriendIds([]);
+      setError(null);
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
+
+  const toggleFriend = (id: string) => {
+    setSelectedFriendIds((prev) =>
+      prev.includes(id) ? prev.filter((fId) => fId !== id) : [...prev, id]
+    );
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,14 +59,26 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
     try {
       const budgetPaise = budgetRupees ? rupeesToPaise(budgetRupees) : null;
       const trip = await api.post<Trip>('/trips/', {
-        name,
-        description: description || null,
-        destination: destination || null,
+        name: name.trim(),
+        description: description ? description.trim() : null,
+        destination: destination ? destination.trim() : null,
         start_date: startDate ? new Date(startDate).toISOString() : null,
         end_date: endDate ? new Date(endDate).toISOString() : null,
         currency,
         budget_paise: budgetPaise,
       });
+
+      // Send invitations to selected friends
+      if (selectedFriendIds.length > 0) {
+        try {
+          await api.post(`/trips/${trip.id}/invite`, {
+            friend_ids: selectedFriendIds,
+          });
+        } catch {
+          // Trip was created, non-blocking invitation error
+        }
+      }
+
       onTripCreated(trip);
       onClose();
     } catch (err: any) {
@@ -53,8 +89,8 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/25 backdrop-blur-xs">
-      <div className="bg-white rounded-2xl border border-[#E8E8E5] shadow-xl max-w-lg w-full p-6 sm:p-7 relative max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-xs">
+      <div className="bg-white rounded-2xl border border-[#E8E8E5] shadow-xl max-w-lg w-full p-5 sm:p-7 relative max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between pb-4 border-b border-[#E8E8E5]">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-[#DDF5E5] text-[#16834A] flex items-center justify-center">
@@ -64,7 +100,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
               <h3 className="text-lg font-bold text-[#171717] font-['Plus_Jakarta_Sans']">
                 Start a New Trip
               </h3>
-              <p className="text-xs text-[#737373]">Create your group and invite friends with ONNA-GO</p>
+              <p className="text-xs text-[#737373]">Create journey and invite friends with ONNA-GO</p>
             </div>
           </div>
           <button
@@ -76,7 +112,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
         </div>
 
         {error && (
-          <div className="mt-4 p-3 rounded-xl bg-[#FFE4E6] border border-[#FDA4AF] text-[#E11D48] text-xs flex items-center gap-2">
+          <div className="mt-4 p-3 rounded-xl bg-[#FFE4E6] border border-[#FDA4AF] text-[#E11D48] text-xs flex items-center gap-2 animate-fadeIn">
             <AlertCircle className="w-4 h-4 flex-shrink-0" />
             <span>{error}</span>
           </div>
@@ -127,7 +163,6 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                 <option value="USD">USD ($) — US Dollar</option>
                 <option value="EUR">EUR (€) — Euro</option>
                 <option value="GBP">GBP (£) — British Pound</option>
-                <option value="AED">AED (د.إ) — UAE Dirham</option>
               </select>
             </div>
           </div>
@@ -157,6 +192,77 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
             </div>
           </div>
 
+          {/* Friends Selection Section */}
+          <div className="pt-1">
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373]">
+                Invite Friends (Optional)
+              </label>
+              <span className="text-[11px] text-[#A3A3A3]">
+                {selectedFriendIds.length} selected
+              </span>
+            </div>
+
+            {loadingFriends ? (
+              <div className="p-3 text-center text-xs text-[#737373]">
+                <Loader2 className="w-4 h-4 animate-spin inline-block mr-1" />
+                Loading friends...
+              </div>
+            ) : friends.length === 0 ? (
+              <p className="text-xs text-[#737373] bg-[#FAFAF8] p-3 rounded-xl border border-[#E8E8E5]">
+                No friends added yet. You can invite friends later from the trip page or share the invite code.
+              </p>
+            ) : (
+              <div className="max-h-36 overflow-y-auto space-y-1.5 border border-[#E8E8E5] rounded-xl p-2 bg-[#FAFAF8]">
+                {friends.map((friend) => {
+                  const isSelected = selectedFriendIds.includes(friend.id);
+                  const avatarSrc = getAvatarUrl(friend.avatar_url);
+
+                  return (
+                    <div
+                      key={friend.id}
+                      onClick={() => toggleFriend(friend.id)}
+                      className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors ${
+                        isSelected
+                          ? 'bg-[#DDF5E5] text-[#16834A]'
+                          : 'bg-white hover:bg-[#F4F4F2] text-[#171717]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        {avatarSrc ? (
+                          <img
+                            src={avatarSrc}
+                            alt={friend.display_name}
+                            className="w-6 h-6 rounded-md object-cover"
+                          />
+                        ) : (
+                          <div className="w-6 h-6 rounded-md bg-[#171717] text-white flex items-center justify-center font-bold text-[10px]">
+                            {friend.display_name[0].toUpperCase()}
+                          </div>
+                        )}
+                        <span className="text-xs font-medium truncate">
+                          {friend.display_name}
+                        </span>
+                        <span className="text-[11px] text-[#737373] truncate">
+                          @{friend.username}
+                        </span>
+                      </div>
+                      <div
+                        className={`w-4 h-4 rounded-md border flex items-center justify-center ${
+                          isSelected
+                            ? 'bg-[#16834A] border-[#16834A] text-white'
+                            : 'border-[#E8E8E5] bg-white'
+                        }`}
+                      >
+                        {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1">
               Estimated Total Budget ({currency})
@@ -173,14 +279,14 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
 
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1">
-              Description or Notes
+              Description or Route Notes
             </label>
             <textarea
               rows={2}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Trip guidelines, bike route checkpoints, stay arrangements..."
-              className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-3.5 py-2.5 text-[#171717] text-sm focus:outline-none focus:border-[#16834A] transition-colors resize-none"
+              placeholder="Trip guidelines, checkpoints, stay arrangements..."
+              className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-3.5 py-2 text-[#171717] text-sm focus:outline-none focus:border-[#16834A] transition-colors resize-none"
             />
           </div>
 

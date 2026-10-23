@@ -21,8 +21,11 @@ import {
   FileSpreadsheet,
   FileText,
   Trash2,
+  UserPlus,
+  X,
+  Loader2,
 } from 'lucide-react';
-import { api } from '@/lib/api-client';
+import { api, getAvatarUrl } from '@/lib/api-client';
 import {
   Trip,
   TripMember,
@@ -33,6 +36,8 @@ import {
   Activity,
   Budget,
   TripReport,
+  Friend,
+  TripInvitation,
 } from '@/types';
 import { formatPaise, formatDate } from '@/lib/currency';
 import { useAuth } from '@/features/auth/AuthContext';
@@ -53,6 +58,15 @@ export const TripDetailPage: React.FC = () => {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [report, setReport] = useState<TripReport | null>(null);
+
+  // Invitations state
+  const [invitations, setInvitations] = useState<TripInvitation[]>([]);
+  const [isInviteFriendsOpen, setIsInviteFriendsOpen] = useState(false);
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [selectedFriendsToInvite, setSelectedFriendsToInvite] = useState<string[]>([]);
+  const [loadingFriends, setLoadingFriends] = useState(false);
+  const [sendingInvites, setSendingInvites] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<'expenses' | 'balances' | 'settlements' | 'activities' | 'budgets' | 'reports' | 'members'>('expenses');
   const [loading, setLoading] = useState(true);
@@ -105,6 +119,14 @@ export const TripDetailPage: React.FC = () => {
       setActivities(activitiesData);
       setBudgets(budgetsData);
       setReport(reportData);
+
+      // Load trip invitations (owner/admin)
+      try {
+        const invData = await api.get<TripInvitation[]>(`/trips/${id}/invitations`);
+        setInvitations(invData);
+      } catch {
+        setInvitations([]);
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to load trip details.');
     } finally {
@@ -115,6 +137,56 @@ export const TripDetailPage: React.FC = () => {
   useEffect(() => {
     loadAllTripData();
   }, [id]);
+
+  const currentUserMember = members.find((m) => m.user_id === user?.id);
+  const isOwnerOrAdmin = currentUserMember?.role === 'OWNER' || currentUserMember?.role === 'ADMIN' || trip?.created_by_id === user?.id;
+
+  const handleOpenInviteModal = async () => {
+    setIsInviteFriendsOpen(true);
+    setLoadingFriends(true);
+    setSelectedFriendsToInvite([]);
+    setInviteError(null);
+    try {
+      const data = await api.get<Friend[]>('/friends');
+      setFriends(data);
+    } catch {
+      setFriends([]);
+    } finally {
+      setLoadingFriends(false);
+    }
+  };
+
+  const toggleFriendToInvite = (friendId: string) => {
+    setSelectedFriendsToInvite((prev) =>
+      prev.includes(friendId) ? prev.filter((fId) => fId !== friendId) : [...prev, friendId]
+    );
+  };
+
+  const handleSendTripInvites = async () => {
+    if (selectedFriendsToInvite.length === 0) return;
+    setSendingInvites(true);
+    setInviteError(null);
+    try {
+      const res = await api.post<TripInvitation[]>(`/trips/${id}/invite`, {
+        friend_ids: selectedFriendsToInvite,
+      });
+      setInvitations((prev) => [...res, ...prev]);
+      setIsInviteFriendsOpen(false);
+    } catch (err: any) {
+      setInviteError(err.message || 'Failed to send invitations.');
+    } finally {
+      setSendingInvites(false);
+    }
+  };
+
+  const handleCancelInvitation = async (invId: string) => {
+    try {
+      await api.delete(`/trips/${id}/invitations/${invId}`);
+      setInvitations((prev) => prev.filter((i) => i.id !== invId));
+    } catch (err: any) {
+      alert(err.message || 'Failed to cancel invitation.');
+    }
+  };
 
   const handleCopyCode = () => {
     if (trip?.invite_code) {
@@ -804,10 +876,30 @@ export const TripDetailPage: React.FC = () => {
 
       {/* --- TAB 7: RIDERS / MEMBERS --- */}
       {activeTab === 'members' && (
-        <div className="space-y-4">
-          <h3 className="text-base font-bold text-[#171717] font-['Plus_Jakarta_Sans']">
-            Trip Members ({members.length})
-          </h3>
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-base font-bold text-[#171717] font-['Plus_Jakarta_Sans']">
+                Trip Members ({members.length})
+              </h3>
+              <p className="text-xs text-[#737373]">
+                Confirmed participants in expenses and settlements
+              </p>
+            </div>
+
+            {isOwnerOrAdmin && (
+              <button
+                type="button"
+                onClick={handleOpenInviteModal}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#16834A] hover:bg-[#136F3F] text-white text-xs font-semibold rounded-xl shadow-xs transition-colors"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>Invite Friends</span>
+              </button>
+            )}
+          </div>
+
+          {/* Confirmed Members List */}
           <div className="bg-white rounded-2xl border border-[#E8E8E5] divide-y divide-[#F4F4F2] shadow-xs overflow-hidden">
             {members.map((m) => (
               <div key={m.id} className="p-4 flex items-center justify-between">
@@ -820,11 +912,221 @@ export const TripDetailPage: React.FC = () => {
                     <p className="text-xs text-[#737373]">{m.user_email}</p>
                   </div>
                 </div>
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-[#737373] bg-[#FAFAF8] border border-[#E8E8E5] px-2 py-0.5 rounded">
-                  {m.role}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded ${
+                      m.role === 'OWNER'
+                        ? 'bg-[#DDF5E5] text-[#16834A] border border-[#C6ECCF]'
+                        : 'bg-[#FAFAF8] text-[#737373] border border-[#E8E8E5]'
+                    }`}
+                  >
+                    {m.role}
+                  </span>
+                </div>
               </div>
             ))}
+          </div>
+
+          {/* Pending Invitations Section (Owner/Admin only) */}
+          {isOwnerOrAdmin && invitations.length > 0 && (
+            <div className="bg-white rounded-2xl border border-[#E8E8E5] p-5 shadow-xs space-y-3.5">
+              <div className="flex items-center justify-between pb-3 border-b border-[#F4F4F2]">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-[#737373]">
+                  Pending Invitations ({invitations.filter((i) => i.status === 'PENDING').length})
+                </h4>
+              </div>
+
+              <div className="divide-y divide-[#F4F4F2]">
+                {invitations.map((inv) => (
+                  <div key={inv.id} className="py-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {inv.invitee_avatar ? (
+                        <img
+                          src={getAvatarUrl(inv.invitee_avatar)}
+                          alt={inv.invitee_name || 'Invitee'}
+                          className="w-8 h-8 rounded-lg object-cover border border-[#E8E8E5]"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-lg bg-[#FAFAF8] border border-[#E8E8E5] text-[#171717] flex items-center justify-center font-bold text-xs">
+                          {(inv.invitee_name || 'F')[0].toUpperCase()}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-[#171717] truncate">
+                          {inv.invitee_name}
+                        </p>
+                        {inv.invitee_username && (
+                          <p className="text-[11px] text-[#16834A] truncate">
+                            @{inv.invitee_username}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded bg-[#FEF3C7] text-[#B45309] border border-[#FDE68A]">
+                        {inv.status}
+                      </span>
+                      {inv.status === 'PENDING' && (
+                        <button
+                          type="button"
+                          onClick={() => handleCancelInvitation(inv.id)}
+                          className="text-xs text-[#737373] hover:text-[#E11D48] transition-colors p-1"
+                          title="Cancel Invitation"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Invite Friends Modal */}
+      {isInviteFriendsOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-[#E8E8E5] p-6 max-w-md w-full shadow-xl space-y-4 animate-scaleUp">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E8E8E5]">
+              <div className="flex items-center gap-2">
+                <UserPlus className="w-5 h-5 text-[#16834A]" />
+                <h3 className="text-base font-bold text-[#171717]">Invite Friends to Trip</h3>
+              </div>
+              <button
+                onClick={() => setIsInviteFriendsOpen(false)}
+                className="text-[#737373] hover:text-[#171717]"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {inviteError && (
+              <p className="p-3 rounded-xl bg-[#FFE4E6] text-[#E11D48] text-xs border border-[#FDA4AF]">
+                {inviteError}
+              </p>
+            )}
+
+            {loadingFriends ? (
+              <div className="p-8 text-center text-[#737373]">
+                <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-[#16834A]" />
+                <p className="text-xs">Loading friends list...</p>
+              </div>
+            ) : friends.length === 0 ? (
+              <div className="text-center py-6 space-y-2">
+                <p className="text-xs text-[#737373]">
+                  You have not added any friends yet. Add friends on the Friends page to invite them with one tap.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsInviteFriendsOpen(false);
+                    navigate('/friends');
+                  }}
+                  className="px-4 py-2 bg-[#16834A] text-white text-xs font-semibold rounded-xl"
+                >
+                  Go to Friends
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                <p className="text-xs text-[#737373] mb-1">
+                  Select friends to invite to <strong className="text-[#171717]">{trip.name}</strong>:
+                </p>
+
+                {friends.map((friend) => {
+                  const alreadyMember = members.some((m) => m.user_id === friend.id);
+                  const alreadyPending = invitations.some(
+                    (i) => i.invitee_id === friend.id && i.status === 'PENDING'
+                  );
+                  const isSelected = selectedFriendsToInvite.includes(friend.id);
+                  const avatarSrc = getAvatarUrl(friend.avatar_url);
+
+                  return (
+                    <div
+                      key={friend.id}
+                      onClick={() => {
+                        if (!alreadyMember && !alreadyPending) {
+                          toggleFriendToInvite(friend.id);
+                        }
+                      }}
+                      className={`flex items-center justify-between p-2.5 rounded-xl border transition-colors ${
+                        alreadyMember || alreadyPending
+                          ? 'opacity-50 bg-[#FAFAF8] border-[#E8E8E5] cursor-not-allowed'
+                          : isSelected
+                          ? 'bg-[#DDF5E5] border-[#16834A] cursor-pointer'
+                          : 'bg-white border-[#E8E8E5] hover:bg-[#FAFAF8] cursor-pointer'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        {avatarSrc ? (
+                          <img
+                            src={avatarSrc}
+                            alt={friend.display_name}
+                            className="w-8 h-8 rounded-lg object-cover border border-[#E8E8E5]"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-lg bg-[#171717] text-white flex items-center justify-center font-bold text-xs">
+                            {friend.display_name[0].toUpperCase()}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-[#171717] truncate">
+                            {friend.display_name}
+                          </p>
+                          <p className="text-[11px] text-[#16834A] truncate">
+                            @{friend.username || 'user'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div>
+                        {alreadyMember ? (
+                          <span className="text-[10px] font-semibold text-[#737373] bg-[#E8E8E5] px-2 py-0.5 rounded">
+                            Member
+                          </span>
+                        ) : alreadyPending ? (
+                          <span className="text-[10px] font-semibold text-[#B45309] bg-[#FEF3C7] px-2 py-0.5 rounded">
+                            Invited
+                          </span>
+                        ) : (
+                          <div
+                            className={`w-5 h-5 rounded-md border flex items-center justify-center ${
+                              isSelected
+                                ? 'bg-[#16834A] border-[#16834A] text-white'
+                                : 'border-[#E8E8E5] bg-white'
+                            }`}
+                          >
+                            {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#E8E8E5]">
+              <button
+                type="button"
+                onClick={() => setIsInviteFriendsOpen(false)}
+                className="px-4 py-2 text-xs font-semibold text-[#737373] hover:text-[#171717] rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSendTripInvites}
+                disabled={sendingInvites || selectedFriendsToInvite.length === 0}
+                className="px-5 py-2 bg-[#16834A] hover:bg-[#136F3F] text-white text-xs font-semibold rounded-xl shadow-xs transition-colors flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {sendingInvites && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                <span>Send Invitations ({selectedFriendsToInvite.length})</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

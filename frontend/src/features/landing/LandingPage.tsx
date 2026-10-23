@@ -86,7 +86,7 @@ export const LandingPage: React.FC = () => {
         {/* Subtle Badge */}
         <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#DDF5E5] border border-[#C6ECCF] text-xs font-semibold text-[#16834A] mb-8">
           <span className="w-1.5 h-1.5 rounded-full bg-[#16834A]" />
-          <span>The Modern Travel &amp; Expense Hub</span>
+          <span>Ride Together. Vibe Together. Split Together.</span>
         </div>
 
         {/* Hero Headline */}
@@ -97,7 +97,7 @@ export const LandingPage: React.FC = () => {
 
         {/* Supporting Copy */}
         <p className="mt-6 text-lg sm:text-xl text-[#737373] max-w-2xl mx-auto font-normal leading-relaxed">
-          Plan trips, organize rides, track shared expenses, and settle balances with friends in one calm, transparent place.
+          Plan trips, connect with friends, track shared expenses, and settle up — all in one place.
         </p>
 
         {/* Primary & Secondary CTAs */}
@@ -250,7 +250,7 @@ export const LandingPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* Feature 1 */}
           <div className="p-6 rounded-2xl bg-white border border-[#E8E8E5] shadow-sm">
             <div className="w-10 h-10 rounded-xl bg-[#DDF5E5] text-[#16834A] flex items-center justify-center mb-4">
@@ -265,15 +265,26 @@ export const LandingPage: React.FC = () => {
           {/* Feature 2 */}
           <div className="p-6 rounded-2xl bg-white border border-[#E8E8E5] shadow-sm">
             <div className="w-10 h-10 rounded-xl bg-[#DDF5E5] text-[#16834A] flex items-center justify-center mb-4">
-              <Zap className="w-5 h-5" />
+              <Users className="w-5 h-5" />
             </div>
-            <h3 className="text-base font-bold text-[#171717]">4 Precision Split Engines</h3>
+            <h3 className="text-base font-bold text-[#171717]">Friends &amp; Trip Invites</h3>
             <p className="mt-1.5 text-sm text-[#737373] leading-relaxed">
-              Equal splits with deterministic remainder distribution, exact rupee shares, percentages, and custom weights. Calculated in integer minor units.
+              Add friends by @username or permanent UID. Invite your network directly to road trips with permission control.
             </p>
           </div>
 
           {/* Feature 3 */}
+          <div className="p-6 rounded-2xl bg-white border border-[#E8E8E5] shadow-sm">
+            <div className="w-10 h-10 rounded-xl bg-[#DDF5E5] text-[#16834A] flex items-center justify-center mb-4">
+              <Zap className="w-5 h-5" />
+            </div>
+            <h3 className="text-base font-bold text-[#171717]">4 Precision Split Engines</h3>
+            <p className="mt-1.5 text-sm text-[#737373] leading-relaxed">
+              Equal splits with deterministic remainder distribution, exact rupee shares, percentages, and custom weights.
+            </p>
+          </div>
+
+          {/* Feature 4 */}
           <div className="p-6 rounded-2xl bg-white border border-[#E8E8E5] shadow-sm">
             <div className="w-10 h-10 rounded-xl bg-[#DDF5E5] text-[#16834A] flex items-center justify-center mb-4">
               <TrendingDown className="w-5 h-5" />
@@ -284,7 +295,7 @@ export const LandingPage: React.FC = () => {
             </p>
           </div>
 
-          {/* Feature 4 */}
+          {/* Feature 5 */}
           <div className="p-6 rounded-2xl bg-white border border-[#E8E8E5] shadow-sm">
             <div className="w-10 h-10 rounded-xl bg-[#DDF5E5] text-[#16834A] flex items-center justify-center mb-4">
               <ShieldCheck className="w-5 h-5" />
@@ -292,6 +303,17 @@ export const LandingPage: React.FC = () => {
             <h3 className="text-base font-bold text-[#171717]">Verified Settlement Tracking</h3>
             <p className="mt-1.5 text-sm text-[#737373] leading-relaxed">
               Payments are recorded with UPI transaction IDs and confirmed by the recipient before balances are updated. Full audit integrity.
+            </p>
+          </div>
+
+          {/* Feature 6 */}
+          <div className="p-6 rounded-2xl bg-white border border-[#E8E8E5] shadow-sm">
+            <div className="w-10 h-10 rounded-xl bg-[#DDF5E5] text-[#16834A] flex items-center justify-center mb-4">
+              <Receipt className="w-5 h-5" />
+            </div>
+            <h3 className="text-base font-bold text-[#171717]">Zero-Discrepancy Math</h3>
+            <p className="mt-1.5 text-sm text-[#737373] leading-relaxed">
+              Calculations are performed strictly in integer minor units (paise/cents) to ensure zero penny rounding leakage.
             </p>
           </div>
         </div>
@@ -396,7 +418,7 @@ export const LandingPage: React.FC = () => {
       <footer className="border-t border-[#E8E8E5] py-12 px-6 max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6 text-[#737373] text-sm">
         <Logo size="sm" showTagline={true} theme="light" />
         <p className="text-xs text-[#737373]">
-          ONNA-GO — Plan Together. Spend Smarter. Settle Fairly.
+          ONNA-GO — Ride Together. Vibe Together. Split Together.
         </p>
       </footer>
     </div>

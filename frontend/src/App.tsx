@@ -11,6 +11,7 @@ import { TripsListPage } from './features/trips/TripsListPage';
 import { TripDetailPage } from './features/trips/TripDetailPage';
 import { NotificationsPage } from './features/notifications/NotificationsPage';
 import { SettingsPage } from './features/settings/SettingsPage';
+import { FriendsPage } from './features/friends/FriendsPage';
 import { Logo } from './components/brand/Logo';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 
@@ -117,7 +118,9 @@ export const App: React.FC = () => {
               <Route path="/trips/join" element={<TripsListPage />} />
               <Route path="/trips/:id" element={<TripDetailPage />} />
               <Route path="/notifications" element={<NotificationsPage />} />
+              <Route path="/friends" element={<FriendsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/profile" element={<SettingsPage />} />
             </Route>
 
             {/* Catch-all 404 */}

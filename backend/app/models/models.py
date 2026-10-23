@@ -16,10 +16,15 @@ class User(Base):
     __tablename__ = "users"
     
     id = Column(String(36), primary_key=True, default=generate_uuid)
+    username = Column(String(50), unique=True, index=True, nullable=True)
     email = Column(String(255), unique=True, index=True, nullable=False)
     full_name = Column(String(255), nullable=False)
     hashed_password = Column(String(255), nullable=False)
     avatar_url = Column(String(500), nullable=True)
+    bio = Column(Text, nullable=True)
+    phone_number = Column(String(50), nullable=True)
+    city = Column(String(100), nullable=True)
+    date_of_birth = Column(String(50), nullable=True)
     default_currency = Column(String(10), default="INR")
     google_id = Column(String(255), unique=True, index=True, nullable=True)
     auth_provider = Column(String(20), default="email")
@@ -31,6 +36,25 @@ class User(Base):
     # Relationships
     memberships = relationship("TripMember", back_populates="user", cascade="all, delete-orphan")
     notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
+    sent_friendships = relationship("Friendship", foreign_keys="[Friendship.user_id]", cascade="all, delete-orphan")
+    received_friendships = relationship("Friendship", foreign_keys="[Friendship.friend_id]", cascade="all, delete-orphan")
+
+class Friendship(Base):
+    __tablename__ = "friendships"
+    
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    user_id = Column(String(36), ForeignKey("users.id"), index=True, nullable=False)
+    friend_id = Column(String(36), ForeignKey("users.id"), index=True, nullable=False)
+    status = Column(String(20), default="PENDING")  # PENDING, ACCEPTED, DECLINED, CANCELLED
+    created_at = Column(DateTime(timezone=True), default=utc_now)
+    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+    
+    user = relationship("User", foreign_keys=[user_id], overlaps="sent_friendships")
+    friend = relationship("User", foreign_keys=[friend_id], overlaps="received_friendships")
+    
+    __table_args__ = (
+        Index("idx_friendship_users_unique", "user_id", "friend_id", unique=True),
+    )
 
 class Trip(Base):
     __tablename__ = "trips"
@@ -79,14 +103,17 @@ class Invitation(Base):
     
     id = Column(String(36), primary_key=True, default=generate_uuid)
     trip_id = Column(String(36), ForeignKey("trips.id"), index=True, nullable=False)
-    email = Column(String(255), index=True, nullable=False)
+    email = Column(String(255), index=True, nullable=True)
     inviter_id = Column(String(36), ForeignKey("users.id"), nullable=False)
+    invitee_id = Column(String(36), ForeignKey("users.id"), index=True, nullable=True)
     token = Column(String(64), unique=True, index=True, nullable=False)
-    status = Column(String(20), default="PENDING")  # PENDING, ACCEPTED, REJECTED, REVOKED
+    status = Column(String(20), default="PENDING")  # PENDING, ACCEPTED, DECLINED, REVOKED
     expires_at = Column(DateTime(timezone=True), nullable=False)
     created_at = Column(DateTime(timezone=True), default=utc_now)
     
     trip = relationship("Trip", back_populates="invitations")
+    inviter = relationship("User", foreign_keys=[inviter_id])
+    invitee = relationship("User", foreign_keys=[invitee_id])
 
 class Activity(Base):
     __tablename__ = "activities"

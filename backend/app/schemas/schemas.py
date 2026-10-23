@@ -9,7 +9,13 @@ class UserBase(BaseModel):
     default_currency: str = "INR"
 
 class UserRegister(UserBase):
+    username: str = Field(..., min_length=3, max_length=20, pattern=r"^[a-zA-Z0-9_]{3,20}$")
     password: str = Field(..., min_length=8, description="Minimum 8 characters")
+
+class UsernameCheckResponse(BaseModel):
+    username: str
+    available: bool
+    message: str
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -17,14 +23,25 @@ class UserLogin(BaseModel):
 
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
+    bio: Optional[str] = None
+    phone_number: Optional[str] = None
+    city: Optional[str] = None
+    date_of_birth: Optional[str] = None
     default_currency: Optional[str] = None
     avatar_url: Optional[str] = None
 
-class UserResponse(UserBase):
-    id: str
+class UserResponse(BaseModel):
+    id: str  # Permanent UID
+    username: Optional[str] = None
+    email: EmailStr
+    full_name: str
     avatar_url: Optional[str] = None
+    bio: Optional[str] = None
+    phone_number: Optional[str] = None
+    city: Optional[str] = None
+    date_of_birth: Optional[str] = None
+    default_currency: str = "INR"
     auth_provider: str = "email"
-    google_id: Optional[str] = None
     is_active: bool
     is_verified: bool
     created_at: datetime
@@ -35,10 +52,6 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserResponse
-
-class GoogleAuthRequest(BaseModel):
-    credential: str = Field(..., description="Google ID Token (JWT) from Google Identity Services")
-    client_id: Optional[str] = None
 
 class ChangePasswordRequest(BaseModel):
     current_password: str
@@ -53,6 +66,64 @@ class PasswordResetRequest(BaseModel):
 class PasswordResetConfirm(BaseModel):
     token: str
     new_password: str = Field(..., min_length=8)
+
+# --- Friend Schemas ---
+class FriendResponse(BaseModel):
+    id: str  # UID
+    username: Optional[str] = None
+    display_name: str
+    avatar_url: Optional[str] = None
+    city: Optional[str] = None
+    bio: Optional[str] = None
+    created_at: datetime
+
+class FriendSearchResponse(BaseModel):
+    id: str  # UID
+    username: Optional[str] = None
+    display_name: str
+    avatar_url: Optional[str] = None
+    city: Optional[str] = None
+    relationship_status: str  # 'none' | 'friends' | 'pending_outgoing' | 'pending_incoming' | 'self'
+    request_id: Optional[str] = None
+
+class SendFriendRequest(BaseModel):
+    username_or_uid: str
+
+class FriendRequestItem(BaseModel):
+    id: str
+    requester_id: str
+    requester_name: str
+    requester_username: Optional[str] = None
+    requester_avatar: Optional[str] = None
+    addressee_id: str
+    addressee_name: str
+    addressee_username: Optional[str] = None
+    addressee_avatar: Optional[str] = None
+    status: str
+    created_at: datetime
+
+class FriendRequestsResponse(BaseModel):
+    incoming: List[FriendRequestItem]
+    outgoing: List[FriendRequestItem]
+
+# --- Trip Invitation Schemas ---
+class TripInviteRequest(BaseModel):
+    friend_ids: List[str] = Field(..., min_length=1)
+
+class TripInvitationResponse(BaseModel):
+    id: str
+    trip_id: str
+    trip_name: str
+    inviter_id: str
+    inviter_name: str
+    invitee_id: Optional[str] = None
+    invitee_name: Optional[str] = None
+    invitee_username: Optional[str] = None
+    invitee_avatar: Optional[str] = None
+    status: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
 
 # --- Trip & Member Schemas ---
 class TripBase(BaseModel):

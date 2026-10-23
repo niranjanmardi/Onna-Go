@@ -2,15 +2,14 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import { Logo } from '@/components/brand/Logo';
-import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
-import { Lock, Mail, ArrowRight, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { Lock, User as UserIcon, ArrowRight, AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
-  const { login, googleLogin } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(
@@ -22,9 +21,9 @@ export const LoginPage: React.FC = () => {
     e.preventDefault();
     setError(null);
 
-    const trimmedEmail = email.trim();
-    if (!trimmedEmail) {
-      setError('Please enter your email address.');
+    const trimmedIdent = identifier.trim();
+    if (!trimmedIdent) {
+      setError('Please enter your username or email address.');
       return;
     }
     if (!password) {
@@ -34,27 +33,13 @@ export const LoginPage: React.FC = () => {
 
     setLoading(true);
     try {
-      await login(trimmedEmail, password);
+      await login(trimmedIdent, password);
       navigate('/dashboard');
     } catch (err: any) {
-      setError(err.message || 'Failed to sign in. Please verify your email and password.');
+      setError(err.message || 'Incorrect username/email or password. Please try again.');
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleGoogleSuccess = async (credential: string) => {
-    setError(null);
-    try {
-      await googleLogin(credential);
-      navigate('/dashboard');
-    } catch (err: any) {
-      setError(err.message || 'Google authentication failed.');
-    }
-  };
-
-  const handleGoogleError = (errorMsg: string) => {
-    setError(errorMsg);
   };
 
   return (
@@ -64,10 +49,10 @@ export const LoginPage: React.FC = () => {
           <Logo size="lg" showTagline={true} theme="light" />
         </div>
         <h1 className="mt-6 text-2xl sm:text-3xl font-bold tracking-tight text-[#171717] font-['Plus_Jakarta_Sans']">
-          Sign In
+          Welcome Back
         </h1>
         <p className="mt-2 text-sm text-[#737373]">
-          Access your trips, group rides, and shared balances.
+          Sign in to access your trips, friends, and shared balances.
         </p>
       </div>
 
@@ -76,52 +61,34 @@ export const LoginPage: React.FC = () => {
           {error && (
             <div
               role="alert"
-              className="p-3.5 rounded-xl bg-[#FFE4E6] border border-[#FDA4AF] text-[#E11D48] text-xs flex items-start gap-2.5"
+              className="p-3.5 rounded-xl bg-[#FFE4E6] border border-[#FDA4AF] text-[#E11D48] text-xs flex items-start gap-2.5 animate-fadeIn"
             >
               <AlertCircle className="w-4 h-4 flex-shrink-0 text-[#E11D48] mt-0.5" />
               <span className="leading-relaxed">{error}</span>
             </div>
           )}
 
-          {/* Official Google Sign-In */}
-          <div>
-            <GoogleSignInButton
-              onSuccess={handleGoogleSuccess}
-              onError={handleGoogleError}
-              disabled={loading}
-              text="continue"
-            />
-          </div>
-
-          {/* Divider */}
-          <div className="relative flex items-center justify-center">
-            <div className="border-t border-[#E8E8E5] w-full" />
-            <span className="bg-white px-3 text-xs uppercase tracking-wider text-[#A3A3A3] font-medium absolute">
-              or with email
-            </span>
-          </div>
-
           <form className="space-y-4" onSubmit={handleSubmit} noValidate>
             <div>
               <label
-                htmlFor="email"
+                htmlFor="identifier"
                 className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1.5"
               >
-                Email address
+                Username or Email
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#A3A3A3]">
-                  <Mail className="w-4 h-4" />
+                  <UserIcon className="w-4 h-4" />
                 </div>
                 <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
+                  id="identifier"
+                  name="identifier"
+                  type="text"
+                  autoComplete="username"
                   required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@example.com"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  placeholder="e.g. rider_alex or alex@example.com"
                   className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl pl-10 pr-4 py-2.5 text-[#171717] placeholder-[#A3A3A3] text-sm focus:outline-none focus:border-[#16834A] focus:ring-2 focus:ring-[#16834A]/10 transition-colors"
                 />
               </div>
@@ -154,40 +121,52 @@ export const LoginPage: React.FC = () => {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
-                  className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl pl-10 pr-11 py-2.5 text-[#171717] placeholder-[#A3A3A3] text-sm focus:outline-none focus:border-[#16834A] focus:ring-2 focus:ring-[#16834A]/10 transition-colors"
+                  placeholder="••••••••"
+                  className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl pl-10 pr-10 py-2.5 text-[#171717] placeholder-[#A3A3A3] text-sm focus:outline-none focus:border-[#16834A] focus:ring-2 focus:ring-[#16834A]/10 transition-colors"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-[#A3A3A3] hover:text-[#171717] focus:outline-none"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-[#A3A3A3] hover:text-[#171717] transition-colors"
+                  aria-label="Toggle password visibility"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full flex items-center justify-center gap-2 bg-[#16834A] hover:bg-[#136F3F] text-white font-semibold py-2.5 px-4 rounded-xl shadow-xs active:scale-[0.98] transition-all disabled:opacity-50 mt-2 cursor-pointer"
-            >
-              <span>{loading ? 'Signing In...' : 'Sign In'}</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
+            <div className="pt-2">
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-xl text-sm font-semibold text-white bg-[#16834A] hover:bg-[#136F3F] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#16834A] disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-all duration-200 active:scale-[0.98]"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Signing in...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Sign In</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            </div>
           </form>
+        </div>
 
-          {/* Navigation to Registration */}
-          <div className="pt-2 text-center text-xs text-[#737373]">
-            <span>Don&apos;t have an account yet? </span>
+        <div className="text-center mt-6">
+          <p className="text-sm text-[#737373]">
+            Don't have an account yet?{' '}
             <Link
               to="/register"
-              className="font-semibold text-[#16834A] hover:underline"
+              className="font-semibold text-[#16834A] hover:text-[#136F3F] transition-colors"
             >
-              Create an account
+              Create Account
             </Link>
-          </div>
+          </p>
         </div>
       </div>
     </div>

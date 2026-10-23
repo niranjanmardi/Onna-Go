@@ -9,9 +9,12 @@ import {
   Plus,
   Menu,
   X,
+  Users,
+  User as UserIcon,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth/AuthContext';
 import { Logo } from '@/components/brand/Logo';
+import { getAvatarUrl } from '@/lib/api-client';
 
 export const AppLayout: React.FC = () => {
   const { user, logout } = useAuth();
@@ -26,8 +29,9 @@ export const AppLayout: React.FC = () => {
   const navItems = [
     { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { label: 'Trips & Rides', path: '/trips', icon: Compass },
+    { label: 'Friends', path: '/friends', icon: Users },
     { label: 'Notifications', path: '/notifications', icon: Bell },
-    { label: 'Settings', path: '/settings', icon: Settings },
+    { label: 'Profile & Settings', path: '/settings', icon: Settings },
   ];
 
   return (
@@ -80,13 +84,24 @@ export const AppLayout: React.FC = () => {
 
         {/* User Profile & Logout */}
         <div className="pt-4 border-t border-[#E8E8E5]">
-          <div className="flex items-center gap-3 px-2 py-2">
-            <div className="w-9 h-9 rounded-xl bg-[#171717] text-white flex items-center justify-center font-bold text-xs">
-              {user?.full_name ? user.full_name[0].toUpperCase() : 'U'}
+          <div
+            onClick={() => navigate('/settings')}
+            className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-[#F4F4F2] cursor-pointer transition-colors"
+          >
+            <div className="w-9 h-9 rounded-xl bg-[#171717] text-white flex items-center justify-center font-bold text-xs overflow-hidden flex-shrink-0 border border-[#E8E8E5]">
+              {user?.avatar_url ? (
+                <img
+                  src={getAvatarUrl(user.avatar_url)}
+                  alt={user.full_name || 'Avatar'}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span>{user?.full_name ? user.full_name[0].toUpperCase() : 'U'}</span>
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-[#171717] truncate">{user?.full_name}</p>
-              <p className="text-xs text-[#737373] truncate">{user?.email}</p>
+              <p className="text-xs text-[#737373] truncate">@{user?.username || 'user'}</p>
             </div>
           </div>
           <button
@@ -171,13 +186,32 @@ export const AppLayout: React.FC = () => {
             </nav>
 
             <div className="pt-4 border-t border-[#E8E8E5] flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold">{user?.full_name}</p>
-                <p className="text-xs text-[#737373]">{user?.email}</p>
+              <div
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  navigate('/settings');
+                }}
+                className="flex items-center gap-2.5 cursor-pointer min-w-0 flex-1 mr-2"
+              >
+                <div className="w-8 h-8 rounded-lg bg-[#171717] text-white flex items-center justify-center font-bold text-xs overflow-hidden flex-shrink-0 border border-[#E8E8E5]">
+                  {user?.avatar_url ? (
+                    <img
+                      src={getAvatarUrl(user.avatar_url)}
+                      alt={user.full_name || 'Avatar'}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span>{user?.full_name ? user.full_name[0].toUpperCase() : 'U'}</span>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold truncate">{user?.full_name}</p>
+                  <p className="text-xs text-[#737373] truncate">@{user?.username || 'user'}</p>
+                </div>
               </div>
               <button
                 onClick={handleLogout}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[#E11D48] bg-[#FFE4E6] rounded-lg font-medium"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[#E11D48] bg-[#FFE4E6] rounded-lg font-medium flex-shrink-0"
               >
                 <LogOut className="w-3.5 h-3.5" />
                 <span>Sign Out</span>
@@ -197,19 +231,19 @@ export const AppLayout: React.FC = () => {
         <NavLink
           to="/dashboard"
           className={({ isActive }) =>
-            `flex flex-col items-center py-1 px-3 text-[11px] font-medium transition-colors ${
+            `flex flex-col items-center py-1 px-2.5 text-[11px] font-medium transition-colors ${
               isActive ? 'text-[#16834A] font-bold' : 'hover:text-[#171717]'
             }`
           }
         >
           <LayoutDashboard className="w-5 h-5 mb-0.5" />
-          <span>Dashboard</span>
+          <span>Home</span>
         </NavLink>
 
         <NavLink
           to="/trips"
           className={({ isActive }) =>
-            `flex flex-col items-center py-1 px-3 text-[11px] font-medium transition-colors ${
+            `flex flex-col items-center py-1 px-2.5 text-[11px] font-medium transition-colors ${
               isActive ? 'text-[#16834A] font-bold' : 'hover:text-[#171717]'
             }`
           }
@@ -228,27 +262,27 @@ export const AppLayout: React.FC = () => {
         </button>
 
         <NavLink
-          to="/notifications"
+          to="/friends"
           className={({ isActive }) =>
-            `flex flex-col items-center py-1 px-3 text-[11px] font-medium transition-colors ${
+            `flex flex-col items-center py-1 px-2.5 text-[11px] font-medium transition-colors ${
               isActive ? 'text-[#16834A] font-bold' : 'hover:text-[#171717]'
             }`
           }
         >
-          <Bell className="w-5 h-5 mb-0.5" />
-          <span>Alerts</span>
+          <Users className="w-5 h-5 mb-0.5" />
+          <span>Friends</span>
         </NavLink>
 
         <NavLink
           to="/settings"
           className={({ isActive }) =>
-            `flex flex-col items-center py-1 px-3 text-[11px] font-medium transition-colors ${
+            `flex flex-col items-center py-1 px-2.5 text-[11px] font-medium transition-colors ${
               isActive ? 'text-[#16834A] font-bold' : 'hover:text-[#171717]'
             }`
           }
         >
-          <Settings className="w-5 h-5 mb-0.5" />
-          <span>Settings</span>
+          <UserIcon className="w-5 h-5 mb-0.5" />
+          <span>Profile</span>
         </NavLink>
       </nav>
     </div>

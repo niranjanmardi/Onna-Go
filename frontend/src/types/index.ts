@@ -1,13 +1,17 @@
 export type Currency = 'INR' | 'USD' | 'EUR' | 'GBP';
 
 export interface User {
-  id: string;
+  id: string; // Permanent UID
+  username?: string | null;
   email: string;
   full_name: string;
   avatar_url?: string | null;
+  bio?: string | null;
+  phone_number?: string | null;
+  city?: string | null;
+  date_of_birth?: string | null;
   default_currency: string;
   auth_provider?: string;
-  google_id?: string | null;
   is_active: boolean;
   is_verified: boolean;
   created_at: string;
@@ -184,3 +188,57 @@ export interface TripReport {
   category_breakdown: CategorySpending[];
   participant_breakdown: ParticipantSpending[];
 }
+
+export interface Friend {
+  id: string; // UID
+  username?: string | null;
+  display_name: string;
+  avatar_url?: string | null;
+  city?: string | null;
+  bio?: string | null;
+  created_at: string;
+}
+
+export interface FriendSearchItem {
+  id: string; // UID
+  username?: string | null;
+  display_name: string;
+  avatar_url?: string | null;
+  city?: string | null;
+  relationship_status: 'none' | 'friends' | 'pending_outgoing' | 'pending_incoming' | 'self';
+  request_id?: string | null;
+}
+
+export interface FriendRequest {
+  id: string;
+  requester_id: string;
+  requester_name: string;
+  requester_username?: string | null;
+  requester_avatar?: string | null;
+  addressee_id: string;
+  addressee_name: string;
+  addressee_username?: string | null;
+  addressee_avatar?: string | null;
+  status: string;
+  created_at: string;
+}
+
+export interface FriendRequestsData {
+  incoming: FriendRequest[];
+  outgoing: FriendRequest[];
+}
+
+export interface TripInvitation {
+  id: string;
+  trip_id: string;
+  trip_name: string;
+  inviter_id: string;
+  inviter_name: string;
+  invitee_id?: string | null;
+  invitee_name?: string | null;
+  invitee_username?: string | null;
+  invitee_avatar?: string | null;
+  status: string;
+  created_at: string;
+}
+
