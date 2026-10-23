@@ -32,12 +32,25 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setResolvedTheme(effectiveTheme);
 
       const root = document.documentElement;
+      const body = document.body;
       if (effectiveTheme === 'dark') {
         root.classList.add('dark');
+        root.setAttribute('data-theme', 'dark');
         root.style.colorScheme = 'dark';
+        if (body) {
+          body.classList.add('dark');
+          body.setAttribute('data-theme', 'dark');
+          body.style.colorScheme = 'dark';
+        }
       } else {
         root.classList.remove('dark');
+        root.removeAttribute('data-theme');
         root.style.colorScheme = 'light';
+        if (body) {
+          body.classList.remove('dark');
+          body.removeAttribute('data-theme');
+          body.style.colorScheme = 'light';
+        }
       }
 
       // Dynamically update mobile browser address bar / notch theme color

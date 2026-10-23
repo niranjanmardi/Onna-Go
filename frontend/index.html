@@ -27,11 +27,17 @@
           var saved = localStorage.getItem('onnago_theme');
           var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
           var isDark = saved === 'dark' || ((!saved || saved === 'system') && prefersDark);
+          var meta = document.querySelector('meta[name="theme-color"]');
           if (isDark) {
             document.documentElement.classList.add('dark');
+            document.documentElement.setAttribute('data-theme', 'dark');
             document.documentElement.style.colorScheme = 'dark';
-            var meta = document.querySelector('meta[name="theme-color"]');
             if (meta) meta.setAttribute('content', '#0A0A0A');
+          } else {
+            document.documentElement.classList.remove('dark');
+            document.documentElement.removeAttribute('data-theme');
+            document.documentElement.style.colorScheme = 'light';
+            if (meta) meta.setAttribute('content', '#16834A');
           }
         } catch (e) {}
       })();

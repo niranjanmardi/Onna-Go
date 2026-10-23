@@ -12,27 +12,18 @@ import {
   Users,
   User as UserIcon,
   History,
-  Sun,
-  Moon,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth/AuthContext';
 import { Logo } from '@/components/brand/Logo';
 import { getAvatarUrl } from '@/lib/api-client';
 import { useFeedback } from '@/context/FeedbackContext';
-import { useTheme } from '@/context/ThemeContext';
 import { InstallPrompt } from '@/components/pwa/InstallPrompt';
 
 export const AppLayout: React.FC = () => {
   const { user, logout } = useAuth();
   const { unreadCount, playClick } = useFeedback();
-  const { resolvedTheme, setTheme } = useTheme();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  const toggleTheme = () => {
-    playClick();
-    setTheme(resolvedTheme === 'dark' ? 'light' : 'dark');
-  };
 
   const handleLogout = async () => {
     await logout();
@@ -56,27 +47,12 @@ export const AppLayout: React.FC = () => {
       {/* --- Desktop Sidebar --- */}
       <aside className="hidden md:flex flex-col w-64 bg-[#FAFAF8] dark:bg-[#121212] border-r border-[#E8E8E5] dark:border-[#262626] p-5 justify-between select-none">
         <div>
-          {/* Brand Header with Quick Theme Toggle */}
-          <div className="pb-6 border-b border-[#E8E8E5] dark:border-[#262626] flex items-center justify-between">
-            <div
-              className="cursor-pointer"
-              onClick={() => navigate('/dashboard')}
-            >
-              <Logo size="md" showTagline={true} />
-            </div>
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className="p-2 text-[#737373] dark:text-[#9E9E9E] hover:text-[#171717] dark:hover:text-[#EDEDED] hover:bg-[#F4F4F2] dark:hover:bg-[#1F1F1F] rounded-xl transition-colors cursor-pointer"
-              title={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} mode`}
-              aria-label="Toggle theme"
-            >
-              {resolvedTheme === 'dark' ? (
-                <Sun className="w-4 h-4 text-amber-400" />
-              ) : (
-                <Moon className="w-4 h-4 text-slate-600" />
-              )}
-            </button>
+          {/* Brand Header */}
+          <div
+            className="pb-6 border-b border-[#E8E8E5] dark:border-[#262626] cursor-pointer"
+            onClick={() => navigate('/dashboard')}
+          >
+            <Logo size="md" showTagline={true} />
           </div>
 
           {/* Quick Action Button */}
@@ -164,21 +140,6 @@ export const AppLayout: React.FC = () => {
           <Logo size="sm" showTagline={false} />
         </div>
         <div className="flex items-center gap-1.5">
-          {/* Quick Theme Toggle on Mobile */}
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className="p-2 text-[#737373] dark:text-[#9E9E9E] hover:text-[#171717] dark:hover:text-[#EDEDED] rounded-lg transition-colors"
-            title="Toggle theme"
-            aria-label="Toggle theme"
-          >
-            {resolvedTheme === 'dark' ? (
-              <Sun className="w-4 h-4 text-amber-400" />
-            ) : (
-              <Moon className="w-4 h-4 text-slate-600" />
-            )}
-          </button>
-
           <button
             onClick={() => {
               playClick();

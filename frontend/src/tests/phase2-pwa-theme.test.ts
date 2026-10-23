@@ -27,6 +27,9 @@ describe('Phase 2: Dark Mode Theme Engine & Persistence', () => {
   beforeEach(() => {
     localStorage.clear();
     document.documentElement.className = '';
+    document.documentElement.removeAttribute('data-theme');
+    document.body.className = '';
+    document.body.removeAttribute('data-theme');
     const meta = document.createElement('meta');
     meta.setAttribute('name', 'theme-color');
     meta.setAttribute('content', '#16834A');
@@ -40,45 +43,63 @@ describe('Phase 2: Dark Mode Theme Engine & Persistence', () => {
   it('correctly reads and persists theme preferences in localStorage', () => {
     const STORAGE_KEY = 'onnago_theme';
 
-    // Simulate saving 'dark'
     localStorage.setItem(STORAGE_KEY, 'dark');
     expect(localStorage.getItem(STORAGE_KEY)).toBe('dark');
 
-    // Simulate switching to 'light'
     localStorage.setItem(STORAGE_KEY, 'light');
     expect(localStorage.getItem(STORAGE_KEY)).toBe('light');
 
-    // Simulate switching to 'system'
     localStorage.setItem(STORAGE_KEY, 'system');
     expect(localStorage.getItem(STORAGE_KEY)).toBe('system');
   });
 
-  it('toggles html.dark class and adjusts theme-color meta tag', () => {
+  it('removes dark class and data-theme from both html and body when light mode is selected', () => {
     const meta = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement;
 
     const applyTheme = (isDark: boolean) => {
+      const root = document.documentElement;
+      const body = document.body;
       if (isDark) {
-        document.documentElement.classList.add('dark');
+        root.classList.add('dark');
+        root.setAttribute('data-theme', 'dark');
+        root.style.colorScheme = 'dark';
+        if (body) {
+          body.classList.add('dark');
+          body.setAttribute('data-theme', 'dark');
+          body.style.colorScheme = 'dark';
+        }
         if (meta) meta.content = '#0A0A0A';
       } else {
-        document.documentElement.classList.remove('dark');
+        root.classList.remove('dark');
+        root.removeAttribute('data-theme');
+        root.style.colorScheme = 'light';
+        if (body) {
+          body.classList.remove('dark');
+          body.removeAttribute('data-theme');
+          body.style.colorScheme = 'light';
+        }
         if (meta) meta.content = '#16834A';
       }
     };
 
-    // Apply dark
+    // First activate dark
     applyTheme(true);
     expect(document.documentElement.classList.contains('dark')).toBe(true);
+    expect(document.body.classList.contains('dark')).toBe(true);
     expect(meta.content).toBe('#0A0A0A');
 
-    // Apply light
+    // Switch to light
     applyTheme(false);
     expect(document.documentElement.classList.contains('dark')).toBe(false);
+    expect(document.documentElement.hasAttribute('data-theme')).toBe(false);
+    expect(document.body.classList.contains('dark')).toBe(false);
+    expect(document.body.hasAttribute('data-theme')).toBe(false);
     expect(meta.content).toBe('#16834A');
   });
 
-  it('respects system prefers-color-scheme when theme is set to system', () => {
-    const matchMediaMock = vi.fn().mockImplementation((query: string) => ({
+  it('choosing Light while OS is in dark mode strictly renders light mode', () => {
+    // OS is in dark mode
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
       matches: query.includes('dark'),
       media: query,
       onchange: null,
@@ -88,10 +109,52 @@ describe('Phase 2: Dark Mode Theme Engine & Persistence', () => {
       removeEventListener: vi.fn(),
       dispatchEvent: vi.fn(),
     }));
-    window.matchMedia = matchMediaMock;
 
-    const isSystemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    expect(isSystemDark).toBe(true);
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    expect(prefersDark).toBe(true);
+
+    const resolveEffectiveTheme = (setting: 'system' | 'light' | 'dark') => {
+      return setting === 'system' ? (prefersDark ? 'dark' : 'light') : setting;
+    };
+
+    const effectiveTheme = resolveEffectiveTheme('light');
+    expect(effectiveTheme).toBe('light');
+
+    // Apply
+    if (effectiveTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+
+    expect(document.documentElement.classList.contains('dark')).toBe(false);
+  });
+
+  it('system mode dynamically follows OS preference', () => {
+    let mockDark = false;
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches: mockDark && query.includes('dark'),
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
+
+    const resolve = (theme: 'system' | 'light' | 'dark') => {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      return theme === 'system' ? (prefersDark ? 'dark' : 'light') : theme;
+    };
+
+    // When OS is light
+    mockDark = false;
+    expect(resolve('system')).toBe('light');
+
+    // When OS is dark
+    mockDark = true;
+    expect(resolve('system')).toBe('dark');
   });
 });
 
@@ -115,17 +178,14 @@ describe('Phase 2: PWA Install Prompt Mechanics', () => {
     const DISMISS_KEY = 'onnago_pwa_dismissed';
     const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 
-    // Simulate dismissing now
     const now = Date.now();
     localStorage.setItem(DISMISS_KEY, now.toString());
 
-    // 5 days later: should still be in cooldown
     const fiveDaysLater = now + 5 * 24 * 60 * 60 * 1000;
     const dismissedAt = Number(localStorage.getItem(DISMISS_KEY));
     const isWithinCooldown = fiveDaysLater - dismissedAt < FOURTEEN_DAYS_MS;
     expect(isWithinCooldown).toBe(true);
 
-    // 15 days later: cooldown expired
     const fifteenDaysLater = now + 15 * 24 * 60 * 60 * 1000;
     const isStillInCooldown = fifteenDaysLater - dismissedAt < FOURTEEN_DAYS_MS;
     expect(isStillInCooldown).toBe(false);
@@ -138,7 +198,6 @@ describe('Phase 2: PWA Install Prompt Mechanics', () => {
       return isDisplayStandalone || isNavigatorStandalone;
     };
 
-    // By default in jsdom it is not standalone
     expect(isStandaloneWindow()).toBe(false);
   });
 });

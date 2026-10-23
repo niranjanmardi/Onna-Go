@@ -144,50 +144,50 @@ export const DashboardPage: React.FC = () => {
       {/* --- Apple-Style Financial Overview Cards --- */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Total Spent */}
-        <div className="bg-white p-5 rounded-2xl border border-[#E8E8E5] shadow-xs">
+        <div className="bg-white dark:bg-[#141414] p-5 rounded-2xl border border-[#E8E8E5] dark:border-[#262626] shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-[#737373]">Total Spent</span>
-            <div className="w-8 h-8 rounded-lg bg-[#FAFAF8] border border-[#E8E8E5] flex items-center justify-center text-[#737373]">
+            <span className="text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#A1A1A1]">Total Spent</span>
+            <div className="w-8 h-8 rounded-lg bg-[#FAFAF8] dark:bg-[#1F1F1F] border border-[#E8E8E5] dark:border-[#2E2E2E] flex items-center justify-center text-[#737373] dark:text-[#A1A1A1]">
               <Wallet className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-4">
-            <p className="text-3xl font-bold font-mono tracking-tight text-[#171717] tabular-nums">
+            <p className="text-3xl font-bold font-mono tracking-tight text-[#171717] dark:text-[#EDEDED] tabular-nums">
               {formatPaise(data?.total_spent_paise || 0)}
             </p>
-            <p className="text-xs text-[#737373] mt-1">Across all your trips</p>
+            <p className="text-xs text-[#737373] dark:text-[#A1A1A1] mt-1">Across all your trips</p>
           </div>
         </div>
 
         {/* You Are Owed (Positive Net Balance) */}
-        <div className="bg-[#DDF5E5]/40 p-5 rounded-2xl border border-[#C6ECCF] shadow-xs">
+        <div className="bg-[#DDF5E5]/40 dark:bg-[#0E1A12] p-5 rounded-2xl border border-[#C6ECCF] dark:border-[#22C55E]/50 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-[#16834A]">You Are Owed</span>
-            <div className="w-8 h-8 rounded-lg bg-[#DDF5E5] text-[#16834A] flex items-center justify-center">
+            <span className="text-xs font-semibold uppercase tracking-wider text-[#16834A] dark:text-[#22C55E]">You Are Owed</span>
+            <div className="w-8 h-8 rounded-lg bg-[#DDF5E5] dark:bg-[#22C55E]/25 border border-[#C6ECCF] dark:border-[#22C55E]/40 text-[#16834A] dark:text-[#22C55E] flex items-center justify-center">
               <ArrowDownLeft className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-4">
-            <p className="text-3xl font-bold font-mono tracking-tight text-[#16834A] tabular-nums">
+            <p className="text-3xl font-bold font-mono tracking-tight text-[#16834A] dark:text-[#22C55E] tabular-nums">
               {formatPaise(data?.total_owed_paise || 0)}
             </p>
-            <p className="text-xs text-[#16834A]/80 mt-1">Friends owe this to you</p>
+            <p className="text-xs text-[#16834A]/80 dark:text-[#22C55E]/80 mt-1">Friends owe this to you</p>
           </div>
         </div>
 
         {/* You Owe (Negative Net Balance) */}
-        <div className="bg-[#FEF3C7]/40 p-5 rounded-2xl border border-[#FDE68A] shadow-xs">
+        <div className="bg-[#FEF3C7]/40 dark:bg-[#1A140A] p-5 rounded-2xl border border-[#FDE68A] dark:border-[#F59E0B]/60 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-[#B45309]">You Owe</span>
-            <div className="w-8 h-8 rounded-lg bg-[#FEF3C7] text-[#B45309] flex items-center justify-center">
+            <span className="text-xs font-semibold uppercase tracking-wider text-[#B45309] dark:text-[#FBBF24]">You Owe</span>
+            <div className="w-8 h-8 rounded-lg bg-[#FEF3C7] dark:bg-[#F59E0B]/25 border border-[#FDE68A] dark:border-[#F59E0B]/40 text-[#B45309] dark:text-[#FBBF24] flex items-center justify-center">
               <ArrowUpRight className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-4">
-            <p className="text-3xl font-bold font-mono tracking-tight text-[#B45309] tabular-nums">
+            <p className="text-3xl font-bold font-mono tracking-tight text-[#B45309] dark:text-[#FBBF24] tabular-nums">
               {formatPaise(data?.total_owe_paise || 0)}
             </p>
-            <p className="text-xs text-[#B45309]/80 mt-1">To settle with friends</p>
+            <p className="text-xs text-[#B45309]/80 dark:text-[#FBBF24]/80 mt-1">To settle with friends</p>
           </div>
         </div>
       </div>

@@ -127,16 +127,16 @@ export const FeedbackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         <div
           role="status"
           aria-live="polite"
-          className="fixed top-5 left-1/2 -translate-x-1/2 z-[100] max-w-sm sm:max-w-md w-[calc(100%-2rem)] px-4 py-3 bg-white/95 backdrop-blur-md rounded-2xl border border-[#E8E8E5] shadow-[0_12px_36px_rgba(0,0,0,0.12)] flex items-center justify-between gap-3 animate-fadeIn transition-all select-none"
+          className="fixed top-5 left-1/2 -translate-x-1/2 z-[100] max-w-sm sm:max-w-md w-[calc(100%-2rem)] px-4 py-3 bg-white/95 dark:bg-[#1A1A1A]/95 backdrop-blur-md rounded-2xl border border-[#E8E8E5] dark:border-[#2E2E2E] shadow-[0_12px_36px_rgba(0,0,0,0.12)] dark:shadow-[0_12px_36px_rgba(0,0,0,0.7)] flex items-center justify-between gap-3 animate-fadeIn transition-all select-none"
         >
           <div className="flex items-center gap-3 min-w-0">
             <BlueTick size="md" animate={true} />
             <div className="min-w-0">
-              <p className="text-sm font-bold text-[#171717] tracking-tight truncate">
+              <p className="text-sm font-bold text-[#171717] dark:text-[#EDEDED] tracking-tight truncate">
                 {confirmation.title}
               </p>
               {confirmation.message && (
-                <p className="text-xs text-[#737373] mt-0.5 line-clamp-1">
+                <p className="text-xs text-[#737373] dark:text-[#A1A1A1] mt-0.5 line-clamp-1">
                   {confirmation.message}
                 </p>
               )}
@@ -146,7 +146,7 @@ export const FeedbackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           <button
             type="button"
             onClick={() => setConfirmation(null)}
-            className="p-1 text-[#A3A3A3] hover:text-[#171717] rounded-lg transition-colors flex-shrink-0 cursor-pointer"
+            className="p-1 text-[#A3A3A3] dark:text-[#737373] hover:text-[#171717] dark:hover:text-[#EDEDED] rounded-lg transition-colors flex-shrink-0 cursor-pointer"
             aria-label="Dismiss confirmation"
           >
             <X className="w-4 h-4" />

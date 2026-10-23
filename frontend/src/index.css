@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @layer base {
   :root {
     --bg-canvas: #FAFAF8;
@@ -18,7 +20,8 @@
     --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   }
 
-  html.dark {
+  html.dark,
+  body.dark {
     --bg-canvas: #0A0A0A;
     --bg-surface: #141414;
     --bg-surface-elevated: #1F1F1F;
@@ -39,7 +42,6 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     margin: 0;
-    transition: background-color 0.2s ease, color 0.2s ease;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -180,66 +182,149 @@ html.dark ::-webkit-scrollbar-thumb:hover {
 }
 
 /* Comprehensive Dark Mode Component & Design Token Adaptations */
-html.dark .bg-white {
+html.dark .bg-white,
+body.dark .bg-white {
   background-color: var(--bg-surface) !important;
 }
-html.dark .bg-\[\#FAFAF8\] {
+html.dark .bg-white\/95,
+body.dark .bg-white\/95 {
+  background-color: rgba(26, 26, 26, 0.95) !important;
+}
+html.dark .bg-white\/90,
+body.dark .bg-white\/90 {
+  background-color: rgba(26, 26, 26, 0.90) !important;
+}
+html.dark .bg-\[\#FAFAF8\],
+body.dark .bg-\[\#FAFAF8\] {
   background-color: var(--bg-canvas) !important;
 }
-html.dark .bg-\[\#F4F4F2\] {
+html.dark .bg-\[\#F4F4F2\],
+body.dark .bg-\[\#F4F4F2\] {
   background-color: var(--bg-surface-elevated) !important;
 }
-html.dark .text-\[\#171717\] {
+html.dark .text-\[\#171717\],
+body.dark .text-\[\#171717\] {
   color: var(--text-primary) !important;
 }
-html.dark .text-\[\#737373\] {
+html.dark .text-\[\#737373\],
+body.dark .text-\[\#737373\] {
   color: var(--text-secondary) !important;
 }
-html.dark .border-\[\#E8E8E5\] {
+html.dark .border-\[\#E8E8E5\],
+body.dark .border-\[\#E8E8E5\],
+html.dark .border-\[\#F4F4F2\],
+body.dark .border-\[\#F4F4F2\] {
   border-color: var(--border-subtle) !important;
 }
-html.dark .border-\[\#F4F4F2\] {
-  border-color: var(--border-subtle) !important;
-}
-html.dark .border-\[\#D6D6D2\] {
+html.dark .border-\[\#D6D6D2\],
+body.dark .border-\[\#D6D6D2\] {
   border-color: var(--border-hover) !important;
 }
 
 /* Accessible Brand Accent in Dark Mode (WCAG AAA Contrast > 9:1 against dark backgrounds) */
-html.dark .text-\[\#16834A\] {
+html.dark .text-\[\#16834A\],
+body.dark .text-\[\#16834A\] {
   color: var(--accent-primary) !important;
 }
-html.dark .bg-\[\#16834A\] {
+html.dark .bg-\[\#16834A\],
+body.dark .bg-\[\#16834A\] {
   background-color: var(--accent-primary) !important;
   color: #0A0A0A !important;
 }
-html.dark .bg-\[\#16834A\]:hover {
+html.dark .bg-\[\#16834A\]:hover,
+body.dark .bg-\[\#16834A\]:hover {
   background-color: var(--accent-hover) !important;
 }
-html.dark .bg-\[\#DDF5E5\] {
-  background-color: var(--accent-soft) !important;
+html.dark .bg-\[\#DDF5E5\],
+body.dark .bg-\[\#DDF5E5\] {
+  background-color: rgba(34, 197, 94, 0.22) !important;
+}
+html.dark .bg-\[\#DDF5E5\]\/40,
+body.dark .bg-\[\#DDF5E5\]\/40,
+html.dark .bg-\[\#DDF5E5\]\/25,
+body.dark .bg-\[\#DDF5E5\]\/25,
+html.dark .bg-\[\#DDF5E5\]\/20,
+body.dark .bg-\[\#DDF5E5\]\/20 {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.16) 0%, rgba(34, 197, 94, 0.06) 100%), #141414 !important;
+}
+html.dark .border-\[\#C6ECCF\],
+body.dark .border-\[\#C6ECCF\] {
+  border-color: rgba(34, 197, 94, 0.50) !important;
+}
+html.dark .text-\[\#16834A\]\/80,
+body.dark .text-\[\#16834A\]\/80 {
+  color: rgba(34, 197, 94, 0.85) !important;
+}
+
+/* Amber / "You Owe" Tokens in Dark Mode (High-contrast WCAG AAA > 10:1 against #0A0A0A & #141414) */
+html.dark .text-\[\#B45309\],
+body.dark .text-\[\#B45309\],
+html.dark .text-\[\#92400E\],
+body.dark .text-\[\#92400E\] {
+  color: #FBBF24 !important;
+}
+html.dark .text-\[\#B45309\]\/80,
+body.dark .text-\[\#B45309\]\/80 {
+  color: rgba(251, 191, 36, 0.85) !important;
+}
+html.dark .bg-\[\#FEF3C7\],
+body.dark .bg-\[\#FEF3C7\] {
+  background-color: rgba(245, 158, 11, 0.22) !important;
+}
+html.dark .bg-\[\#FEF3C7\]\/40,
+body.dark .bg-\[\#FEF3C7\]\/40 {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.18) 0%, rgba(245, 158, 11, 0.08) 100%), #141414 !important;
+}
+html.dark .border-\[\#FDE68A\],
+body.dark .border-\[\#FDE68A\] {
+  border-color: rgba(245, 158, 11, 0.50) !important;
+}
+
+/* Rose / Danger Tokens in Dark Mode */
+html.dark .text-\[\#E11D48\],
+body.dark .text-\[\#E11D48\] {
+  color: #FB7185 !important;
+}
+html.dark .bg-\[\#FFE4E6\],
+body.dark .bg-\[\#FFE4E6\] {
+  background-color: rgba(225, 29, 72, 0.15) !important;
+}
+html.dark .border-\[\#FDA4AF\],
+body.dark .border-\[\#FDA4AF\],
+html.dark .border-\[\#FECDD3\],
+body.dark .border-\[\#FECDD3\] {
+  border-color: rgba(225, 29, 72, 0.40) !important;
 }
 
 /* Dark Mode Inputs, Selects, and Textareas */
 html.dark input:not([type="checkbox"]):not([type="radio"]),
+body.dark input:not([type="checkbox"]):not([type="radio"]),
 html.dark select,
-html.dark textarea {
+body.dark select,
+html.dark textarea,
+body.dark textarea {
   background-color: #1A1A1A !important;
   color: var(--text-primary) !important;
   border-color: var(--border-subtle) !important;
 }
 html.dark input::placeholder,
-html.dark textarea::placeholder {
+body.dark input::placeholder,
+html.dark textarea::placeholder,
+body.dark textarea::placeholder {
   color: var(--text-muted) !important;
 }
 html.dark input:focus,
+body.dark input:focus,
 html.dark select:focus,
-html.dark textarea:focus {
+body.dark select:focus,
+html.dark textarea:focus,
+body.dark textarea:focus {
   border-color: var(--accent-primary) !important;
 }
 
 /* Modals & Dialogs in Dark Mode */
-html.dark [role="dialog"] {
+html.dark [role="dialog"],
+body.dark [role="dialog"] {
   color: var(--text-primary) !important;
 }
 
