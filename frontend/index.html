@@ -14,6 +14,29 @@
     <meta property="og:description" content="Plan trips, organize rides, share experiences, and split expenses with friends — all in one place." />
     <meta property="og:type" content="website" />
     
+    <!-- Apple PWA Standalone & Status Bar Integration -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="ONNA-GO" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    
+    <!-- Early Zero-FOWT Theme Script (Runs synchronously before first paint) -->
+    <script>
+      (function() {
+        try {
+          var saved = localStorage.getItem('onnago_theme');
+          var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          var isDark = saved === 'dark' || ((!saved || saved === 'system') && prefersDark);
+          if (isDark) {
+            document.documentElement.classList.add('dark');
+            document.documentElement.style.colorScheme = 'dark';
+            var meta = document.querySelector('meta[name="theme-color"]');
+            if (meta) meta.setAttribute('content', '#0A0A0A');
+          }
+        } catch (e) {}
+      })();
+    </script>
+
     <!-- Typography: Plus Jakarta Sans & Inter with font-display: swap -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -29,6 +52,14 @@
         --splash-green-soft: #DDF5E5;
         --splash-border: #E8E8E5;
       }
+      html.dark {
+        --splash-bg: #0A0A0A;
+        --splash-text: #EDEDED;
+        --splash-subtext: #A1A1A1;
+        --splash-green: #22C55E;
+        --splash-green-soft: rgba(34, 197, 94, 0.2);
+        --splash-border: #262626;
+      }
       body {
         margin: 0;
         padding: 0;
@@ -36,6 +67,27 @@
         color: var(--splash-text);
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
         -webkit-font-smoothing: antialiased;
+      }
+      html.dark #splash-screen {
+        background-color: #0A0A0A;
+      }
+      html.dark .splash-wordmark {
+        color: #EDEDED;
+      }
+      html.dark .splash-title {
+        color: #EDEDED;
+      }
+      html.dark .splash-submessage {
+        color: #A1A1A1;
+      }
+      html.dark .splash-spinner {
+        border-color: #262626;
+        border-top-color: #22C55E;
+      }
+      html.dark .splash-elapsed-hint {
+        background: #171717;
+        border-color: #262626;
+        color: #9E9E9E;
       }
       #splash-screen {
         position: fixed;

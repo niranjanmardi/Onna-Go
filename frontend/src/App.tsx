@@ -1,6 +1,7 @@
 import React, { Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './features/auth/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 import { AppLayout } from './components/layout/AppLayout';
 import { FeedbackProvider } from './context/FeedbackContext';
 import { Logo } from './components/brand/Logo';
@@ -89,60 +90,62 @@ const NotFoundPage: React.FC = () => {
 export const App: React.FC = () => {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <FeedbackProvider>
-          <BrowserRouter>
-            <Suspense fallback={<RouteLoadingFallback />}>
-              <Routes>
-                {/* Public landing */}
-                <Route path="/" element={<LandingPage />} />
+      <ThemeProvider>
+        <AuthProvider>
+          <FeedbackProvider>
+            <BrowserRouter>
+              <Suspense fallback={<RouteLoadingFallback />}>
+                <Routes>
+                  {/* Public landing */}
+                  <Route path="/" element={<LandingPage />} />
 
-                {/* Auth routes */}
-                <Route
-                  path="/login"
-                  element={
-                    <RedirectIfAuth>
-                      <LoginPage />
-                    </RedirectIfAuth>
-                  }
-                />
-                <Route
-                  path="/register"
-                  element={
-                    <RedirectIfAuth>
-                      <RegisterPage />
-                    </RedirectIfAuth>
-                  }
-                />
-                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                  {/* Auth routes */}
+                  <Route
+                    path="/login"
+                    element={
+                      <RedirectIfAuth>
+                        <LoginPage />
+                      </RedirectIfAuth>
+                    }
+                  />
+                  <Route
+                    path="/register"
+                    element={
+                      <RedirectIfAuth>
+                        <RegisterPage />
+                      </RedirectIfAuth>
+                    }
+                  />
+                  <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
-                {/* Protected Application Routes */}
-                <Route
-                  element={
-                    <RequireAuth>
-                      <AppLayout />
-                    </RequireAuth>
-                  }
-                >
-                  <Route path="/dashboard" element={<DashboardPage />} />
-                  <Route path="/trips" element={<TripsListPage />} />
-                  <Route path="/trips/new" element={<TripsListPage />} />
-                  <Route path="/trips/join" element={<TripsListPage />} />
-                  <Route path="/history" element={<TripsListPage />} />
-                  <Route path="/trips/:id" element={<TripDetailPage />} />
-                  <Route path="/notifications" element={<NotificationsPage />} />
-                  <Route path="/friends" element={<FriendsPage />} />
-                  <Route path="/settings" element={<SettingsPage />} />
-                  <Route path="/profile" element={<SettingsPage />} />
-                </Route>
+                  {/* Protected Application Routes */}
+                  <Route
+                    element={
+                      <RequireAuth>
+                        <AppLayout />
+                      </RequireAuth>
+                    }
+                  >
+                    <Route path="/dashboard" element={<DashboardPage />} />
+                    <Route path="/trips" element={<TripsListPage />} />
+                    <Route path="/trips/new" element={<TripsListPage />} />
+                    <Route path="/trips/join" element={<TripsListPage />} />
+                    <Route path="/history" element={<TripsListPage />} />
+                    <Route path="/trips/:id" element={<TripDetailPage />} />
+                    <Route path="/notifications" element={<NotificationsPage />} />
+                    <Route path="/friends" element={<FriendsPage />} />
+                    <Route path="/settings" element={<SettingsPage />} />
+                    <Route path="/profile" element={<SettingsPage />} />
+                  </Route>
 
-                {/* Catch-all 404 */}
-                <Route path="*" element={<NotFoundPage />} />
-              </Routes>
-            </Suspense>
-          </BrowserRouter>
-        </FeedbackProvider>
-      </AuthProvider>
+                  {/* Catch-all 404 */}
+                  <Route path="*" element={<NotFoundPage />} />
+                </Routes>
+              </Suspense>
+            </BrowserRouter>
+          </FeedbackProvider>
+        </AuthProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   );
 };

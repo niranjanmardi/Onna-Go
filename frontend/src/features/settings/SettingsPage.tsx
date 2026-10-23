@@ -32,17 +32,22 @@ import {
   Users,
   Smartphone,
   Wallet,
+  Sun,
+  Moon,
+  Monitor,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { api, getAvatarUrl } from '@/lib/api-client';
 import { useFeedback } from '@/context/FeedbackContext';
+import { useTheme } from '@/context/ThemeContext';
 import { playSound } from '@/lib/sounds';
 import { TravelStats } from '@/types';
 import { formatDate, formatPaise } from '@/lib/currency';
 
 export const SettingsPage: React.FC = () => {
   const { user, updateProfile, changePassword, uploadAvatar, deleteAccount, logout } = useAuth();
-  const { showConfirmation, soundsEnabled, setSoundsEnabled } = useFeedback();
+  const { showConfirmation, soundsEnabled, setSoundsEnabled, playClick } = useFeedback();
+  const { theme, setTheme, resolvedTheme } = useTheme();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -978,44 +983,110 @@ export const SettingsPage: React.FC = () => {
       </section>
 
       {/* --- 3. PREFERENCES & CURRENCY --- */}
-      <section className="bg-white rounded-2xl border border-[#E8E8E5] p-5 sm:p-7 shadow-xs space-y-4">
-        <div className="pb-3 border-b border-[#F4F4F2]">
-          <h2 className="text-base font-bold text-[#171717]">Trip Preferences</h2>
-          <p className="text-xs text-[#737373] mt-0.5">Default currency for expenses and settlement suggestions</p>
+      <section className="bg-white dark:bg-[#141414] rounded-2xl border border-[#E8E8E5] dark:border-[#262626] p-5 sm:p-7 shadow-xs space-y-6">
+        <div className="pb-3 border-b border-[#F4F4F2] dark:border-[#262626]">
+          <h2 className="text-base font-bold text-[#171717] dark:text-[#EDEDED]">Preferences &amp; Appearance</h2>
+          <p className="text-xs text-[#737373] dark:text-[#9E9E9E] mt-0.5">Customize your app theme, default currency, and sound effects</p>
         </div>
 
-        {prefSuccess && (
-          <div className="p-3 rounded-xl bg-[#DDF5E5] border border-[#C6ECCF] text-[#16834A] text-xs font-medium flex items-center gap-2">
-            <Check className="w-4 h-4" />
-            <span>{prefSuccess}</span>
+        {/* Theme / Dark Mode Selector */}
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-8 h-8 rounded-lg bg-[#E8F5EE] dark:bg-[#22C55E]/15 flex items-center justify-center text-[#16834A] dark:text-[#22C55E]">
+              {theme === 'dark' ? <Moon className="w-4 h-4" /> : theme === 'light' ? <Sun className="w-4 h-4" /> : <Monitor className="w-4 h-4" />}
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-[#171717] dark:text-[#EDEDED]">App Theme &amp; Dark Mode</h3>
+              <p className="text-xs text-[#737373] dark:text-[#9E9E9E]">
+                {theme === 'system' ? `Following system (${resolvedTheme} active)` : `${theme.charAt(0).toUpperCase() + theme.slice(1)} mode active`}
+              </p>
+            </div>
           </div>
-        )}
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { code: 'INR', label: 'Indian Rupee (₹)', symbol: '₹' },
-            { code: 'USD', label: 'US Dollar ($)', symbol: '$' },
-            { code: 'EUR', label: 'Euro (€)', symbol: '€' },
-            { code: 'GBP', label: 'British Pound (£)', symbol: '£' },
-          ].map((c) => (
-            <button
-              key={c.code}
-              type="button"
-              onClick={() => handleSaveCurrency(c.code)}
-              disabled={prefSaving}
-              className={`p-3.5 rounded-xl border text-left transition-all ${
-                defaultCurrency === c.code
-                  ? 'border-[#16834A] bg-[#DDF5E5]/20 ring-1 ring-[#16834A]'
-                  : 'border-[#E8E8E5] bg-[#FAFAF8] hover:bg-[#F4F4F2]'
-              }`}
-            >
-              <span className="text-xl font-bold font-mono text-[#171717] block mb-0.5">
-                {c.symbol}
-              </span>
-              <span className="text-xs font-semibold text-[#171717] block">{c.code}</span>
-              <span className="text-[10px] text-[#737373]">{c.label}</span>
-            </button>
-          ))}
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { mode: 'system' as const, label: 'System', desc: 'Sync with device', icon: Monitor },
+              { mode: 'light' as const, label: 'Light', desc: 'Clean bright canvas', icon: Sun },
+              { mode: 'dark' as const, label: 'Dark', desc: 'Sleek night mode', icon: Moon },
+            ].map((item) => {
+              const Icon = item.icon;
+              const isSelected = theme === item.mode;
+              return (
+                <button
+                  key={item.mode}
+                  type="button"
+                  onClick={() => {
+                    playClick();
+                    setTheme(item.mode);
+                    showConfirmation({
+                      title: `Theme set to ${item.label}`,
+                      message: item.desc,
+                      sound: 'click',
+                    });
+                  }}
+                  className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    isSelected
+                      ? 'border-[#16834A] dark:border-[#22C55E] bg-[#DDF5E5]/25 dark:bg-[#22C55E]/10 ring-1 ring-[#16834A] dark:ring-[#22C55E]'
+                      : 'border-[#E8E8E5] dark:border-[#262626] bg-[#FAFAF8] dark:bg-[#1A1A1A] hover:bg-[#F4F4F2] dark:hover:bg-[#222222]'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <Icon className={`w-4 h-4 ${isSelected ? 'text-[#16834A] dark:text-[#22C55E]' : 'text-[#737373] dark:text-[#9E9E9E]'}`} />
+                    {isSelected && <span className="w-2 h-2 rounded-full bg-[#16834A] dark:bg-[#22C55E]" />}
+                  </div>
+                  <span className="text-xs font-bold text-[#171717] dark:text-[#EDEDED] block">{item.label}</span>
+                  <span className="text-[10px] text-[#737373] dark:text-[#9E9E9E] block mt-0.5">{item.desc}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Currency Preference */}
+        <div className="pt-4 border-t border-[#F4F4F2] dark:border-[#262626]">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-8 h-8 rounded-lg bg-[#E8F5EE] dark:bg-[#22C55E]/15 flex items-center justify-center text-[#16834A] dark:text-[#22C55E]">
+              <Coins className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-[#171717] dark:text-[#EDEDED]">Default Currency</h3>
+              <p className="text-xs text-[#737373] dark:text-[#9E9E9E]">For trip expenses and settlement suggestions</p>
+            </div>
+          </div>
+
+          {prefSuccess && (
+            <div className="p-3 mb-3 rounded-xl bg-[#DDF5E5] dark:bg-[#22C55E]/15 border border-[#C6ECCF] dark:border-[#22C55E]/30 text-[#16834A] dark:text-[#22C55E] text-xs font-medium flex items-center gap-2">
+              <Check className="w-4 h-4" />
+              <span>{prefSuccess}</span>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { code: 'INR', label: 'Indian Rupee (₹)', symbol: '₹' },
+              { code: 'USD', label: 'US Dollar ($)', symbol: '$' },
+              { code: 'EUR', label: 'Euro (€)', symbol: '€' },
+              { code: 'GBP', label: 'British Pound (£)', symbol: '£' },
+            ].map((c) => (
+              <button
+                key={c.code}
+                type="button"
+                onClick={() => handleSaveCurrency(c.code)}
+                disabled={prefSaving}
+                className={`p-3.5 rounded-xl border text-left transition-all ${
+                  defaultCurrency === c.code
+                    ? 'border-[#16834A] dark:border-[#22C55E] bg-[#DDF5E5]/20 dark:bg-[#22C55E]/10 ring-1 ring-[#16834A] dark:ring-[#22C55E]'
+                    : 'border-[#E8E8E5] dark:border-[#262626] bg-[#FAFAF8] dark:bg-[#1A1A1A] hover:bg-[#F4F4F2] dark:hover:bg-[#222222]'
+                }`}
+              >
+                <span className="text-xl font-bold font-mono text-[#171717] dark:text-[#EDEDED] block mb-0.5">
+                  {c.symbol}
+                </span>
+                <span className="text-xs font-semibold text-[#171717] dark:text-[#EDEDED] block">{c.code}</span>
+                <span className="text-[10px] text-[#737373] dark:text-[#9E9E9E]">{c.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Audio & Sound Effects Preference */}

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTheme } from '@/context/ThemeContext';
 
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
@@ -11,8 +12,15 @@ export const Logo: React.FC<LogoProps> = ({
   size = 'md',
   showTagline = false,
   className = '',
-  theme = 'light',
+  theme,
 }) => {
+  let activeTheme = theme;
+  try {
+    const { resolvedTheme } = useTheme();
+    if (!activeTheme) activeTheme = resolvedTheme;
+  } catch {
+    if (!activeTheme) activeTheme = 'light';
+  }
   const iconSizes = {
     sm: 'w-6 h-6 rounded-lg text-xs',
     md: 'w-8 h-8 rounded-xl text-sm',
@@ -34,7 +42,7 @@ export const Logo: React.FC<LogoProps> = ({
     xl: 'text-sm leading-normal',
   };
 
-  const isDark = theme === 'dark';
+  const isDark = activeTheme === 'dark';
 
   return (
     <div

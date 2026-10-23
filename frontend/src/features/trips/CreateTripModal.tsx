@@ -7,6 +7,7 @@ import { useFeedback } from '@/context/FeedbackContext';
 import { playSound } from '@/lib/sounds';
 
 import { LocationSearchInput, LocationData } from '@/components/location/LocationSearchInput';
+import { recordMeaningfulInteraction } from '@/components/pwa/InstallPrompt';
 
 interface CreateTripModalProps {
   isOpen: boolean;
@@ -92,6 +93,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
         message: `${trip.name} has been created.`,
         sound: 'trip_success',
       });
+      recordMeaningfulInteraction('create_trip');
       onTripCreated(trip);
       onClose();
     } catch (err: any) {

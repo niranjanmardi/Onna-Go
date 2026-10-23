@@ -12,17 +12,27 @@ import {
   Users,
   User as UserIcon,
   History,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth/AuthContext';
 import { Logo } from '@/components/brand/Logo';
 import { getAvatarUrl } from '@/lib/api-client';
 import { useFeedback } from '@/context/FeedbackContext';
+import { useTheme } from '@/context/ThemeContext';
+import { InstallPrompt } from '@/components/pwa/InstallPrompt';
 
 export const AppLayout: React.FC = () => {
   const { user, logout } = useAuth();
   const { unreadCount, playClick } = useFeedback();
+  const { resolvedTheme, setTheme } = useTheme();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const toggleTheme = () => {
+    playClick();
+    setTheme(resolvedTheme === 'dark' ? 'light' : 'dark');
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -39,23 +49,41 @@ export const AppLayout: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-[#FAFAF8] flex flex-col md:flex-row text-[#171717]">
+    <div className="min-h-screen bg-[#FAFAF8] dark:bg-[#0A0A0A] flex flex-col md:flex-row text-[#171717] dark:text-[#EDEDED] transition-colors duration-200">
+      {/* PWA Custom Install Prompt Banner */}
+      <InstallPrompt />
+
       {/* --- Desktop Sidebar --- */}
-      <aside className="hidden md:flex flex-col w-64 bg-[#FAFAF8] border-r border-[#E8E8E5] p-5 justify-between select-none">
+      <aside className="hidden md:flex flex-col w-64 bg-[#FAFAF8] dark:bg-[#121212] border-r border-[#E8E8E5] dark:border-[#262626] p-5 justify-between select-none">
         <div>
-          {/* Brand Header */}
-          <div
-            className="pb-6 border-b border-[#E8E8E5] cursor-pointer"
-            onClick={() => navigate('/dashboard')}
-          >
-            <Logo size="md" showTagline={true} theme="light" />
+          {/* Brand Header with Quick Theme Toggle */}
+          <div className="pb-6 border-b border-[#E8E8E5] dark:border-[#262626] flex items-center justify-between">
+            <div
+              className="cursor-pointer"
+              onClick={() => navigate('/dashboard')}
+            >
+              <Logo size="md" showTagline={true} />
+            </div>
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="p-2 text-[#737373] dark:text-[#9E9E9E] hover:text-[#171717] dark:hover:text-[#EDEDED] hover:bg-[#F4F4F2] dark:hover:bg-[#1F1F1F] rounded-xl transition-colors cursor-pointer"
+              title={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} mode`}
+              aria-label="Toggle theme"
+            >
+              {resolvedTheme === 'dark' ? (
+                <Sun className="w-4 h-4 text-amber-400" />
+              ) : (
+                <Moon className="w-4 h-4 text-slate-600" />
+              )}
+            </button>
           </div>
 
           {/* Quick Action Button */}
           <div className="mt-5 mb-4">
             <button
               onClick={() => navigate('/trips/new')}
-              className="w-full flex items-center justify-center gap-2 bg-[#16834A] hover:bg-[#136F3F] text-white font-semibold py-2.5 px-4 rounded-xl shadow-xs transition-all duration-200 active:scale-[0.98]"
+              className="w-full flex items-center justify-center gap-2 bg-[#16834A] dark:bg-[#22C55E] hover:bg-[#136F3F] dark:hover:bg-[#16A34A] text-white dark:text-[#0A0A0A] font-semibold py-2.5 px-4 rounded-xl shadow-xs transition-all duration-200 active:scale-[0.98]"
             >
               <Plus className="w-4 h-4" />
               <span>Create Trip</span>
@@ -75,8 +103,8 @@ export const AppLayout: React.FC = () => {
                   className={({ isActive }) =>
                     `flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
                       isActive
-                        ? 'bg-white text-[#171717] shadow-xs border border-[#E8E8E5] font-semibold'
-                        : 'text-[#737373] hover:text-[#171717] hover:bg-[#F4F4F2]'
+                        ? 'bg-white dark:bg-[#1C1C1C] text-[#171717] dark:text-[#EDEDED] shadow-xs border border-[#E8E8E5] dark:border-[#2E2E2E] font-semibold'
+                        : 'text-[#737373] dark:text-[#9E9E9E] hover:text-[#171717] dark:hover:text-[#EDEDED] hover:bg-[#F4F4F2] dark:hover:bg-[#1A1A1A]'
                     }`
                   }
                 >
@@ -95,31 +123,34 @@ export const AppLayout: React.FC = () => {
           </nav>
         </div>
 
-        {/* User Profile & Logout */}
-        <div className="pt-4 border-t border-[#E8E8E5]">
+        {/* User Card & Logout (Bottom of Desktop Sidebar) */}
+        <div className="pt-4 border-t border-[#E8E8E5] dark:border-[#262626]">
           <div
             onClick={() => navigate('/settings')}
-            className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-[#F4F4F2] cursor-pointer transition-colors"
+            className="flex items-center gap-3 p-2.5 rounded-xl bg-white dark:bg-[#1A1A1A] border border-[#E8E8E5] dark:border-[#262626] hover:border-[#D6D6D2] dark:hover:border-[#383838] transition-colors cursor-pointer group"
           >
-            <div className="w-9 h-9 rounded-xl bg-[#171717] text-white flex items-center justify-center font-bold text-xs overflow-hidden flex-shrink-0 border border-[#E8E8E5]">
-              {user?.avatar_url ? (
-                <img
-                  src={getAvatarUrl(user.avatar_url)}
-                  alt={user.full_name || 'Avatar'}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <span>{user?.full_name ? user.full_name[0].toUpperCase() : 'U'}</span>
-              )}
-            </div>
+            {user?.avatar_url ? (
+              <img
+                src={getAvatarUrl(user.avatar_url)}
+                alt={user.full_name}
+                className="w-9 h-9 rounded-full object-cover border border-[#E8E8E5] dark:border-[#262626]"
+              />
+            ) : (
+              <div className="w-9 h-9 rounded-full bg-[#DDF5E5] dark:bg-[#22C55E]/15 text-[#16834A] dark:text-[#22C55E] flex items-center justify-center font-bold text-xs uppercase">
+                {user?.full_name?.charAt(0) || 'U'}
+              </div>
+            )}
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-[#171717] truncate">{user?.full_name}</p>
-              <p className="text-xs text-[#737373] truncate">@{user?.username || 'user'}</p>
+              <p className="text-sm font-semibold text-[#171717] dark:text-[#EDEDED] truncate group-hover:text-[#16834A] dark:group-hover:text-[#22C55E] transition-colors">
+                {user?.full_name || 'Member'}
+              </p>
+              <p className="text-xs text-[#737373] dark:text-[#9E9E9E] truncate">@{user?.username || 'user'}</p>
             </div>
           </div>
+
           <button
             onClick={handleLogout}
-            className="w-full mt-2 flex items-center gap-2 px-3 py-2 text-xs font-medium text-[#737373] hover:text-[#E11D48] hover:bg-[#FFE4E6]/50 rounded-lg transition-colors"
+            className="w-full mt-2 flex items-center gap-2 px-3 py-2 text-xs font-medium text-[#737373] dark:text-[#9E9E9E] hover:text-[#E11D48] dark:hover:text-[#F43F5E] hover:bg-[#FFE4E6]/50 dark:hover:bg-[#F43F5E]/10 rounded-lg transition-colors cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span>Sign Out</span>
@@ -128,27 +159,42 @@ export const AppLayout: React.FC = () => {
       </aside>
 
       {/* --- Mobile Top Header --- */}
-      <header className="md:hidden sticky top-0 z-40 bg-[#FAFAF8]/90 backdrop-blur-md border-b border-[#E8E8E5] px-4 py-3 flex items-center justify-between">
+      <header className="md:hidden sticky top-0 z-40 bg-[#FAFAF8]/90 dark:bg-[#121212]/90 backdrop-blur-md border-b border-[#E8E8E5] dark:border-[#262626] px-4 py-3 pt-safe flex items-center justify-between">
         <div onClick={() => navigate('/dashboard')} className="cursor-pointer">
-          <Logo size="sm" showTagline={false} theme="light" />
+          <Logo size="sm" showTagline={false} />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
+          {/* Quick Theme Toggle on Mobile */}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="p-2 text-[#737373] dark:text-[#9E9E9E] hover:text-[#171717] dark:hover:text-[#EDEDED] rounded-lg transition-colors"
+            title="Toggle theme"
+            aria-label="Toggle theme"
+          >
+            {resolvedTheme === 'dark' ? (
+              <Sun className="w-4 h-4 text-amber-400" />
+            ) : (
+              <Moon className="w-4 h-4 text-slate-600" />
+            )}
+          </button>
+
           <button
             onClick={() => {
               playClick();
               navigate('/notifications');
             }}
-            className="p-2 text-[#737373] hover:text-[#171717] rounded-lg transition-colors relative cursor-pointer"
+            className="p-2 text-[#737373] dark:text-[#9E9E9E] hover:text-[#171717] dark:hover:text-[#EDEDED] rounded-lg transition-colors relative cursor-pointer"
             aria-label="Notifications"
           >
             <Bell className="w-5 h-5" />
             {unreadCount > 0 && (
-              <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-[#2563EB] ring-2 ring-white" />
+              <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-[#2563EB] ring-2 ring-white dark:ring-[#121212]" />
             )}
           </button>
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 text-[#737373] hover:text-[#171717] rounded-lg transition-colors cursor-pointer"
+            className="p-2 text-[#737373] dark:text-[#9E9E9E] hover:text-[#171717] dark:hover:text-[#EDEDED] rounded-lg transition-colors cursor-pointer"
             aria-label="Toggle menu"
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -158,13 +204,13 @@ export const AppLayout: React.FC = () => {
 
       {/* --- Mobile Drawer Menu --- */}
       {mobileMenuOpen && (
-        <div className="md:hidden fixed inset-0 z-50 bg-black/30 backdrop-blur-xs flex flex-col justify-end">
-          <div className="bg-[#FAFAF8] text-[#171717] p-6 rounded-t-2xl space-y-4 max-h-[85vh] overflow-y-auto border-t border-[#E8E8E5] shadow-xl">
-            <div className="flex items-center justify-between pb-4 border-b border-[#E8E8E5]">
-              <Logo size="sm" showTagline={true} theme="light" />
+        <div className="md:hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex flex-col justify-end">
+          <div className="bg-[#FAFAF8] dark:bg-[#141414] text-[#171717] dark:text-[#EDEDED] p-6 rounded-t-2xl space-y-4 max-h-[85vh] overflow-y-auto border-t border-[#E8E8E5] dark:border-[#262626] shadow-xl">
+            <div className="flex items-center justify-between pb-4 border-b border-[#E8E8E5] dark:border-[#262626]">
+              <Logo size="sm" showTagline={true} />
               <button
                 onClick={() => setMobileMenuOpen(false)}
-                className="p-2 text-[#737373] hover:text-[#171717] rounded-lg cursor-pointer"
+                className="p-2 text-[#737373] dark:text-[#9E9E9E] hover:text-[#171717] dark:hover:text-[#EDEDED] rounded-lg cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -176,7 +222,7 @@ export const AppLayout: React.FC = () => {
                 setMobileMenuOpen(false);
                 navigate('/trips/new');
               }}
-              className="w-full flex items-center justify-center gap-2 bg-[#16834A] text-white py-3 rounded-xl font-semibold shadow-xs cursor-pointer active:scale-[0.98] transition-all"
+              className="w-full flex items-center justify-center gap-2 bg-[#16834A] dark:bg-[#22C55E] text-white dark:text-[#0A0A0A] py-3 rounded-xl font-semibold shadow-xs cursor-pointer active:scale-[0.98] transition-all"
             >
               <Plus className="w-4 h-4" />
               <span>Create New Trip</span>
@@ -197,8 +243,8 @@ export const AppLayout: React.FC = () => {
                     className={({ isActive }) =>
                       `flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium ${
                         isActive
-                          ? 'bg-white text-[#171717] border border-[#E8E8E5] font-semibold'
-                          : 'text-[#737373] hover:bg-[#F4F4F2]'
+                          ? 'bg-white dark:bg-[#1C1C1C] text-[#171717] dark:text-[#EDEDED] border border-[#E8E8E5] dark:border-[#262626] font-semibold'
+                          : 'text-[#737373] dark:text-[#9E9E9E] hover:bg-[#F4F4F2] dark:hover:bg-[#1F1F1F]'
                       }`
                     }
                   >
@@ -216,7 +262,7 @@ export const AppLayout: React.FC = () => {
               })}
             </nav>
 
-            <div className="pt-4 border-t border-[#E8E8E5] flex items-center justify-between">
+            <div className="pt-4 border-t border-[#E8E8E5] dark:border-[#262626] flex items-center justify-between">
               <div
                 onClick={() => {
                   setMobileMenuOpen(false);
@@ -224,7 +270,7 @@ export const AppLayout: React.FC = () => {
                 }}
                 className="flex items-center gap-2.5 cursor-pointer min-w-0 flex-1 mr-2"
               >
-                <div className="w-8 h-8 rounded-lg bg-[#171717] text-white flex items-center justify-center font-bold text-xs overflow-hidden flex-shrink-0 border border-[#E8E8E5]">
+                <div className="w-8 h-8 rounded-lg bg-[#171717] dark:bg-[#22C55E]/15 text-white dark:text-[#22C55E] flex items-center justify-center font-bold text-xs overflow-hidden flex-shrink-0 border border-[#E8E8E5] dark:border-[#262626]">
                   {user?.avatar_url ? (
                     <img
                       src={getAvatarUrl(user.avatar_url)}
@@ -237,12 +283,12 @@ export const AppLayout: React.FC = () => {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold truncate">{user?.full_name}</p>
-                  <p className="text-xs text-[#737373] truncate">@{user?.username || 'user'}</p>
+                  <p className="text-xs text-[#737373] dark:text-[#9E9E9E] truncate">@{user?.username || 'user'}</p>
                 </div>
               </div>
               <button
                 onClick={handleLogout}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[#E11D48] bg-[#FFE4E6] rounded-lg font-medium flex-shrink-0"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[#E11D48] dark:text-[#FB7185] bg-[#FFE4E6] dark:bg-[#E11D48]/15 rounded-lg font-medium flex-shrink-0"
               >
                 <LogOut className="w-3.5 h-3.5" />
                 <span>Sign Out</span>
@@ -253,17 +299,17 @@ export const AppLayout: React.FC = () => {
       )}
 
       {/* --- Main Content Area --- */}
-      <main className="flex-1 flex flex-col min-w-0 pb-16 md:pb-0 overflow-y-auto">
+      <main className="flex-1 flex flex-col min-w-0 pb-20 md:pb-0 overflow-y-auto">
         <Outlet />
       </main>
 
-      {/* --- Mobile Bottom Tab Bar --- */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#FAFAF8]/95 backdrop-blur-md border-t border-[#E8E8E5] flex items-center justify-around py-2 px-1 text-[#737373] shadow-xs">
+      {/* --- Mobile Bottom Tab Bar (Safe-Area Insets for Notches & Home Bar) --- */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#FAFAF8]/95 dark:bg-[#121212]/95 backdrop-blur-md border-t border-[#E8E8E5] dark:border-[#262626] pb-safe flex items-center justify-around py-2 px-1 text-[#737373] dark:text-[#9E9E9E] shadow-xs">
         <NavLink
           to="/dashboard"
           className={({ isActive }) =>
             `flex flex-col items-center py-1 px-2.5 text-[11px] font-medium transition-colors ${
-              isActive ? 'text-[#16834A] font-bold' : 'hover:text-[#171717]'
+              isActive ? 'text-[#16834A] dark:text-[#22C55E] font-bold' : 'hover:text-[#171717] dark:hover:text-[#EDEDED]'
             }`
           }
         >
@@ -275,7 +321,7 @@ export const AppLayout: React.FC = () => {
           to="/trips"
           className={({ isActive }) =>
             `flex flex-col items-center py-1 px-2.5 text-[11px] font-medium transition-colors ${
-              isActive ? 'text-[#16834A] font-bold' : 'hover:text-[#171717]'
+              isActive ? 'text-[#16834A] dark:text-[#22C55E] font-bold' : 'hover:text-[#171717] dark:hover:text-[#EDEDED]'
             }`
           }
         >
@@ -286,7 +332,7 @@ export const AppLayout: React.FC = () => {
         {/* Center Quick Action button */}
         <button
           onClick={() => navigate('/trips/new')}
-          className="-mt-5 w-11 h-11 rounded-full bg-[#16834A] text-white flex items-center justify-center shadow-md active:scale-95 transition-transform"
+          className="-mt-5 w-11 h-11 rounded-full bg-[#16834A] dark:bg-[#22C55E] text-white dark:text-[#0A0A0A] flex items-center justify-center shadow-md active:scale-95 transition-transform"
           aria-label="New Trip"
         >
           <Plus className="w-5 h-5 stroke-[2.5]" />
@@ -296,7 +342,7 @@ export const AppLayout: React.FC = () => {
           to="/friends"
           className={({ isActive }) =>
             `flex flex-col items-center py-1 px-2.5 text-[11px] font-medium transition-colors ${
-              isActive ? 'text-[#16834A] font-bold' : 'hover:text-[#171717]'
+              isActive ? 'text-[#16834A] dark:text-[#22C55E] font-bold' : 'hover:text-[#171717] dark:hover:text-[#EDEDED]'
             }`
           }
         >
@@ -308,7 +354,7 @@ export const AppLayout: React.FC = () => {
           to="/settings"
           className={({ isActive }) =>
             `flex flex-col items-center py-1 px-2.5 text-[11px] font-medium transition-colors ${
-              isActive ? 'text-[#16834A] font-bold' : 'hover:text-[#171717]'
+              isActive ? 'text-[#16834A] dark:text-[#22C55E] font-bold' : 'hover:text-[#171717] dark:hover:text-[#EDEDED]'
             }`
           }
         >
@@ -319,3 +365,5 @@ export const AppLayout: React.FC = () => {
     </div>
   );
 };
+
+export default AppLayout;

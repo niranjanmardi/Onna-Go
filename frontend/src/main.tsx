@@ -1,8 +1,19 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { registerSW } from 'virtual:pwa-register'
 import './index.css'
 import App from './App.tsx'
 import { ErrorBoundary } from './components/common/ErrorBoundary'
+
+// Register PWA Service Worker with lifecycle handlers
+export const updateSW = registerSW({
+  onNeedRefresh() {
+    window.dispatchEvent(new CustomEvent('pwa:need-refresh', { detail: { updateSW } }));
+  },
+  onOfflineReady() {
+    window.dispatchEvent(new CustomEvent('pwa:offline-ready'));
+  },
+});
 
 const container = document.getElementById('root');
 if (container) {

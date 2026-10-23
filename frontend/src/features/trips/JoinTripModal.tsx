@@ -5,6 +5,7 @@ import { Trip } from '@/types';
 
 import { useFeedback } from '@/context/FeedbackContext';
 import { playSound } from '@/lib/sounds';
+import { recordMeaningfulInteraction } from '@/components/pwa/InstallPrompt';
 
 interface JoinTripModalProps {
   isOpen: boolean;
@@ -38,6 +39,7 @@ export const JoinTripModal: React.FC<JoinTripModalProps> = ({
         message: `You are now a member of ${trip.name}.`,
         sound: 'trip_success',
       });
+      recordMeaningfulInteraction('join_trip');
       onTripJoined(trip);
       onClose();
     } catch (err: any) {
