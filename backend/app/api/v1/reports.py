@@ -35,43 +35,48 @@ def sanitize_filename(name: str) -> str:
     return cleaned or "Trip"
 
 # --- Numbered Canvas for Dynamic Page Numbering & Repeating Headers/Footers ---
-from reportlab.pdfgen import canvas
-from reportlab.lib import colors
+try:
+    from reportlab.pdfgen import canvas
+    from reportlab.lib import colors
 
-class NumberedCanvas(canvas.Canvas):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._saved_page_states = []
+    class NumberedCanvas(canvas.Canvas):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._saved_page_states = []
 
-    def showPage(self):
-        self._saved_page_states.append(dict(self.__dict__))
-        self._startPage()
+        def showPage(self):
+            self._saved_page_states.append(dict(self.__dict__))
+            self._startPage()
 
-    def save(self):
-        num_pages = len(self._saved_page_states)
-        for state in self._saved_page_states:
-            self.__dict__.update(state)
-            self.draw_page_decorations(num_pages)
-            super().showPage()
-        super().save()
+        def save(self):
+            num_pages = len(self._saved_page_states)
+            for state in self._saved_page_states:
+                self.__dict__.update(state)
+                self.draw_page_decorations(num_pages)
+                super().showPage()
+            super().save()
 
-    def draw_page_decorations(self, page_count: int):
-        self.saveState()
-        # Page dimensions: A4 is 595.27 x 841.89 points
-        # Left margin 36, Right margin 36 -> Printable width 523.27
-        self.setFont("Helvetica", 8)
-        self.setFillColor(colors.HexColor("#64748B"))
-        
-        # Bottom Divider
-        self.setStrokeColor(colors.HexColor("#E2E8F0"))
-        self.setLineWidth(0.5)
-        self.line(36, 40, 559, 40)
-        
-        # Footer text
-        self.drawString(36, 26, "ONNA-GO • Ride Together. Vibe Together. Split Together. • onna-go.onrender.com")
-        page_str = f"Page {self._pageNumber} of {page_count}"
-        self.drawRightString(559, 26, page_str)
-        self.restoreState()
+        def draw_page_decorations(self, page_count: int):
+            self.saveState()
+            # Page dimensions: A4 is 595.27 x 841.89 points
+            # Left margin 36, Right margin 36 -> Printable width 523.27
+            self.setFont("Helvetica", 8)
+            self.setFillColor(colors.HexColor("#64748B"))
+            
+            # Bottom Divider
+            self.setStrokeColor(colors.HexColor("#E2E8F0"))
+            self.setLineWidth(0.5)
+            self.line(36, 40, 559, 40)
+            
+            # Footer text
+            self.drawString(36, 26, "ONNA-GO • Ride Together. Vibe Together. Split Together. • onna-go.onrender.com")
+            page_str = f"Page {self._pageNumber} of {page_count}"
+            self.drawRightString(559, 26, page_str)
+            self.restoreState()
+except ImportError:
+    NumberedCanvas = None
+    colors = None
+
 
 @router.get("/trip/{trip_id}", response_model=TripReportResponse)
 def get_trip_report(
@@ -213,9 +218,15 @@ def export_trip_pdf(
     membership_data = Depends(require_trip_membership),
     db: Session = Depends(get_db)
 ):
-    from reportlab.lib.pagesizes import A4
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, KeepTogether, HRFlowable
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    try:
+        from reportlab.lib.pagesizes import A4
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, KeepTogether, HRFlowable
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    except ImportError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="PDF generation engine (reportlab) is not installed on the server."
+        )
 
     trip, current_member = membership_data
     
@@ -622,8 +633,11 @@ def export_trip_pdf(
     ]))
     elements.append(st_table)
 
-    # Build PDF with NumberedCanvas
-    doc.build(elements, canvasmaker=NumberedCanvas)
+    # Build PDF with NumberedCanvas if available
+    build_kwargs = {}
+    if NumberedCanvas is not None:
+        build_kwargs["canvasmaker"] = NumberedCanvas
+    doc.build(elements, **build_kwargs)
     buffer.seek(0)
     
     filename = f"ONNA_GO_{sanitize_filename(trip.name)}_Report.pdf"
@@ -638,9 +652,15 @@ def export_history_pdf(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    from reportlab.lib.pagesizes import A4
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    try:
+        from reportlab.lib.pagesizes import A4
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    except ImportError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="PDF generation engine (reportlab) is not installed on the server."
+        )
 
     # Fetch all trips user belongs to
     memberships = db.query(TripMember).filter(TripMember.user_id == current_user.id).all()
@@ -782,7 +802,10 @@ def export_history_pdf(
     ]))
     elements.append(trips_table)
 
-    doc.build(elements, canvasmaker=NumberedCanvas)
+    build_kwargs = {}
+    if NumberedCanvas is not None:
+        build_kwargs["canvasmaker"] = NumberedCanvas
+    doc.build(elements, **build_kwargs)
     buffer.seek(0)
     
     filename = "ONNA_GO_Trip_History.pdf"
