@@ -168,8 +168,16 @@ class TripResponse(TripBase):
     total_expenses_paise: int = 0
     created_at: datetime
     updated_at: datetime
+    user_role: Optional[str] = None
+    status: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+class TravelStatsResponse(BaseModel):
+    trips_created_count: int
+    trips_joined_count: int
+    total_trips_count: int
+    recent_trips: List[TripResponse]
 
 class TripJoinRequest(BaseModel):
     invite_code: str

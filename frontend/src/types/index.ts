@@ -43,6 +43,15 @@ export interface Trip {
   total_expenses_paise: number;
   created_at: string;
   updated_at: string;
+  user_role?: 'OWNER' | 'ADMIN' | 'MEMBER';
+  status?: 'ACTIVE' | 'COMPLETED';
+}
+
+export interface TravelStats {
+  trips_created_count: number;
+  trips_joined_count: number;
+  total_trips_count: number;
+  recent_trips: Trip[];
 }
 
 export interface Activity {

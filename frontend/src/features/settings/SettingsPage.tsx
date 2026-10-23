@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/features/auth/AuthContext';
 import {
   User as UserIcon,
@@ -26,17 +26,48 @@ import {
   Loader2,
   Volume2,
   VolumeX,
+  Compass,
+  ArrowRight,
+  ChevronRight,
+  Users,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getAvatarUrl } from '@/lib/api-client';
+import { api, getAvatarUrl } from '@/lib/api-client';
 import { useFeedback } from '@/context/FeedbackContext';
 import { playSound } from '@/lib/sounds';
+import { TravelStats } from '@/types';
+import { formatDate } from '@/lib/currency';
 
 export const SettingsPage: React.FC = () => {
   const { user, updateProfile, changePassword, uploadAvatar, deleteAccount, logout } = useAuth();
   const { showConfirmation, soundsEnabled, setSoundsEnabled } = useFeedback();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Travel Statistics & Trips State
+  const [travelStats, setTravelStats] = useState<TravelStats | null>(null);
+  const [loadingTravelStats, setLoadingTravelStats] = useState<boolean>(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchTravelStats = async () => {
+      setLoadingTravelStats(true);
+      try {
+        const stats = await api.get<TravelStats>('/trips/profile-stats');
+        if (isMounted) {
+          setTravelStats(stats);
+        }
+      } catch (err) {
+        console.error('Failed to load travel stats:', err);
+      } finally {
+        if (isMounted) setLoadingTravelStats(false);
+      }
+    };
+    fetchTravelStats();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Profile Information State
   const [fullName, setFullName] = useState(user?.full_name || '');
@@ -455,6 +486,179 @@ export const SettingsPage: React.FC = () => {
               </>
             )}
           </button>
+        </div>
+      </section>
+
+      {/* --- TRAVEL ACTIVITY & RECENT TRIPS SECTION --- */}
+      <section className="bg-white rounded-2xl border border-[#E8E8E5] p-5 sm:p-7 shadow-xs space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#F4F4F2]">
+          <div>
+            <div className="flex items-center gap-2">
+              <Compass className="w-5 h-5 text-[#16834A]" />
+              <h2 className="text-base sm:text-lg font-bold text-[#171717] font-['Plus_Jakarta_Sans']">
+                Travel Activity &amp; Trips
+              </h2>
+            </div>
+            <p className="text-xs text-[#737373] mt-0.5">
+              Your journeys, completed travel history, and group memberships.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => navigate('/trips')}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#16834A] hover:text-[#136F3F] transition-colors group"
+          >
+            <span>View All Trips</span>
+            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+          </button>
+        </div>
+
+        {/* Travel Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+          <div className="bg-[#FAFAF8] rounded-xl border border-[#E8E8E5] p-4 flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-neutral-900 text-white flex items-center justify-center flex-shrink-0">
+              <Compass className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#737373] block">
+                Total Trips
+              </span>
+              <span className="text-xl font-extrabold text-[#171717]">
+                {loadingTravelStats ? '...' : travelStats?.total_trips_count ?? 0}
+              </span>
+            </div>
+          </div>
+
+          <div className="bg-[#FAFAF8] rounded-xl border border-[#E8E8E5] p-4 flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center flex-shrink-0">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#737373] block">
+                Trips Created
+              </span>
+              <span className="text-xl font-extrabold text-[#171717]">
+                {loadingTravelStats ? '...' : travelStats?.trips_created_count ?? 0}
+              </span>
+            </div>
+          </div>
+
+          <div className="bg-[#FAFAF8] rounded-xl border border-[#E8E8E5] p-4 flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center flex-shrink-0">
+              <Users className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#737373] block">
+                Trips Joined
+              </span>
+              <span className="text-xl font-extrabold text-[#171717]">
+                {loadingTravelStats ? '...' : travelStats?.trips_joined_count ?? 0}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Recent Trips List */}
+        <div>
+          <h3 className="text-xs font-bold uppercase tracking-wider text-[#737373] mb-3">
+            Recent Trips
+          </h3>
+
+          {loadingTravelStats ? (
+            <div className="py-8 flex flex-col items-center justify-center text-[#737373] text-xs">
+              <Loader2 className="w-5 h-5 animate-spin mb-2 text-[#16834A]" />
+              <span>Loading trips...</span>
+            </div>
+          ) : !travelStats?.recent_trips || travelStats.recent_trips.length === 0 ? (
+            <div className="bg-[#FAFAF8] rounded-xl border border-dashed border-[#E8E8E5] p-6 text-center">
+              <p className="text-xs text-[#737373] mb-3">
+                You haven't created or joined any trips yet.
+              </p>
+              <button
+                type="button"
+                onClick={() => navigate('/trips/new')}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#16834A] text-white text-xs font-semibold rounded-lg hover:bg-[#136F3F] transition-colors"
+              >
+                Create a Trip
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              {travelStats.recent_trips.map((trip) => {
+                const isCompleted = trip.status === 'COMPLETED';
+                const isOwner = trip.user_role === 'OWNER';
+
+                return (
+                  <div
+                    key={trip.id}
+                    className="bg-[#FAFAF8] rounded-xl border border-[#E8E8E5] p-4 flex flex-col justify-between hover:border-[#16834A]/50 transition-all shadow-2xs"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <div className="flex items-center gap-1.5">
+                          {isCompleted ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-neutral-200/80 text-neutral-700">
+                              <Check className="w-2.5 h-2.5" />
+                              <span>Completed</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                              <span>Active</span>
+                            </span>
+                          )}
+
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${
+                            isOwner ? 'bg-blue-100 text-blue-800' : 'bg-neutral-200/80 text-neutral-700'
+                          }`}>
+                            {isOwner ? 'Created' : 'Joined'}
+                          </span>
+                        </div>
+
+                        <span className="text-[11px] text-[#737373] flex items-center gap-1">
+                          <Users className="w-3 h-3 text-[#A3A3A3]" />
+                          <span>{trip.members_count}</span>
+                        </span>
+                      </div>
+
+                      <h4 className="text-sm font-bold text-[#171717] line-clamp-1 mb-1">
+                        {trip.name}
+                      </h4>
+
+                      {trip.destination && (
+                        <p className="text-xs text-[#737373] flex items-center gap-1.5 mb-1">
+                          <MapPin className="w-3 h-3 text-[#16834A] flex-shrink-0" />
+                          <span className="truncate">{trip.destination}</span>
+                        </p>
+                      )}
+
+                      {trip.start_date && (
+                        <p className="text-xs text-[#737373] flex items-center gap-1.5">
+                          <Calendar className="w-3 h-3 text-blue-500 flex-shrink-0" />
+                          <span>
+                            {formatDate(trip.start_date)}
+                            {trip.end_date ? ` – ${formatDate(trip.end_date)}` : ''}
+                          </span>
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-[#E8E8E5] flex items-center justify-end">
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/trips/${trip.id}`)}
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-[#16834A] hover:text-[#136F3F] transition-colors"
+                      >
+                        <span>Open Trip</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </section>
 

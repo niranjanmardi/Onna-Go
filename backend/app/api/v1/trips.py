@@ -11,6 +11,7 @@ from backend.app.schemas.schemas import (
     TripCreate,
     TripUpdate,
     TripResponse,
+    TravelStatsResponse,
     TripMemberResponse,
     TripJoinRequest,
     TripInviteRequest,
@@ -23,6 +24,18 @@ router = APIRouter(prefix="/trips", tags=["Trips"])
 
 def generate_invite_code() -> str:
     return secrets.token_hex(4).upper()
+
+def compute_trip_status(trip: Trip) -> str:
+    if trip.is_archived:
+        return "COMPLETED"
+    if trip.end_date:
+        now = datetime.now(timezone.utc)
+        trip_end = trip.end_date
+        if trip_end.tzinfo is None:
+            trip_end = trip_end.replace(tzinfo=timezone.utc)
+        if trip_end < now:
+            return "COMPLETED"
+    return "ACTIVE"
 
 @router.post("/", response_model=TripResponse, status_code=status.HTTP_201_CREATED)
 def create_trip(
@@ -63,25 +76,27 @@ def create_trip(
     resp = TripResponse.model_validate(trip)
     resp.members_count = 1
     resp.total_expenses_paise = 0
+    resp.user_role = "OWNER"
+    resp.status = compute_trip_status(trip)
     return resp
 
 @router.get("/", response_model=List[TripResponse])
 def list_my_trips(
-    include_archived: bool = False,
+    include_archived: bool = True,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     query = (
-        db.query(Trip)
+        db.query(Trip, TripMember.role)
         .join(TripMember, TripMember.trip_id == Trip.id)
         .filter(TripMember.user_id == current_user.id)
     )
     if not include_archived:
         query = query.filter(Trip.is_archived == False)
         
-    trips = query.order_by(Trip.created_at.desc()).all()
+    trips_with_roles = query.order_by(Trip.created_at.desc()).all()
     results = []
-    for t in trips:
+    for t, member_role in trips_with_roles:
         members_count = db.query(TripMember).filter(TripMember.trip_id == t.id).count()
         exp_sum = (
             db.query(func.sum(Expense.amount_paise))
@@ -91,6 +106,8 @@ def list_my_trips(
         item = TripResponse.model_validate(t)
         item.members_count = members_count
         item.total_expenses_paise = exp_sum
+        item.user_role = member_role or ("OWNER" if t.created_by_id == current_user.id else "MEMBER")
+        item.status = compute_trip_status(t)
         results.append(item)
     return results
 
@@ -229,22 +246,79 @@ def decline_trip_invitation(
     db.commit()
     return {"message": "Trip invitation declined."}
 
+@router.get("/profile-stats", response_model=TravelStatsResponse)
+def get_user_travel_stats(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Returns travel statistics and recent trips for the authenticated user's profile.
+    Calculates created vs joined trips from database records.
+    """
+    trips_with_roles = (
+        db.query(Trip, TripMember.role)
+        .join(TripMember, TripMember.trip_id == Trip.id)
+        .filter(TripMember.user_id == current_user.id)
+        .order_by(Trip.created_at.desc())
+        .all()
+    )
+    
+    trips_created_count = 0
+    trips_joined_count = 0
+    recent_trip_responses = []
+
+    for idx, (t, member_role) in enumerate(trips_with_roles):
+        is_creator = (t.created_by_id == current_user.id)
+        if is_creator:
+            trips_created_count += 1
+        else:
+            trips_joined_count += 1
+            
+        # Top 5 recent trips
+        if idx < 5:
+            members_count = db.query(TripMember).filter(TripMember.trip_id == t.id).count()
+            exp_sum = (
+                db.query(func.sum(Expense.amount_paise))
+                .filter(Expense.trip_id == t.id, Expense.is_void == False)
+                .scalar() or 0
+            )
+            item = TripResponse.model_validate(t)
+            item.members_count = members_count
+            item.total_expenses_paise = exp_sum
+            item.user_role = member_role or ("OWNER" if is_creator else "MEMBER")
+            item.status = compute_trip_status(t)
+            recent_trip_responses.append(item)
+
+    return TravelStatsResponse(
+        trips_created_count=trips_created_count,
+        trips_joined_count=trips_joined_count,
+        total_trips_count=trips_created_count + trips_joined_count,
+        recent_trips=recent_trip_responses
+    )
+
 @router.get("/{trip_id}", response_model=TripResponse)
 def get_trip(
     trip_id: str,
     membership_data = Depends(require_trip_membership),
     db: Session = Depends(get_db)
 ):
-    trip, _ = membership_data
+    trip, current_user = membership_data
     members_count = db.query(TripMember).filter(TripMember.trip_id == trip.id).count()
     exp_sum = (
         db.query(func.sum(Expense.amount_paise))
         .filter(Expense.trip_id == trip.id, Expense.is_void == False)
         .scalar() or 0
     )
+    membership = (
+        db.query(TripMember)
+        .filter(TripMember.trip_id == trip.id, TripMember.user_id == current_user.id)
+        .first()
+    )
     item = TripResponse.model_validate(trip)
     item.members_count = members_count
     item.total_expenses_paise = exp_sum
+    item.user_role = membership.role if membership else ("OWNER" if trip.created_by_id == current_user.id else "MEMBER")
+    item.status = compute_trip_status(trip)
     return item
 
 @router.put("/{trip_id}", response_model=TripResponse)

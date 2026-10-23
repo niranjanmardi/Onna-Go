@@ -155,3 +155,78 @@ def test_full_trip_expense_settlement_workflow():
     outsider_token = outsider_res.json()["access_token"] if outsider_res.status_code == 201 else client.post("/api/v1/auth/login", json={"email": "outsider@rupaii.app", "password": "Password123!"}).json()["access_token"]
     forbidden_res = client.get(f"/api/v1/trips/{trip_id}", headers={"Authorization": f"Bearer {outsider_token}"})
     assert forbidden_res.status_code == 403
+
+def test_trip_history_and_profile_stats():
+    import secrets
+    tag = secrets.token_hex(4)
+    traveler_email = f"trav_{tag}@onna-go.app"
+    reg = client.post("/api/v1/auth/register", json={
+        "username": f"trav_{tag}",
+        "email": traveler_email,
+        "full_name": "Charlie Explorer",
+        "password": "Password123!",
+        "default_currency": "INR"
+    })
+    assert reg.status_code == 201
+    token = reg.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 2. Before creating any trip, profile-stats should show 0 created, 0 joined
+    empty_stats = client.get("/api/v1/trips/profile-stats", headers=headers)
+    assert empty_stats.status_code == 200
+    empty_data = empty_stats.json()
+    assert empty_data["trips_created_count"] == 0
+    assert empty_data["trips_joined_count"] == 0
+    assert empty_data["total_trips_count"] == 0
+    assert empty_data["recent_trips"] == []
+
+    # 3. Create an active trip with future dates
+    create_res = client.post("/api/v1/trips/", json={
+        "name": "Himalayan Ride 2027",
+        "destination": "Manali to Leh",
+        "start_date": "2027-06-01T08:00:00Z",
+        "end_date": "2027-06-15T18:00:00Z",
+        "currency": "INR",
+        "budget_paise": 5000000
+    }, headers=headers)
+    assert create_res.status_code == 201
+    created_trip = create_res.json()
+    assert created_trip["user_role"] == "OWNER"
+    assert created_trip["status"] == "ACTIVE"
+
+    # 4. Create a past/completed trip
+    past_res = client.post("/api/v1/trips/", json={
+        "name": "Goa Coastal Cruise 2025",
+        "destination": "Goa",
+        "start_date": "2025-01-01T08:00:00Z",
+        "end_date": "2025-01-10T18:00:00Z",
+        "currency": "INR",
+        "budget_paise": 2000000
+    }, headers=headers)
+    assert past_res.status_code == 201
+    past_trip = past_res.json()
+    assert past_trip["user_role"] == "OWNER"
+    assert past_trip["status"] == "COMPLETED"
+
+    # 5. Check profile stats updates immediately
+    stats_res = client.get("/api/v1/trips/profile-stats", headers=headers)
+    assert stats_res.status_code == 200
+    stats_data = stats_res.json()
+    assert stats_data["trips_created_count"] >= 2
+    assert stats_data["total_trips_count"] >= 2
+    assert len(stats_data["recent_trips"]) >= 2
+    trip_names = [t["name"] for t in stats_data["recent_trips"]]
+    assert "Himalayan Ride 2027" in trip_names
+    assert "Goa Coastal Cruise 2025" in trip_names
+
+    # 6. Check trip list / history endpoint includes user_role and status
+    list_res = client.get("/api/v1/trips/", headers=headers)
+    assert list_res.status_code == 200
+    trips_list = list_res.json()
+    found_active = [t for t in trips_list if t["id"] == created_trip["id"]][0]
+    found_past = [t for t in trips_list if t["id"] == past_trip["id"]][0]
+    assert found_active["user_role"] == "OWNER"
+    assert found_active["status"] == "ACTIVE"
+    assert found_past["user_role"] == "OWNER"
+    assert found_past["status"] == "COMPLETED"
+

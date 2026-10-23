@@ -3,6 +3,9 @@ import { X, KeyRound, ArrowRight, AlertCircle } from 'lucide-react';
 import { api } from '@/lib/api-client';
 import { Trip } from '@/types';
 
+import { useFeedback } from '@/context/FeedbackContext';
+import { playSound } from '@/lib/sounds';
+
 interface JoinTripModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -14,6 +17,7 @@ export const JoinTripModal: React.FC<JoinTripModalProps> = ({
   onClose,
   onTripJoined,
 }) => {
+  const { showConfirmation } = useFeedback();
   const [inviteCode, setInviteCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -29,9 +33,15 @@ export const JoinTripModal: React.FC<JoinTripModalProps> = ({
       const trip = await api.post<Trip>('/trips/join', {
         invite_code: inviteCode.trim().toUpperCase(),
       });
+      showConfirmation({
+        title: 'Joined Trip Successfully!',
+        message: `You are now a member of ${trip.name}.`,
+        sound: 'trip_success',
+      });
       onTripJoined(trip);
       onClose();
     } catch (err: any) {
+      playSound('error');
       setError(err.message || 'Invalid or expired invite code.');
     } finally {
       setLoading(false);

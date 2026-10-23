@@ -108,6 +108,8 @@ def get_dashboard_summary(
         tr = TripResponse.model_validate(t)
         tr.members_count = m_count
         tr.total_expenses_paise = e_sum
+        tr.user_role = "OWNER" if t.created_by_id == current_user.id else "MEMBER"
+        tr.status = "ACTIVE"
         active_trips_resp.append(tr)
         
     return DashboardSummary(
