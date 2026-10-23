@@ -56,6 +56,43 @@ export const FriendsPage: React.FC = () => {
   // Copied UID tracking
   const [copiedUid, setCopiedUid] = useState<string | null>(null);
 
+  // Profile Modal State
+  const [viewingProfile, setViewingProfile] = useState<FriendSearchItem | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+
+  const handleOpenProfile = async (item: {
+    id: string;
+    username?: string | null;
+    display_name: string;
+    avatar_url?: string | null;
+    city?: string | null;
+    bio?: string | null;
+    created_at?: string | null;
+    relationship_status?: any;
+    request_id?: string | null;
+  }) => {
+    setLoadingProfile(true);
+    setViewingProfile({
+      id: item.id,
+      username: item.username,
+      display_name: item.display_name,
+      avatar_url: item.avatar_url,
+      city: item.city,
+      bio: item.bio,
+      created_at: item.created_at,
+      relationship_status: item.relationship_status || 'none',
+      request_id: item.request_id,
+    });
+    try {
+      const data = await api.get<FriendSearchItem>(`/friends/profile/${item.id}`);
+      setViewingProfile(data);
+    } catch {
+      // Keep optimistic item
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
+
   const handleCopyUid = (uid: string) => {
     navigator.clipboard.writeText(uid);
     setCopiedUid(uid);
@@ -468,8 +505,21 @@ export const FriendsPage: React.FC = () => {
                     <div className="pt-2 border-t border-[#F4F4F2] flex items-center justify-between gap-2">
                       <button
                         type="button"
+                        onClick={() =>
+                          handleOpenProfile({
+                            ...friend,
+                            relationship_status: 'friends',
+                          })
+                        }
+                        className="py-1.5 px-2.5 bg-white hover:bg-[#FAFAF8] text-[#171717] text-xs font-semibold rounded-lg border border-[#E8E8E5] transition-colors cursor-pointer"
+                      >
+                        Profile
+                      </button>
+
+                      <button
+                        type="button"
                         onClick={() => navigate('/trips/new')}
-                        className="flex-1 py-1.5 px-2 bg-[#FAFAF8] hover:bg-[#F4F4F2] text-[#171717] text-xs font-semibold rounded-lg border border-[#E8E8E5] transition-colors flex items-center justify-center gap-1.5"
+                        className="flex-1 py-1.5 px-2 bg-[#FAFAF8] hover:bg-[#F4F4F2] text-[#171717] text-xs font-semibold rounded-lg border border-[#E8E8E5] transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         <Compass className="w-3.5 h-3.5 text-[#16834A]" />
                         <span>Plan Trip</span>
@@ -501,7 +551,7 @@ export const FriendsPage: React.FC = () => {
             <div>
               <h2 className="text-base font-bold text-[#171717]">Search for Travelers</h2>
               <p className="text-xs text-[#737373] mt-0.5">
-                Find friends using their exact unique @username or permanent UID.
+                Find friends by unique @username, display name, or registered email. (Email is used for matching only and is never revealed in search responses).
               </p>
             </div>
 
@@ -513,14 +563,14 @@ export const FriendsPage: React.FC = () => {
                   required
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="e.g. rider_alex or 63757d5a-0097-..."
+                  placeholder="e.g. rider_alex, Alex Turner, or alex@example.com"
                   className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl pl-10 pr-4 py-2.5 text-sm text-[#171717] focus:outline-none focus:border-[#16834A] focus:ring-2 focus:ring-[#16834A]/10"
                 />
               </div>
               <button
                 type="submit"
                 disabled={isSearching}
-                className="px-5 py-2.5 bg-[#16834A] hover:bg-[#136F3F] text-white text-xs sm:text-sm font-semibold rounded-xl shadow-xs transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                className="px-5 py-2.5 bg-[#16834A] hover:bg-[#136F3F] text-white text-xs sm:text-sm font-semibold rounded-xl shadow-xs transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
               >
                 {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                 <span>Search</span>
@@ -576,9 +626,13 @@ export const FriendsPage: React.FC = () => {
                           <p className="text-xs text-[#16834A] font-semibold truncate">
                             @{item.username || 'user'}
                           </p>
-                          <p className="text-[11px] text-[#737373] font-mono mt-0.5">
-                            UID: {item.id.slice(0, 8)}...
-                          </p>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenProfile(item)}
+                            className="text-[11px] text-[#16834A] hover:underline font-semibold mt-0.5 block text-left cursor-pointer"
+                          >
+                            View Profile
+                          </button>
                         </div>
                       </div>
 
@@ -836,6 +890,149 @@ export const FriendsPage: React.FC = () => {
               >
                 {isUnfriending ? 'Removing...' : 'Remove Friend'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* User Profile Modal */}
+      {viewingProfile && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-[#E8E8E5] p-6 max-w-sm w-full shadow-2xl space-y-5 animate-scaleUp relative">
+            <button
+              onClick={() => setViewingProfile(null)}
+              className="absolute top-4 right-4 p-1.5 text-[#737373] hover:text-[#171717] rounded-lg hover:bg-[#F4F4F2] transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="text-center space-y-3 pt-2">
+              {viewingProfile.avatar_url ? (
+                <img
+                  src={getAvatarUrl(viewingProfile.avatar_url) || ''}
+                  alt={viewingProfile.display_name}
+                  className="w-16 h-16 rounded-2xl object-cover border border-[#E8E8E5] mx-auto"
+                />
+              ) : (
+                <div className="w-16 h-16 rounded-2xl bg-[#171717] text-white flex items-center justify-center font-bold text-lg mx-auto">
+                  {viewingProfile.display_name
+                    .split(' ')
+                    .map((n) => n[0])
+                    .slice(0, 2)
+                    .join('')
+                    .toUpperCase()}
+                </div>
+              )}
+
+              <div>
+                <h3 className="text-base font-bold text-[#171717]">
+                  {viewingProfile.display_name}
+                </h3>
+                <p className="text-xs text-[#16834A] font-semibold">
+                  @{viewingProfile.username || 'user'}
+                </p>
+                {viewingProfile.city && (
+                  <p className="text-[11px] text-[#737373] flex items-center justify-center gap-1 mt-1">
+                    <MapPin className="w-3 h-3 text-[#A3A3A3]" />
+                    <span>{viewingProfile.city}</span>
+                  </p>
+                )}
+              </div>
+
+              {viewingProfile.bio && (
+                <p className="text-xs text-[#737373] bg-[#FAFAF8] p-3 rounded-xl border border-[#E8E8E5] text-left">
+                  {viewingProfile.bio}
+                </p>
+              )}
+
+              <div className="flex items-center justify-between text-[11px] text-[#737373] pt-2 border-t border-[#E8E8E5]">
+                <span>Status</span>
+                <span
+                  className={`font-semibold capitalize px-2 py-0.5 rounded-md ${
+                    viewingProfile.relationship_status === 'friends'
+                      ? 'bg-[#DDF5E5] text-[#16834A]'
+                      : viewingProfile.relationship_status === 'pending_outgoing'
+                      ? 'bg-[#FEF3C7] text-[#B45309]'
+                      : viewingProfile.relationship_status === 'pending_incoming'
+                      ? 'bg-[#EFF6FF] text-[#1E40AF]'
+                      : 'bg-[#FAFAF8] text-[#737373]'
+                  }`}
+                >
+                  {viewingProfile.relationship_status === 'pending_outgoing'
+                    ? 'Request Sent'
+                    : viewingProfile.relationship_status === 'pending_incoming'
+                    ? 'Incoming Request'
+                    : viewingProfile.relationship_status}
+                </span>
+              </div>
+            </div>
+
+            {/* Contextual Profile Actions */}
+            <div className="pt-2">
+              {viewingProfile.relationship_status === 'none' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleSendRequest(viewingProfile);
+                    setViewingProfile(null);
+                  }}
+                  className="w-full py-2.5 bg-[#16834A] hover:bg-[#136F3F] text-white text-xs font-semibold rounded-xl shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>Send Friend Request</span>
+                </button>
+              )}
+
+              {viewingProfile.relationship_status === 'pending_outgoing' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (viewingProfile.request_id) handleCancelRequest(viewingProfile.request_id);
+                    setViewingProfile(null);
+                  }}
+                  className="w-full py-2.5 bg-white hover:bg-[#FFE4E6]/50 text-[#E11D48] border border-[#FDA4AF] text-xs font-semibold rounded-xl cursor-pointer"
+                >
+                  Cancel Outgoing Request
+                </button>
+              )}
+
+              {viewingProfile.relationship_status === 'pending_incoming' && (
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (viewingProfile.request_id) handleAcceptRequest(viewingProfile.request_id);
+                      setViewingProfile(null);
+                    }}
+                    className="py-2.5 bg-[#16834A] hover:bg-[#136F3F] text-white text-xs font-semibold rounded-xl shadow-xs cursor-pointer"
+                  >
+                    Accept
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (viewingProfile.request_id) handleDeclineRequest(viewingProfile.request_id);
+                      setViewingProfile(null);
+                    }}
+                    className="py-2.5 bg-white text-[#737373] border border-[#E8E8E5] text-xs font-semibold rounded-xl hover:bg-[#FAFAF8] cursor-pointer"
+                  >
+                    Decline
+                  </button>
+                </div>
+              )}
+
+              {viewingProfile.relationship_status === 'friends' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUnfriendTarget(viewingProfile as any);
+                    setViewingProfile(null);
+                  }}
+                  className="w-full py-2 text-xs text-[#E11D48] hover:bg-[#FFE4E6]/50 border border-[#FDA4AF] rounded-xl font-semibold cursor-pointer"
+                >
+                  Remove from Friends
+                </button>
+              )}
             </div>
           </div>
         </div>

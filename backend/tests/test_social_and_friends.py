@@ -235,3 +235,46 @@ def test_full_friends_and_trip_invitations_flow():
     member_user_ids = [m["user_id"] for m in members]
     assert userA["id"] in member_user_ids
     assert userB["id"] in member_user_ids
+
+    # 10. Search by email address (without exposing email in result)
+    email_search = client.get(f"/api/v1/friends/search?q={userB['email']}", headers=headersA)
+    assert email_search.status_code == 200
+    email_res = email_search.json()
+    assert len(email_res) == 1
+    assert email_res[0]["id"] == userB["id"]
+    # Verify email is NOT exposed in the search result
+    assert "email" not in email_res[0]
+
+    # 11. View public profile of User B
+    prof_res = client.get(f"/api/v1/friends/profile/{userB['id']}", headers=headersA)
+    assert prof_res.status_code == 200
+    prof = prof_res.json()
+    assert prof["id"] == userB["id"]
+    assert prof["display_name"] == userB["full_name"]
+    assert prof["relationship_status"] == "friends"
+    assert "email" not in prof
+
+    # 12. Remove friend
+    del_res = client.delete(f"/api/v1/friends/{userB['id']}", headers=headersA)
+    assert del_res.status_code == 200
+
+    # Verify they are no longer in friends list
+    a_friends_after = client.get("/api/v1/friends", headers=headersA).json()
+    assert not any(f["id"] == userB["id"] for f in a_friends_after)
+
+    # 13. Cancel outgoing friend request workflow
+    # User A sends request again
+    new_req = client.post("/api/v1/friends/request", headers=headersA, json={
+        "username_or_uid": userB["username"]
+    })
+    assert new_req.status_code == 201
+    new_req_id = new_req.json()["id"]
+
+    # Cancel outgoing request
+    cancel_res = client.delete(f"/api/v1/friends/requests/{new_req_id}/cancel", headers=headersA)
+    assert cancel_res.status_code == 200
+
+    # Check status back to none
+    search_after_cancel = client.get(f"/api/v1/friends/search?q={userB['username']}", headers=headersA).json()
+    assert search_after_cancel[0]["relationship_status"] == "none"
+

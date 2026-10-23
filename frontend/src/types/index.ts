@@ -148,7 +148,7 @@ export interface Settlement {
   payee_name: string;
   payee_upi_id?: string | null;
   amount_paise: number;
-  status: 'SUGGESTED' | 'PENDING_CONFIRMATION' | 'INITIATED' | 'CONFIRMED' | 'DISPUTED' | 'CANCELLED';
+  status: 'SUGGESTED' | 'PENDING_CONFIRMATION' | 'INITIATED' | 'CONFIRMED' | 'DISPUTED' | 'CANCELLED' | 'REJECTED';
   payment_method: string;
   reference_id?: string | null;
   notes?: string | null;
@@ -248,6 +248,8 @@ export interface FriendSearchItem {
   display_name: string;
   avatar_url?: string | null;
   city?: string | null;
+  bio?: string | null;
+  created_at?: string | null;
   relationship_status: 'none' | 'friends' | 'pending_outgoing' | 'pending_incoming' | 'self';
   request_id?: string | null;
 }

@@ -98,6 +98,12 @@ export const api = {
       method: 'DELETE',
       body: body ? JSON.stringify(body) : undefined,
     }),
+  patch: <T>(endpoint: string, body?: any, options?: RequestInit) =>
+    request<T>(endpoint, {
+      ...options,
+      method: 'PATCH',
+      body: body ? JSON.stringify(body) : undefined,
+    }),
 
   uploadFile: async (endpoint: string, file: File): Promise<any> => {
     const token = localStorage.getItem('onnago_token') || localStorage.getItem('rupaii_token');

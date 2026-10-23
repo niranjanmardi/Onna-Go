@@ -178,3 +178,75 @@ def test_settlement_optimization_chain():
     transfers = {(s["from_user_id"], s["to_user_id"]): s["amount_paise"] for s in suggestions}
     assert transfers[("A", "C")] == 200
     assert transfers[("A", "B")] == 100
+
+def test_equal_split_two_and_four_members():
+    # Two members: ₹100 = 10000 paise -> 5000 each
+    s2 = calculate_equal_split(10000, ["u1", "u2"])
+    assert len(s2) == 2
+    assert s2[0]["amount_paise"] == 5000
+    assert s2[1]["amount_paise"] == 5000
+    assert sum(s["amount_paise"] for s in s2) == 10000
+
+    # Four members: ₹100 = 10000 paise -> 2500 each
+    s4 = calculate_equal_split(10000, ["u1", "u2", "u3", "u4"])
+    assert len(s4) == 4
+    for item in s4:
+        assert item["amount_paise"] == 2500
+    assert sum(s["amount_paise"] for s in s4) == 10000
+
+def test_selected_member_split_with_payer_included_and_excluded():
+    # Prompt Example Method B:
+    # 4 members in trip (u1, u2, u3, u4).
+    # u1 pays ₹120 (12000 paise) for food.
+    # Only u1, u2, u3 participated. u4 excluded.
+    # Payer u1 is included in participants.
+    selected_splits = calculate_equal_split(12000, ["u1", "u2", "u3"])
+    assert len(selected_splits) == 3
+    assert all(s["amount_paise"] == 4000 for s in selected_splits)
+    assert sum(s["amount_paise"] for s in selected_splits) == 12000
+
+    # Test net balance when payer u1 is INCLUDED in participants:
+    members = ["u1", "u2", "u3", "u4"]
+    exp_included = [{
+        "id": "e1",
+        "payer_id": "u1",
+        "amount_paise": 12000,
+        "is_void": False,
+        "splits": selected_splits
+    }]
+    bal_inc = calculate_trip_balances(members, exp_included)["net_balances"]
+    # u1 paid 12000, consumed 4000 -> net +8000
+    # u2 consumed 4000 -> net -4000
+    # u3 consumed 4000 -> net -4000
+    # u4 consumed 0 -> net 0
+    assert bal_inc["u1"] == 8000
+    assert bal_inc["u2"] == -4000
+    assert bal_inc["u3"] == -4000
+    assert bal_inc["u4"] == 0
+    assert sum(bal_inc.values()) == 0
+
+    # Test net balance when payer u1 is EXCLUDED from participants:
+    # e.g., u1 buys gifts for u2, u3, u4 (u1 consumed nothing)
+    splits_excluded = calculate_equal_split(12000, ["u2", "u3", "u4"])
+    exp_excluded = [{
+        "id": "e2",
+        "payer_id": "u1",
+        "amount_paise": 12000,
+        "is_void": False,
+        "splits": splits_excluded
+    }]
+    bal_exc = calculate_trip_balances(members, exp_excluded)["net_balances"]
+    # u1 paid 12000, consumed 0 -> net +12000
+    # u2 consumed 4000 -> net -4000
+    # u3 consumed 4000 -> net -4000
+    # u4 consumed 4000 -> net -4000
+    assert bal_exc["u1"] == 12000
+    assert bal_exc["u2"] == -4000
+    assert bal_exc["u3"] == -4000
+    assert bal_exc["u4"] == -4000
+    assert sum(bal_exc.values()) == 0
+
+def test_duplicate_participants_rejected():
+    with pytest.raises(ValueError, match="Duplicate participants"):
+        calculate_equal_split(10000, ["u1", "u2", "u1"])
+

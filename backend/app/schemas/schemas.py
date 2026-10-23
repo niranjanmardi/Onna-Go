@@ -85,6 +85,8 @@ class FriendSearchResponse(BaseModel):
     display_name: str
     avatar_url: Optional[str] = None
     city: Optional[str] = None
+    bio: Optional[str] = None
+    created_at: Optional[datetime] = None
     relationship_status: str  # 'none' | 'friends' | 'pending_outgoing' | 'pending_incoming' | 'self'
     request_id: Optional[str] = None
 

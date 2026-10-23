@@ -1,5 +1,5 @@
 import json
-from typing import List
+from typing import List, Optional
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -50,6 +50,13 @@ def create_settlement(
         
     if st_in.payer_id == st_in.payee_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Payer and Payee cannot be the same person.")
+
+    # Validate that current user is the debtor (payer) or a trip owner/admin
+    if current_user.id != st_in.payer_id and member.role not in ["OWNER", "ADMIN"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the debtor (payer) can submit a settlement payment for confirmation."
+        )
         
     # Check both users exist in trip
     payer_member = db.query(TripMember).filter(TripMember.trip_id == st_in.trip_id, TripMember.user_id == st_in.payer_id).first()
@@ -129,12 +136,28 @@ def create_settlement(
 @router.get("/trip/{trip_id}", response_model=List[SettlementResponse])
 def list_trip_settlements(
     trip_id: str,
+    status: Optional[str] = None,
+    membership_data = Depends(require_trip_membership),
+    db: Session = Depends(get_db)
+):
+    query = db.query(Settlement).filter(Settlement.trip_id == trip_id)
+    if status:
+        query = query.filter(Settlement.status == status.upper())
+    settlements = query.order_by(Settlement.created_at.desc()).all()
+    return [build_settlement_response(s, db) for s in settlements]
+
+@router.get("/trip/{trip_id}/pending", response_model=List[SettlementResponse])
+def get_pending_trip_settlements(
+    trip_id: str,
     membership_data = Depends(require_trip_membership),
     db: Session = Depends(get_db)
 ):
     settlements = (
         db.query(Settlement)
-        .filter(Settlement.trip_id == trip_id)
+        .filter(
+            Settlement.trip_id == trip_id,
+            Settlement.status.in_(["PENDING_CONFIRMATION", "INITIATED"])
+        )
         .order_by(Settlement.created_at.desc())
         .all()
     )

@@ -3,6 +3,7 @@ from enum import Enum
 
 class SplitMethod(str, Enum):
     EQUAL = "EQUAL"
+    SELECTED = "SELECTED"
     EXACT = "EXACT"
     PERCENTAGE = "PERCENTAGE"
     CUSTOM = "CUSTOM"
@@ -16,7 +17,9 @@ def calculate_equal_split(amount_paise: int, participant_ids: List[str]) -> List
     if amount_paise <= 0:
         raise ValueError("Expense amount must be strictly greater than 0 paise.")
     if not participant_ids:
-        raise ValueError("Participants list cannot be empty.")
+        raise ValueError("Participants list cannot be empty. At least one participant is required.")
+    if len(participant_ids) != len(set(participant_ids)):
+        raise ValueError("Duplicate participants in expense split are not allowed.")
     
     unique_ids = sorted(list(set(participant_ids)))
     n = len(unique_ids)

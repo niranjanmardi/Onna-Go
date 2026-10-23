@@ -86,11 +86,15 @@ def create_expense(
     # Compute splits based on method
     method = exp_in.split_method.upper()
     try:
-        if method == SplitMethod.EQUAL.value:
-            p_ids = exp_in.participant_ids or list(valid_member_ids)
+        if method in [SplitMethod.EQUAL.value, SplitMethod.SELECTED.value]:
+            p_ids = exp_in.participant_ids if exp_in.participant_ids is not None else list(valid_member_ids)
+            if not p_ids:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="At least one participant must be selected.")
+            if len(p_ids) != len(set(p_ids)):
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Duplicate participants are not allowed in expense split.")
             for pid in p_ids:
                 if pid not in valid_member_ids:
-                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Participant {pid} is not a trip member.")
+                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Participant {pid} is not a valid trip member.")
             calculated_splits = calculate_equal_split(exp_in.amount_paise, p_ids)
             
         elif method == SplitMethod.EXACT.value:

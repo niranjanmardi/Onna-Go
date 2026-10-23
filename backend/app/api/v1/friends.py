@@ -63,19 +63,23 @@ def search_friends(
     db: Session = Depends(get_db)
 ):
     """
-    Search for friends by exact username (case-insensitive) or exact UID.
-    Safely reveals only public details (avatar, display name, username, relationship status).
+    Search for friends by username, full name, email, or exact UID.
+    Safely reveals only public details (avatar, display name, username, bio, join date, relationship status).
+    Email addresses are never exposed in search responses.
     """
     clean_q = q.strip().lower()
+    search_pattern = f"%{clean_q}%"
     
-    # Query by exact UID or exact username
+    # Query by username (substring), full_name (substring), exact email, or exact UID
     users = db.query(User).filter(
         or_(
-            func.lower(User.username) == clean_q,
+            func.lower(User.username).ilike(search_pattern),
+            User.full_name.ilike(search_pattern),
+            func.lower(User.email) == clean_q,
             User.id == q.strip()
         ),
         User.is_active == True
-    ).all()
+    ).limit(30).all()
 
     results: List[FriendSearchResponse] = []
     for u in users:
@@ -113,11 +117,63 @@ def search_friends(
             display_name=u.full_name,
             avatar_url=u.avatar_url,
             city=u.city,
+            bio=u.bio,
+            created_at=u.created_at,
             relationship_status=rel_status,
             request_id=req_id
         ))
 
     return results
+
+@router.get("/profile/{user_id}", response_model=FriendSearchResponse)
+def get_user_profile(
+    user_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Returns permitted public profile information and current relationship status.
+    Never exposes passwords, tokens, private financials, or sensitive contact info.
+    """
+    user = db.query(User).filter(User.id == user_id, User.is_active == True).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User profile not found.")
+
+    if user.id == current_user.id:
+        rel_status = "self"
+        req_id = None
+    else:
+        f = db.query(Friendship).filter(
+            or_(
+                and_(Friendship.user_id == current_user.id, Friendship.friend_id == user.id),
+                and_(Friendship.user_id == user.id, Friendship.friend_id == current_user.id)
+            )
+        ).first()
+
+        if not f or f.status in ("CANCELLED", "DECLINED"):
+            rel_status = "none"
+            req_id = None
+        elif f.status == "ACCEPTED":
+            rel_status = "friends"
+            req_id = f.id
+        elif f.status == "PENDING":
+            rel_status = "pending_outgoing" if f.user_id == current_user.id else "pending_incoming"
+            req_id = f.id
+        else:
+            rel_status = "none"
+            req_id = None
+
+    return FriendSearchResponse(
+        id=user.id,
+        username=user.username,
+        display_name=user.full_name,
+        avatar_url=user.avatar_url,
+        city=user.city,
+        bio=user.bio,
+        created_at=user.created_at,
+        relationship_status=rel_status,
+        request_id=req_id
+    )
 
 @router.get("/requests", response_model=FriendRequestsResponse)
 def get_friend_requests(
@@ -243,7 +299,7 @@ def send_friend_request(
                 )
                 db.add(notif)
                 db.commit()
-                return {"message": "Mutual friend request detected! You are now friends.", "status": "ACCEPTED"}
+                return {"message": "Mutual friend request detected! You are now friends.", "status": "ACCEPTED", "id": existing.id}
         else:
             # Re-activate declined or cancelled request
             existing.user_id = current_user.id
@@ -259,7 +315,7 @@ def send_friend_request(
             )
             db.add(notif)
             db.commit()
-            return {"message": "Friend request sent successfully.", "status": "PENDING"}
+            return {"message": "Friend request sent successfully.", "status": "PENDING", "id": existing.id}
 
     # Create new friend request
     friendship = Friendship(
@@ -279,7 +335,7 @@ def send_friend_request(
     db.add(notif)
     db.commit()
 
-    return {"message": "Friend request sent successfully.", "status": "PENDING"}
+    return {"message": "Friend request sent successfully.", "status": "PENDING", "id": friendship.id}
 
 @router.post("/requests/{request_id}/accept")
 def accept_friend_request(
@@ -345,6 +401,8 @@ def decline_friend_request(
     return {"message": "Friend request declined."}
 
 @router.delete("/requests/{request_id}")
+@router.delete("/requests/{request_id}/cancel")
+@router.post("/requests/{request_id}/cancel")
 def cancel_friend_request(
     request_id: str,
     current_user: User = Depends(get_current_user),
