@@ -11,6 +11,7 @@ export interface User {
   city?: string | null;
   date_of_birth?: string | null;
   default_currency: string;
+  upi_id?: string | null;
   auth_provider?: string;
   is_active: boolean;
   is_verified: boolean;
@@ -23,6 +24,7 @@ export interface TripMember {
   user_id: string;
   user_name: string;
   user_email: string;
+  user_upi_id?: string | null;
   role: 'OWNER' | 'ADMIN' | 'MEMBER';
   joined_at: string;
 }
@@ -32,12 +34,16 @@ export interface Trip {
   name: string;
   description?: string | null;
   destination?: string | null;
+  destination_address?: string | null;
+  destination_lat?: number | null;
+  destination_lng?: number | null;
   start_date?: string | null;
   end_date?: string | null;
   currency: string;
   budget_paise?: number | null;
   invite_code: string;
   is_archived: boolean;
+  completed_at?: string | null;
   created_by_id: string;
   members_count: number;
   total_expenses_paise: number;
@@ -51,6 +57,9 @@ export interface TravelStats {
   trips_created_count: number;
   trips_joined_count: number;
   total_trips_count: number;
+  active_trips_count: number;
+  completed_trips_count: number;
+  total_contributions_paise: number;
   recent_trips: Trip[];
 }
 
@@ -120,6 +129,8 @@ export interface SettlementSuggestion {
   to_user_id: string;
   to_user_name: string;
   amount_paise: number;
+  to_user_upi_id?: string | null;
+  from_user_upi_id?: string | null;
 }
 
 export interface Settlement {
@@ -127,8 +138,10 @@ export interface Settlement {
   trip_id: string;
   payer_id: string;
   payer_name: string;
+  payer_upi_id?: string | null;
   payee_id: string;
   payee_name: string;
+  payee_upi_id?: string | null;
   amount_paise: number;
   status: 'SUGGESTED' | 'PENDING_CONFIRMATION' | 'INITIATED' | 'CONFIRMED' | 'DISPUTED' | 'CANCELLED';
   payment_method: string;
@@ -198,6 +211,22 @@ export interface TripReport {
   participant_breakdown: ParticipantSpending[];
 }
 
+export interface TripSummary {
+  trip_id: string;
+  trip_name: string;
+  status: string;
+  is_completed: boolean;
+  completed_at?: string | null;
+  total_expenses_paise: number;
+  total_settled_paise: number;
+  is_fully_settled: boolean;
+  category_breakdown: CategorySpending[];
+  participant_breakdown: ParticipantSpending[];
+  settlement_suggestions: SettlementSuggestion[];
+  pending_settlements: Settlement[];
+  all_settlements: Settlement[];
+}
+
 export interface Friend {
   id: string; // UID
   username?: string | null;
@@ -251,3 +280,31 @@ export interface TripInvitation {
   created_at: string;
 }
 
+export interface ParticipantSpending {
+  user_id: string;
+  user_name: string;
+  amount_spent_paise: number;
+  amount_consumed_paise: number;
+  net_balance_paise: number;
+}
+
+export interface TripSummary {
+  trip_id: string;
+  trip_name: string;
+  currency?: string;
+  status: string;
+  is_completed: boolean;
+  completed_at?: string | null;
+  total_expenses_paise: number;
+  total_settled_paise: number;
+  is_fully_settled: boolean;
+  category_breakdown: {
+    category: string;
+    amount_paise: number;
+    percentage: number;
+  }[];
+  participant_breakdown: ParticipantSpending[];
+  settlement_suggestions: SettlementSuggestion[];
+  pending_settlements: Settlement[];
+  all_settlements: Settlement[];
+}

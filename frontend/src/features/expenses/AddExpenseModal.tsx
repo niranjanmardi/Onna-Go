@@ -14,6 +14,8 @@ import {
   Tag,
   Calendar,
   Users,
+  ShoppingBag,
+  Compass,
 } from 'lucide-react';
 import { api } from '@/lib/api-client';
 import { TripMember, Activity, Expense } from '@/types';
@@ -35,11 +37,13 @@ interface AddExpenseModalProps {
 
 const CATEGORIES = [
   { name: 'Food', icon: Utensils },
-  { name: 'Fuel', icon: Fuel },
-  { name: 'Travel', icon: Car },
-  { name: 'Stay', icon: Bed },
+  { name: 'Petrol / Fuel', icon: Fuel },
+  { name: 'Transport', icon: Car },
+  { name: 'Accommodation', icon: Bed },
+  { name: 'Activities', icon: Compass },
+  { name: 'Shopping', icon: ShoppingBag },
   { name: 'Tickets', icon: Ticket },
-  { name: 'Other', icon: Tag },
+  { name: 'Miscellaneous', icon: Tag },
 ];
 
 export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({

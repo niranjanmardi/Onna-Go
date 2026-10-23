@@ -24,6 +24,13 @@ import {
   UserPlus,
   X,
   Loader2,
+  Smartphone,
+  ExternalLink,
+  Share2,
+  Trophy,
+  CheckCircle2,
+  RotateCcw,
+  Filter,
 } from 'lucide-react';
 import { api, getAvatarUrl } from '@/lib/api-client';
 import {
@@ -43,6 +50,8 @@ import { formatPaise, formatDate } from '@/lib/currency';
 import { useAuth } from '@/features/auth/AuthContext';
 import { AddExpenseModal } from '@/features/expenses/AddExpenseModal';
 import { RecordSettlementModal } from '@/features/settlements/RecordSettlementModal';
+import { UPIPaymentModal } from '@/features/settlements/UPIPaymentModal';
+import { TripSummaryModal } from '@/features/trips/TripSummaryModal';
 import { useFeedback } from '@/context/FeedbackContext';
 import { playSound } from '@/lib/sounds';
 
@@ -82,10 +91,25 @@ export const TripDetailPage: React.FC = () => {
   const [settlePayee, setSettlePayee] = useState<string | undefined>(undefined);
   const [settleAmount, setSettleAmount] = useState<number | undefined>(undefined);
 
-  // Filters
+  // UPI payment state
+  const [isUPIPaymentOpen, setIsUPIPaymentOpen] = useState(false);
+  const [upiPayer, setUpiPayer] = useState<{ id: string; name: string } | null>(null);
+  const [upiPayee, setUpiPayee] = useState<{ id: string; name: string; upiId?: string | null } | null>(null);
+  const [upiAmount, setUpiAmount] = useState<number>(0);
+
+  // Trip Completion & Summary Modal
+  const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
+  const [isCompleteTripConfirmOpen, setIsCompleteTripConfirmOpen] = useState(false);
+  const [completingTrip, setCompletingTrip] = useState(false);
+
+  // Filters & Location
   const [expenseSearch, setExpenseSearch] = useState('');
   const [expenseCategoryFilter, setExpenseCategoryFilter] = useState('All');
+  const [expensePayerFilter, setExpensePayerFilter] = useState('All');
+  const [expenseStartDate, setExpenseStartDate] = useState('');
+  const [expenseEndDate, setExpenseEndDate] = useState('');
   const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedLocation, setCopiedLocation] = useState(false);
 
   const loadAllTripData = async () => {
     if (!id) return;
@@ -256,6 +280,59 @@ export const TripDetailPage: React.FC = () => {
     setIsRecordSettlementOpen(true);
   };
 
+  const handleInitiateUPI = (sug: SettlementSuggestion) => {
+    const payeeMember = members.find((m) => m.user_id === sug.to_user_id);
+    setUpiPayer({ id: sug.from_user_id, name: sug.from_user_name });
+    setUpiPayee({
+      id: sug.to_user_id,
+      name: sug.to_user_name,
+      upiId: sug.to_user_upi_id || payeeMember?.user_upi_id || null,
+    });
+    setUpiAmount(sug.amount_paise);
+    setIsUPIPaymentOpen(true);
+  };
+
+  const handleShareLocation = () => {
+    if (!trip) return;
+    const destName = trip.destination || trip.name;
+    const addr = trip.destination_address ? ` (${trip.destination_address})` : '';
+    const mapsLink =
+      trip.destination_lat && trip.destination_lng
+        ? `https://www.google.com/maps/search/?api=1&query=${trip.destination_lat},${trip.destination_lng}`
+        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(trip.destination || '')}`;
+    const textToCopy = `📍 ONNA-GO Trip Destination: ${destName}${addr}\nOpen in Maps: ${mapsLink}`;
+    navigator.clipboard.writeText(textToCopy);
+    setCopiedLocation(true);
+    showConfirmation({
+      title: 'Location copied!',
+      message: 'Maps link and destination details copied to clipboard.',
+      sound: 'notification',
+    });
+    setTimeout(() => setCopiedLocation(false), 2500);
+  };
+
+  const handleCompleteTrip = async () => {
+    if (!id || !trip) return;
+    setCompletingTrip(true);
+    try {
+      await api.post(`/trips/${id}/complete`);
+      playSound('settlement_success');
+      showConfirmation({
+        title: 'Trip marked as completed!',
+        message: 'All records finalized and saved to permanent history.',
+        sound: 'settlement_success',
+      });
+      await loadAllTripData();
+      setIsCompleteTripConfirmOpen(false);
+      setIsSummaryModalOpen(true);
+    } catch (err: any) {
+      playSound('error');
+      alert(err.message || 'Failed to complete trip.');
+    } finally {
+      setCompletingTrip(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex-1 p-12 flex flex-col items-center justify-center min-h-[60vh]">
@@ -281,18 +358,77 @@ export const TripDetailPage: React.FC = () => {
     );
   }
 
+  const isTripCompleted = trip.status === 'COMPLETED' || Boolean(trip.completed_at);
+
   const filteredExpenses = expenses.filter((e) => {
-    const matchCat = expenseCategoryFilter === 'All' || e.category === expenseCategoryFilter;
+    const matchCat =
+      expenseCategoryFilter === 'All' ||
+      e.category === expenseCategoryFilter ||
+      (expenseCategoryFilter === 'Petrol / Fuel' && (e.category === 'Fuel' || e.category === 'Petrol')) ||
+      (expenseCategoryFilter === 'Accommodation' && e.category === 'Stay') ||
+      (expenseCategoryFilter === 'Miscellaneous' && e.category === 'Other');
+
     const matchSearch =
-      !expenseSearch || e.description.toLowerCase().includes(expenseSearch.toLowerCase());
-    return matchCat && matchSearch;
+      !expenseSearch ||
+      e.description.toLowerCase().includes(expenseSearch.toLowerCase()) ||
+      e.payer_name.toLowerCase().includes(expenseSearch.toLowerCase());
+
+    const matchPayer = expensePayerFilter === 'All' || e.payer_id === expensePayerFilter;
+
+    const matchDateStart = !expenseStartDate || new Date(e.date) >= new Date(expenseStartDate);
+    const matchDateEnd = !expenseEndDate || new Date(e.date) <= new Date(`${expenseEndDate}T23:59:59`);
+
+    return matchCat && matchSearch && matchPayer && matchDateStart && matchDateEnd;
   });
+
+  const categoryTotals: Record<string, number> = {};
+  expenses
+    .filter((e) => !e.is_void)
+    .forEach((e) => {
+      let cat = e.category;
+      if (cat === 'Fuel') cat = 'Petrol / Fuel';
+      if (cat === 'Stay') cat = 'Accommodation';
+      if (cat === 'Other') cat = 'Miscellaneous';
+      categoryTotals[cat] = (categoryTotals[cat] || 0) + e.amount_paise;
+    });
 
   return (
     <div className="flex-1 p-4 md:p-8 max-w-6xl mx-auto w-full space-y-6">
+      {/* --- Trip Completion Banner (if completed) --- */}
+      {isTripCompleted && (
+        <div className="bg-gradient-to-r from-[#DDF5E5] via-[#E8F8EE] to-[#DDF5E5] border border-[#C6ECCF] rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-[#16834A] text-white flex items-center justify-center shrink-0 shadow-xs">
+              <Trophy className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm sm:text-base font-bold text-[#171717]">
+                  Trip Completed &amp; Saved to Permanent History
+                </h3>
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-[#16834A] text-white px-2 py-0.5 rounded-full">
+                  Completed
+                </span>
+              </div>
+              <p className="text-xs text-[#737373] mt-0.5">
+                Finalized on {trip.completed_at ? formatDate(trip.completed_at) : 'recently'}. All expense allocations and debt transfers are permanent.
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setIsSummaryModalOpen(true)}
+            className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-[#16834A] hover:bg-[#136F3F] text-white text-xs font-semibold rounded-xl shadow-xs transition-all shrink-0 active:scale-[0.98]"
+          >
+            <Trophy className="w-3.5 h-3.5" />
+            <span>View Final Trip Summary</span>
+          </button>
+        </div>
+      )}
+
       {/* --- Apple-Style Trip Header Card --- */}
-      <div className="bg-white rounded-2xl border border-[#E8E8E5] p-6 md:p-8 shadow-xs relative overflow-hidden">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="bg-white rounded-2xl border border-[#E8E8E5] p-6 md:p-8 shadow-xs relative overflow-hidden space-y-6">
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
           <div className="space-y-2">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-[11px] font-semibold text-[#16834A] bg-[#DDF5E5] border border-[#C6ECCF] px-2.5 py-0.5 rounded-md">
@@ -301,6 +437,12 @@ export const TripDetailPage: React.FC = () => {
               <span className="text-[11px] font-semibold text-[#737373] bg-[#FAFAF8] border border-[#E8E8E5] px-2.5 py-0.5 rounded-md">
                 {trip.currency}
               </span>
+              {isTripCompleted && (
+                <span className="text-[11px] font-semibold text-[#16834A] bg-[#DDF5E5] border border-[#C6ECCF] px-2.5 py-0.5 rounded-md flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" />
+                  <span>Permanent History</span>
+                </span>
+              )}
             </div>
 
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-[#171717] font-['Plus_Jakarta_Sans']">
@@ -327,9 +469,9 @@ export const TripDetailPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Quick Actions & Invite Code */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            <div className="bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl p-2.5 px-3.5 flex items-center justify-between gap-3">
+          {/* Quick Actions & Controls */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl p-2 px-3 flex items-center justify-between gap-3">
               <div>
                 <span className="text-[10px] text-[#A3A3A3] font-semibold uppercase tracking-wider block">Invite Code</span>
                 <span className="text-sm font-mono font-bold tracking-widest text-[#171717]">{trip.invite_code}</span>
@@ -343,6 +485,27 @@ export const TripDetailPage: React.FC = () => {
               </button>
             </div>
 
+            {/* Complete Trip Button (Owner/Admin only) */}
+            {isOwnerOrAdmin && !isTripCompleted && (
+              <button
+                onClick={() => setIsCompleteTripConfirmOpen(true)}
+                className="inline-flex items-center justify-center gap-1.5 bg-white hover:bg-[#FAFAF8] border border-[#E8E8E5] text-[#171717] font-semibold py-2.5 px-3.5 rounded-xl shadow-xs transition-all active:scale-[0.98] text-sm"
+              >
+                <CheckCircle2 className="w-4 h-4 text-[#16834A]" />
+                <span>Complete Trip</span>
+              </button>
+            )}
+
+            {isTripCompleted && (
+              <button
+                onClick={() => setIsSummaryModalOpen(true)}
+                className="inline-flex items-center justify-center gap-1.5 bg-white hover:bg-[#FAFAF8] border border-[#E8E8E5] text-[#171717] font-semibold py-2.5 px-3.5 rounded-xl shadow-xs transition-all active:scale-[0.98] text-sm"
+              >
+                <Trophy className="w-4 h-4 text-[#16834A]" />
+                <span>Trip Summary</span>
+              </button>
+            )}
+
             <button
               onClick={() => setIsAddExpenseOpen(true)}
               className="inline-flex items-center justify-center gap-2 bg-[#16834A] hover:bg-[#136F3F] text-white font-semibold py-2.5 px-4 rounded-xl shadow-xs transition-all active:scale-[0.98] text-sm"
@@ -353,8 +516,82 @@ export const TripDetailPage: React.FC = () => {
           </div>
         </div>
 
+        {/* --- Location Map Preview & Details Card --- */}
+        {(trip.destination || trip.destination_address || (trip.destination_lat && trip.destination_lng)) && (
+          <div className="bg-[#FAFAF8] border border-[#E8E8E5] rounded-2xl p-4 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-start sm:items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-[#DDF5E5] text-[#16834A] flex items-center justify-center shrink-0">
+                  <MapPin className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="text-sm font-bold text-[#171717] truncate">
+                      {trip.destination || 'Trip Destination'}
+                    </h4>
+                    {trip.destination_lat && trip.destination_lng && (
+                      <span className="text-[10px] font-mono text-[#737373] bg-white border border-[#E8E8E5] px-2 py-0.5 rounded-md">
+                        {trip.destination_lat.toFixed(4)}°, {trip.destination_lng.toFixed(4)}°
+                      </span>
+                    )}
+                  </div>
+                  {trip.destination_address && (
+                    <p className="text-xs text-[#737373] truncate mt-0.5">
+                      {trip.destination_address}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={handleShareLocation}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-[#F4F4F2] border border-[#E8E8E5] text-xs font-semibold text-[#171717] shadow-xs transition-colors"
+                >
+                  {copiedLocation ? <Check className="w-3.5 h-3.5 text-[#16834A]" /> : <Share2 className="w-3.5 h-3.5" />}
+                  <span>{copiedLocation ? 'Copied Link' : 'Share Location'}</span>
+                </button>
+
+                <a
+                  href={
+                    trip.destination_lat && trip.destination_lng
+                      ? `https://www.google.com/maps/search/?api=1&query=${trip.destination_lat},${trip.destination_lng}`
+                      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                          trip.destination_address || trip.destination || ''
+                        )}`
+                  }
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#16834A] hover:bg-[#136F3F] text-white text-xs font-semibold shadow-xs transition-colors"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Open in Maps</span>
+                </a>
+              </div>
+            </div>
+
+            {/* Embedded OpenStreetMap Preview */}
+            {trip.destination_lat && trip.destination_lng && (
+              <div className="rounded-xl overflow-hidden border border-[#E8E8E5] bg-white relative">
+                <iframe
+                  title="Destination Location Map"
+                  width="100%"
+                  height="160"
+                  className="w-full border-0 block"
+                  loading="lazy"
+                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${
+                    trip.destination_lng - 0.02
+                  }%2C${trip.destination_lat - 0.02}%2C${trip.destination_lng + 0.02}%2C${
+                    trip.destination_lat + 0.02
+                  }&layer=mapnik&marker=${trip.destination_lat}%2C${trip.destination_lng}`}
+                />
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Metrics Ribbon */}
-        <div className="mt-7 pt-5 border-t border-[#F4F4F2] grid grid-cols-2 sm:grid-cols-4 gap-4 text-left">
+        <div className="pt-4 border-t border-[#F4F4F2] grid grid-cols-2 sm:grid-cols-4 gap-4 text-left">
           <div>
             <span className="text-[10px] text-[#A3A3A3] uppercase font-semibold tracking-wider block">Total Pool</span>
             <span className="text-xl font-bold font-mono text-[#171717] tabular-nums">
@@ -386,7 +623,7 @@ export const TripDetailPage: React.FC = () => {
           <div>
             <span className="text-[10px] text-[#A3A3A3] uppercase font-semibold tracking-wider block">Pending Settlements</span>
             <span className="text-xl font-bold font-mono text-[#B45309] tabular-nums">
-              {settlements.filter((s) => s.status === 'PENDING_CONFIRMATION').length}
+              {settlements.filter((s) => s.status === 'PENDING_CONFIRMATION' || s.status === 'INITIATED').length}
             </span>
           </div>
         </div>
@@ -434,17 +671,79 @@ export const TripDetailPage: React.FC = () => {
       {/* --- TAB 1: EXPENSES --- */}
       {activeTab === 'expenses' && (
         <div className="space-y-4">
-          {/* Filters & Search */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-[#E8E8E5] shadow-xs">
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-              {['All', 'Fuel', 'Food', 'Stay', 'Transport', 'Tickets', 'Other'].map((cat) => (
+          {/* Category Spending Breakdown Strip */}
+          {Object.keys(categoryTotals).length > 0 && (
+            <div className="bg-white p-4 rounded-2xl border border-[#E8E8E5] shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-[#737373] flex items-center gap-1.5">
+                  <Receipt className="w-3.5 h-3.5 text-[#16834A]" />
+                  <span>Category-Wise Expense Report</span>
+                </span>
+                <span className="text-xs font-mono font-bold text-[#171717] tabular-nums">
+                  Total: {formatPaise(trip.total_expenses_paise, trip.currency)}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                {Object.entries(categoryTotals).map(([catName, catAmt]) => {
+                  const pct =
+                    trip.total_expenses_paise > 0
+                      ? Math.round((catAmt / trip.total_expenses_paise) * 100)
+                      : 0;
+                  const isSelected = expenseCategoryFilter === catName;
+                  return (
+                    <button
+                      key={catName}
+                      onClick={() =>
+                        setExpenseCategoryFilter(isSelected ? 'All' : catName)
+                      }
+                      className={`p-2.5 rounded-xl border text-left transition-all ${
+                        isSelected
+                          ? 'bg-[#DDF5E5] border-[#16834A] shadow-xs'
+                          : 'bg-[#FAFAF8] border-[#E8E8E5] hover:bg-[#F4F4F2]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between text-[11px] font-semibold text-[#737373]">
+                        <span className="truncate">{catName}</span>
+                        <span className="font-mono text-[10px]">{pct}%</span>
+                      </div>
+                      <div className="text-sm font-bold font-mono text-[#171717] tabular-nums mt-0.5">
+                        {formatPaise(catAmt, trip.currency)}
+                      </div>
+                      <div className="w-full bg-[#E8E8E5] h-1 rounded-full overflow-hidden mt-1.5">
+                        <div
+                          className="bg-[#16834A] h-full rounded-full"
+                          style={{ width: `${Math.min(100, pct)}%` }}
+                        />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Advanced Filters & Search Suite */}
+          <div className="bg-white p-4 rounded-2xl border border-[#E8E8E5] shadow-xs space-y-3">
+            {/* Category Pills (All 8 official categories) */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+              {[
+                'All',
+                'Food',
+                'Petrol / Fuel',
+                'Transport',
+                'Accommodation',
+                'Activities',
+                'Shopping',
+                'Tickets',
+                'Miscellaneous',
+              ].map((cat) => (
                 <button
                   key={cat}
                   onClick={() => setExpenseCategoryFilter(cat)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
                     expenseCategoryFilter === cat
-                      ? 'bg-[#171717] text-white font-semibold'
-                      : 'text-[#737373] hover:bg-[#F4F4F2]'
+                      ? 'bg-[#171717] text-white shadow-xs'
+                      : 'bg-[#FAFAF8] text-[#737373] hover:text-[#171717] hover:bg-[#F4F4F2] border border-[#E8E8E5]'
                   }`}
                 >
                   {cat}
@@ -452,14 +751,81 @@ export const TripDetailPage: React.FC = () => {
               ))}
             </div>
 
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search expense description..."
-                value={expenseSearch}
-                onChange={(e) => setExpenseSearch(e.target.value)}
-                className="w-full sm:w-60 bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-3 py-1.5 text-xs text-[#171717] placeholder-[#A3A3A3] focus:outline-none focus:border-[#16834A]"
-              />
+            {/* Payer, Date Range & Description Search Controls */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5 pt-2 border-t border-[#F4F4F2]">
+              {/* Search Description */}
+              <div className="sm:col-span-1">
+                <input
+                  type="text"
+                  placeholder="Search description..."
+                  value={expenseSearch}
+                  onChange={(e) => setExpenseSearch(e.target.value)}
+                  className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-3 py-2 text-xs text-[#171717] placeholder-[#A3A3A3] focus:outline-none focus:border-[#16834A]"
+                />
+              </div>
+
+              {/* Payer Filter */}
+              <div>
+                <select
+                  value={expensePayerFilter}
+                  onChange={(e) => setExpensePayerFilter(e.target.value)}
+                  className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-3 py-2 text-xs text-[#171717] focus:outline-none focus:border-[#16834A]"
+                >
+                  <option value="All">All Payers</option>
+                  {members.map((m) => (
+                    <option key={m.user_id} value={m.user_id}>
+                      Paid by {m.user_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Date Range Start & End */}
+              <div className="flex items-center gap-1.5 sm:col-span-1">
+                <input
+                  type="date"
+                  value={expenseStartDate}
+                  onChange={(e) => setExpenseStartDate(e.target.value)}
+                  placeholder="From date"
+                  title="From date"
+                  className="w-1/2 bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-2.5 py-2 text-xs text-[#171717] focus:outline-none focus:border-[#16834A]"
+                />
+                <input
+                  type="date"
+                  value={expenseEndDate}
+                  onChange={(e) => setExpenseEndDate(e.target.value)}
+                  placeholder="To date"
+                  title="To date"
+                  className="w-1/2 bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-2.5 py-2 text-xs text-[#171717] focus:outline-none focus:border-[#16834A]"
+                />
+              </div>
+
+              {/* Active Filter Indicator / Reset */}
+              <div className="flex items-center justify-between sm:justify-end gap-2">
+                <span className="text-[11px] text-[#737373]">
+                  Showing <strong className="text-[#171717]">{filteredExpenses.length}</strong> of {expenses.length}
+                </span>
+                {(expenseCategoryFilter !== 'All' ||
+                  expensePayerFilter !== 'All' ||
+                  expenseSearch ||
+                  expenseStartDate ||
+                  expenseEndDate) && (
+                  <button
+                    onClick={() => {
+                      setExpenseCategoryFilter('All');
+                      setExpensePayerFilter('All');
+                      setExpenseSearch('');
+                      setExpenseStartDate('');
+                      setExpenseEndDate('');
+                    }}
+                    className="p-1.5 rounded-lg bg-[#FAFAF8] hover:bg-[#F4F4F2] text-[#737373] hover:text-[#E11D48] text-[11px] font-semibold flex items-center gap-1 border border-[#E8E8E5] transition-colors"
+                    title="Clear All Filters"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Clear</span>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -651,16 +1017,36 @@ export const TripDetailPage: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between sm:justify-end gap-3">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between sm:justify-end gap-2.5">
                       <span className="text-base font-bold font-mono text-[#171717] tabular-nums">
                         {formatPaise(sug.amount_paise)}
                       </span>
-                      <button
-                        onClick={() => handleTriggerSuggestion(sug)}
-                        className="px-3.5 py-1.5 rounded-xl bg-[#16834A] hover:bg-[#136F3F] text-white font-medium text-xs shadow-xs transition-all active:scale-[0.98]"
-                      >
-                        Record Payment
-                      </button>
+
+                      {/* If debtor is current user, offer one-click UPI handoff */}
+                      {user?.id === sug.from_user_id ? (
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleInitiateUPI(sug)}
+                            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#16834A] hover:bg-[#136F3F] text-white font-semibold text-xs shadow-xs transition-all active:scale-[0.98]"
+                          >
+                            <Smartphone className="w-3.5 h-3.5" />
+                            <span>Pay via UPI</span>
+                          </button>
+                          <button
+                            onClick={() => handleTriggerSuggestion(sug)}
+                            className="px-3 py-1.5 rounded-xl bg-white hover:bg-[#F4F4F2] border border-[#E8E8E5] text-[#737373] hover:text-[#171717] font-medium text-xs transition-colors"
+                          >
+                            Offline / Cash
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => handleTriggerSuggestion(sug)}
+                          className="px-3.5 py-1.5 rounded-xl bg-[#16834A] hover:bg-[#136F3F] text-white font-medium text-xs shadow-xs transition-all active:scale-[0.98]"
+                        >
+                          Record Payment
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -674,9 +1060,14 @@ export const TripDetailPage: React.FC = () => {
       {activeTab === 'settlements' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-base font-bold text-[#171717] font-['Plus_Jakarta_Sans']">
-              Settlement Records &amp; Verification
-            </h3>
+            <div>
+              <h3 className="text-base font-bold text-[#171717] font-['Plus_Jakarta_Sans']">
+                Settlement Records &amp; Verification
+              </h3>
+              <p className="text-xs text-[#737373]">
+                Zero-credential security: Payee must verify funds before confirming receipt
+              </p>
+            </div>
             <button
               onClick={() => {
                 setSettlePayer(undefined);
@@ -704,15 +1095,17 @@ export const TripDetailPage: React.FC = () => {
                         {st.payer_name} ➔ {st.payee_name}
                       </span>
                       <span
-                        className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded ${
+                        className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded border ${
                           st.status === 'CONFIRMED'
-                            ? 'bg-[#DDF5E5] text-[#16834A]'
+                            ? 'bg-[#DDF5E5] text-[#16834A] border-[#C6ECCF]'
+                            : st.status === 'INITIATED'
+                            ? 'bg-[#EEF2FF] text-[#4F46E5] border-[#C7D2FE]'
                             : st.status === 'DISPUTED'
-                            ? 'bg-[#FFE4E6] text-[#E11D48]'
-                            : 'bg-[#FEF3C7] text-[#B45309]'
+                            ? 'bg-[#FFE4E6] text-[#E11D48] border-[#FDA4AF]'
+                            : 'bg-[#FEF3C7] text-[#B45309] border-[#FDE68A]'
                         }`}
                       >
-                        {st.status.replace('_', ' ')}
+                        {st.status === 'INITIATED' ? 'UPI INITIATED' : st.status.replace('_', ' ')}
                       </span>
                     </div>
                     <p className="text-xs text-[#737373] mt-0.5">
@@ -726,23 +1119,33 @@ export const TripDetailPage: React.FC = () => {
                       {formatPaise(st.amount_paise)}
                     </span>
 
-                    {/* Status Actions */}
-                    {st.status === 'PENDING_CONFIRMATION' && (
+                    {/* Status Actions & Verification */}
+                    {(st.status === 'PENDING_CONFIRMATION' || st.status === 'INITIATED') && (
                       <div className="flex items-center gap-2">
-                        {user?.id === st.payee_id && (
-                          <button
-                            onClick={() => handleConfirmSettlement(st.id)}
-                            className="px-2.5 py-1 bg-[#16834A] hover:bg-[#136F3F] text-white text-[11px] font-semibold rounded-lg shadow-xs"
-                          >
-                            Confirm Receipt
-                          </button>
+                        {user?.id === st.payee_id ? (
+                          <>
+                            <button
+                              onClick={() => handleConfirmSettlement(st.id)}
+                              className="px-2.5 py-1 bg-[#16834A] hover:bg-[#136F3F] text-white text-[11px] font-semibold rounded-lg shadow-xs transition-colors"
+                            >
+                              Confirm Receipt
+                            </button>
+                            <button
+                              onClick={() => handleDisputeSettlement(st.id)}
+                              className="px-2 py-1 text-[#737373] hover:text-[#E11D48] text-[11px] font-medium transition-colors"
+                            >
+                              Dispute
+                            </button>
+                          </>
+                        ) : user?.id === st.payer_id ? (
+                          <span className="text-[11px] font-semibold text-[#B45309] bg-[#FEF3C7] px-2 py-0.5 rounded border border-[#FDE68A]">
+                            Awaiting Payee Confirmation
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-[#737373]">
+                            Pending verification
+                          </span>
                         )}
-                        <button
-                          onClick={() => handleDisputeSettlement(st.id)}
-                          className="px-2 py-1 text-[#737373] hover:text-[#E11D48] text-[11px] font-medium"
-                        >
-                          Dispute
-                        </button>
                       </div>
                     )}
                   </div>
@@ -1148,6 +1551,62 @@ export const TripDetailPage: React.FC = () => {
         </div>
       )}
 
+      {/* Complete Trip Confirmation Modal */}
+      {isCompleteTripConfirmOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-[#E8E8E5] p-6 max-w-md w-full shadow-2xl space-y-4 animate-scaleUp">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-[#DDF5E5] text-[#16834A] flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-[#171717]">
+                  Complete &amp; Finalize Trip?
+                </h3>
+                <p className="text-xs text-[#737373]">
+                  Permanent history &amp; settlement lock
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-[#FAFAF8] border border-[#E8E8E5] rounded-2xl p-4 text-xs text-[#737373] space-y-2">
+              <p>
+                Marking <strong className="text-[#171717]">{trip.name}</strong> as completed will:
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-[11px] text-[#737373]">
+                <li>Finalize the expense pool and debt allocation ledger</li>
+                <li>Archive this trip into your permanent travel history</li>
+                <li>Generate the official trip financial summary report</li>
+                <li>Notify all trip members that the trip has concluded</li>
+              </ul>
+              <p className="text-[11px] text-[#16834A] font-semibold pt-1">
+                Note: You and your group members will always be able to view details and settle remaining debts.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsCompleteTripConfirmOpen(false)}
+                disabled={completingTrip}
+                className="px-4 py-2 text-xs font-semibold text-[#737373] hover:text-[#171717] rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleCompleteTrip}
+                disabled={completingTrip}
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-[#16834A] hover:bg-[#136F3F] text-white text-xs font-semibold rounded-xl shadow-xs transition-all active:scale-[0.98] disabled:opacity-50"
+              >
+                {completingTrip && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                <span>Confirm &amp; Complete Trip</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modals */}
       <AddExpenseModal
         isOpen={isAddExpenseOpen}
@@ -1168,6 +1627,33 @@ export const TripDetailPage: React.FC = () => {
         initialPayeeId={settlePayee}
         initialAmountPaise={settleAmount}
         onSettlementRecorded={loadAllTripData}
+      />
+
+      {/* UPI Payment Modal */}
+      {upiPayer && upiPayee && (
+        <UPIPaymentModal
+          isOpen={isUPIPaymentOpen}
+          onClose={() => setIsUPIPaymentOpen(false)}
+          tripId={trip.id}
+          tripName={trip.name}
+          payerId={upiPayer.id}
+          payerName={upiPayer.name}
+          payeeId={upiPayee.id}
+          payeeName={upiPayee.name}
+          payeeUpiId={upiPayee.upiId}
+          amountPaise={upiAmount}
+          onSettlementInitiated={async () => {
+            setIsUPIPaymentOpen(false);
+            await loadAllTripData();
+          }}
+        />
+      )}
+
+      {/* Trip Summary Modal */}
+      <TripSummaryModal
+        isOpen={isSummaryModalOpen}
+        onClose={() => setIsSummaryModalOpen(false)}
+        tripId={trip.id}
       />
     </div>
   );

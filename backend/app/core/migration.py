@@ -38,6 +38,9 @@ def run_migrations():
             conn.execute(text("ALTER TABLE users ADD COLUMN city VARCHAR(100)"))
         if "date_of_birth" not in user_cols:
             conn.execute(text("ALTER TABLE users ADD COLUMN date_of_birth VARCHAR(50)"))
+        if "upi_id" not in user_cols:
+            logger.info("Adding 'upi_id' column to 'users' table...")
+            conn.execute(text("ALTER TABLE users ADD COLUMN upi_id VARCHAR(100)"))
 
         # Populate usernames for existing users where username is NULL
         result = conn.execute(text("SELECT id, email, full_name, username FROM users"))
@@ -122,6 +125,31 @@ def run_migrations():
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_friendship_users_unique 
                 ON friendships(user_id, friend_id)
             """))
+
+        # 4. Inspect 'trips' table
+        trip_cols = set()
+        if dialect == "sqlite":
+            result = conn.execute(text("PRAGMA table_info(trips)"))
+            trip_cols = {row[1] for row in result.fetchall()}
+        else:
+            result = conn.execute(text(
+                "SELECT column_name FROM information_schema.columns WHERE table_name = 'trips'"
+            ))
+            trip_cols = {row[0] for row in result.fetchall()}
+
+        if "destination_address" not in trip_cols:
+            logger.info("Adding 'destination_address' to 'trips' table...")
+            conn.execute(text("ALTER TABLE trips ADD COLUMN destination_address VARCHAR(500)"))
+        if "destination_lat" not in trip_cols:
+            logger.info("Adding 'destination_lat' to 'trips' table...")
+            conn.execute(text("ALTER TABLE trips ADD COLUMN destination_lat FLOAT"))
+        if "destination_lng" not in trip_cols:
+            logger.info("Adding 'destination_lng' to 'trips' table...")
+            conn.execute(text("ALTER TABLE trips ADD COLUMN destination_lng FLOAT"))
+        if "completed_at" not in trip_cols:
+            logger.info("Adding 'completed_at' to 'trips' table...")
+            timestamp_type = "TIMESTAMP WITH TIME ZONE" if dialect != "sqlite" else "TIMESTAMP"
+            conn.execute(text(f"ALTER TABLE trips ADD COLUMN completed_at {timestamp_type}"))
 
     logger.info("Schema migrations successfully verified.")
 

@@ -189,18 +189,36 @@ def list_trip_expenses(
     payer_id: Optional[str] = None,
     activity_id: Optional[str] = None,
     search: Optional[str] = None,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    split_method: Optional[str] = None,
     membership_data = Depends(require_trip_membership),
     db: Session = Depends(get_db)
 ):
     query = db.query(Expense).filter(Expense.trip_id == trip_id)
     if category and category != "All":
-        query = query.filter(Expense.category == category)
-    if payer_id:
+        # Handle compound or alternative labels like "Petrol / Fuel" matching "Fuel" or "Petrol"
+        if "fuel" in category.lower() or "petrol" in category.lower():
+            query = query.filter(or_(Expense.category.ilike("%fuel%"), Expense.category.ilike("%petrol%")))
+        elif "accommodation" in category.lower() or "stay" in category.lower():
+            query = query.filter(or_(Expense.category.ilike("%stay%"), Expense.category.ilike("%accommodation%")))
+        elif "miscellaneous" in category.lower() or "other" in category.lower():
+            query = query.filter(or_(Expense.category.ilike("%misc%"), Expense.category.ilike("%other%")))
+        else:
+            query = query.filter(Expense.category.ilike(category))
+    if payer_id and payer_id != "All":
         query = query.filter(Expense.payer_id == payer_id)
     if activity_id:
         query = query.filter(Expense.activity_id == activity_id)
     if search:
-        query = query.filter(Expense.description.ilike(f"%{search.strip()}%"))
+        search_term = f"%{search.strip()}%"
+        query = query.filter(or_(Expense.description.ilike(search_term), Expense.notes.ilike(search_term)))
+    if start_date:
+        query = query.filter(Expense.date >= start_date)
+    if end_date:
+        query = query.filter(Expense.date <= end_date)
+    if split_method and split_method != "All":
+        query = query.filter(Expense.split_method == split_method.upper())
         
     expenses = query.order_by(Expense.date.desc(), Expense.created_at.desc()).all()
     return [build_expense_response(e, db) for e in expenses]

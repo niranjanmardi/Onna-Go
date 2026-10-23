@@ -1,3 +1,4 @@
+import json
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import List
@@ -6,7 +7,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
 
 from backend.app.core.database import get_db
-from backend.app.models.models import User, Trip, TripMember, Expense, Notification, Invitation
+from backend.app.models.models import (
+    User, Trip, TripMember, Expense, Notification, Invitation, AuditLog, Settlement
+)
 from backend.app.schemas.schemas import (
     TripCreate,
     TripUpdate,
@@ -15,7 +18,11 @@ from backend.app.schemas.schemas import (
     TripMemberResponse,
     TripJoinRequest,
     TripInviteRequest,
-    TripInvitationResponse
+    TripInvitationResponse,
+    TripSummaryResponse,
+    CategorySpending,
+    ParticipantSpending,
+    SettlementSuggestion
 )
 from backend.app.api.v1.deps import get_current_user, require_trip_membership
 from backend.app.calculations.balances import calculate_trip_balances
@@ -26,7 +33,7 @@ def generate_invite_code() -> str:
     return secrets.token_hex(4).upper()
 
 def compute_trip_status(trip: Trip) -> str:
-    if trip.is_archived:
+    if trip.completed_at is not None or trip.is_archived:
         return "COMPLETED"
     if trip.end_date:
         now = datetime.now(timezone.utc)
@@ -53,6 +60,9 @@ def create_trip(
         name=trip_in.name.strip(),
         description=trip_in.description,
         destination=trip_in.destination,
+        destination_address=trip_in.destination_address,
+        destination_lat=trip_in.destination_lat,
+        destination_lng=trip_in.destination_lng,
         start_date=trip_in.start_date,
         end_date=trip_in.end_date,
         currency=trip_in.currency.upper(),
@@ -253,7 +263,7 @@ def get_user_travel_stats(
 ):
     """
     Returns travel statistics and recent trips for the authenticated user's profile.
-    Calculates created vs joined trips from database records.
+    Calculates created vs joined trips, active vs completed, and total contributions from database records.
     """
     trips_with_roles = (
         db.query(Trip, TripMember.role)
@@ -265,6 +275,8 @@ def get_user_travel_stats(
     
     trips_created_count = 0
     trips_joined_count = 0
+    active_trips_count = 0
+    completed_trips_count = 0
     recent_trip_responses = []
 
     for idx, (t, member_role) in enumerate(trips_with_roles):
@@ -274,6 +286,12 @@ def get_user_travel_stats(
         else:
             trips_joined_count += 1
             
+        status_str = compute_trip_status(t)
+        if status_str == "COMPLETED":
+            completed_trips_count += 1
+        else:
+            active_trips_count += 1
+
         # Top 5 recent trips
         if idx < 5:
             members_count = db.query(TripMember).filter(TripMember.trip_id == t.id).count()
@@ -286,13 +304,23 @@ def get_user_travel_stats(
             item.members_count = members_count
             item.total_expenses_paise = exp_sum
             item.user_role = member_role or ("OWNER" if is_creator else "MEMBER")
-            item.status = compute_trip_status(t)
+            item.status = status_str
             recent_trip_responses.append(item)
+
+    # Total recorded trip contributions (total paid out of pocket across non-void expenses)
+    total_contributions = (
+        db.query(func.sum(Expense.amount_paise))
+        .filter(Expense.payer_id == current_user.id, Expense.is_void == False)
+        .scalar() or 0
+    )
 
     return TravelStatsResponse(
         trips_created_count=trips_created_count,
         trips_joined_count=trips_joined_count,
         total_trips_count=trips_created_count + trips_joined_count,
+        active_trips_count=active_trips_count,
+        completed_trips_count=completed_trips_count,
+        total_contributions_paise=total_contributions,
         recent_trips=recent_trip_responses
     )
 
@@ -341,6 +369,12 @@ def update_trip(
         trip.description = trip_in.description
     if trip_in.destination is not None:
         trip.destination = trip_in.destination
+    if trip_in.destination_address is not None:
+        trip.destination_address = trip_in.destination_address
+    if trip_in.destination_lat is not None:
+        trip.destination_lat = trip_in.destination_lat
+    if trip_in.destination_lng is not None:
+        trip.destination_lng = trip_in.destination_lng
     if trip_in.start_date is not None:
         trip.start_date = trip_in.start_date
     if trip_in.end_date is not None:
@@ -351,6 +385,8 @@ def update_trip(
         trip.budget_paise = trip_in.budget_paise
     if trip_in.is_archived is not None:
         trip.is_archived = trip_in.is_archived
+    if trip_in.completed_at is not None:
+        trip.completed_at = trip_in.completed_at
         
     db.commit()
     db.refresh(trip)
@@ -364,7 +400,176 @@ def update_trip(
     item = TripResponse.model_validate(trip)
     item.members_count = members_count
     item.total_expenses_paise = exp_sum
+    item.user_role = member.role
+    item.status = compute_trip_status(trip)
     return item
+
+@router.post("/{trip_id}/complete", response_model=TripResponse)
+def complete_trip(
+    trip_id: str,
+    membership_data = Depends(require_trip_membership),
+    db: Session = Depends(get_db)
+):
+    """
+    Marks a trip as completed in permanent trip history.
+    Sets completed_at timestamp, archives the trip, and notifies members.
+    Prevents accidental duplicate trip completion.
+    """
+    trip, member = membership_data
+    if member.role not in ["OWNER", "ADMIN"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only trip owners and admins can mark a trip as completed."
+        )
+    
+    if trip.completed_at is not None or trip.is_archived:
+        # Idempotent return for already-completed trip
+        members_count = db.query(TripMember).filter(TripMember.trip_id == trip.id).count()
+        exp_sum = (
+            db.query(func.sum(Expense.amount_paise))
+            .filter(Expense.trip_id == trip.id, Expense.is_void == False)
+            .scalar() or 0
+        )
+        item = TripResponse.model_validate(trip)
+        item.members_count = members_count
+        item.total_expenses_paise = exp_sum
+        item.user_role = member.role
+        item.status = "COMPLETED"
+        return item
+        
+    now = datetime.now(timezone.utc)
+    trip.completed_at = now
+    trip.is_archived = True
+    
+    # Audit log entry
+    audit = AuditLog(
+        trip_id=trip.id,
+        user_id=member.user_id,
+        action="COMPLETE_TRIP",
+        entity_type="TRIP",
+        entity_id=trip.id,
+        details_json=json.dumps({"completed_at": now.isoformat(), "trip_name": trip.name})
+    )
+    db.add(audit)
+    
+    # Notify all members
+    all_members = db.query(TripMember).filter(TripMember.trip_id == trip.id).all()
+    for m in all_members:
+        if m.user_id != member.user_id:
+            notif = Notification(
+                user_id=m.user_id,
+                title="Trip Completed! 🏁",
+                message=f"'{trip.name}' has been marked as completed! Check out your final settlements and summary.",
+                type="SETTLEMENT",
+                link_url=f"/trips/{trip.id}"
+            )
+            db.add(notif)
+            
+    db.commit()
+    db.refresh(trip)
+    
+    members_count = len(all_members)
+    exp_sum = (
+        db.query(func.sum(Expense.amount_paise))
+        .filter(Expense.trip_id == trip.id, Expense.is_void == False)
+        .scalar() or 0
+    )
+    item = TripResponse.model_validate(trip)
+    item.members_count = members_count
+    item.total_expenses_paise = exp_sum
+    item.user_role = member.role
+    item.status = "COMPLETED"
+    return item
+
+@router.get("/{trip_id}/summary", response_model=TripSummaryResponse)
+def get_trip_summary(
+    trip_id: str,
+    membership_data = Depends(require_trip_membership),
+    db: Session = Depends(get_db)
+):
+    """
+    Returns the comprehensive trip summary:
+    - Total expenses
+    - Category-wise spending
+    - Member contributions & fair shares
+    - Net balances (who owes whom)
+    - Optimal settlement suggestions
+    - Pending and confirmed settlements
+    """
+    trip, current_member = membership_data
+    from backend.app.api.v1.balances import get_trip_financial_data
+    from backend.app.api.v1.settlements import build_settlement_response
+    from backend.app.calculations.settlements import optimize_settlements
+    
+    expenses = db.query(Expense).filter(Expense.trip_id == trip_id, Expense.is_void == False).all()
+    total_exp = sum(e.amount_paise for e in expenses)
+    
+    # Category totals
+    cat_totals = {}
+    for e in expenses:
+        cat_totals[e.category] = cat_totals.get(e.category, 0) + e.amount_paise
+    cat_breakdown = [
+        CategorySpending(
+            category=cat,
+            amount_paise=amt,
+            percentage=round((amt / total_exp * 100), 1) if total_exp > 0 else 0.0
+        )
+        for cat, amt in cat_totals.items()
+    ]
+    cat_breakdown.sort(key=lambda x: -x.amount_paise)
+    
+    # Financial data
+    calc_res, user_map = get_trip_financial_data(trip_id, db)
+    
+    part_breakdown = [
+        ParticipantSpending(
+            user_id=uid,
+            user_name=user_map[uid].full_name if uid in user_map else "Member",
+            amount_spent_paise=calc_res["total_spent_paise"].get(uid, 0),
+            amount_consumed_paise=calc_res["total_share_paise"].get(uid, 0),
+            net_balance_paise=calc_res["net_balances"].get(uid, 0)
+        )
+        for uid in user_map.keys()
+    ]
+    part_breakdown.sort(key=lambda x: -x.amount_spent_paise)
+    
+    # Debt simplification
+    raw_sug = optimize_settlements(calc_res["net_balances"])
+    sug_items = [
+        SettlementSuggestion(
+            from_user_id=s["from_user_id"],
+            from_user_name=user_map[s["from_user_id"]].full_name if s["from_user_id"] in user_map else "Member",
+            to_user_id=s["to_user_id"],
+            to_user_name=user_map[s["to_user_id"]].full_name if s["to_user_id"] in user_map else "Member",
+            amount_paise=s["amount_paise"]
+        )
+        for s in raw_sug
+    ]
+    
+    # Settlements
+    all_sts = db.query(Settlement).filter(Settlement.trip_id == trip_id).order_by(Settlement.created_at.desc()).all()
+    all_st_responses = [build_settlement_response(s, db) for s in all_sts]
+    pending_sts = [s for s in all_st_responses if s.status in ["INITIATED", "PENDING_CONFIRMATION"]]
+    confirmed_total = sum(s.amount_paise for s in all_sts if s.status == "CONFIRMED")
+    
+    is_fully_settled = all(bal == 0 for bal in calc_res["net_balances"].values())
+    
+    return TripSummaryResponse(
+        trip_id=trip.id,
+        trip_name=trip.name,
+        currency=trip.currency,
+        status=compute_trip_status(trip),
+        is_completed=(trip.completed_at is not None or trip.is_archived),
+        completed_at=trip.completed_at,
+        total_expenses_paise=total_exp,
+        total_settled_paise=confirmed_total,
+        is_fully_settled=is_fully_settled,
+        category_breakdown=cat_breakdown,
+        participant_breakdown=part_breakdown,
+        settlement_suggestions=sug_items,
+        pending_settlements=pending_sts,
+        all_settlements=all_st_responses
+    )
 
 @router.post("/join", response_model=TripResponse)
 def join_trip_by_code(
@@ -444,6 +649,7 @@ def list_trip_members(
             user_id=u.id,
             user_name=u.full_name,
             user_email=u.email,
+            user_upi_id=u.upi_id,
             role=m.role,
             joined_at=m.joined_at
         )

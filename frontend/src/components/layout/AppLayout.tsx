@@ -11,6 +11,7 @@ import {
   X,
   Users,
   User as UserIcon,
+  History,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth/AuthContext';
 import { Logo } from '@/components/brand/Logo';
@@ -31,6 +32,7 @@ export const AppLayout: React.FC = () => {
   const navItems = [
     { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { label: 'Trips & Rides', path: '/trips', icon: Compass },
+    { label: 'Trip History', path: '/history', icon: History },
     { label: 'Friends', path: '/friends', icon: Users },
     { label: 'Notifications', path: '/notifications', icon: Bell },
     { label: 'Profile & Settings', path: '/settings', icon: Settings },

@@ -30,13 +30,15 @@ import {
   ArrowRight,
   ChevronRight,
   Users,
+  Smartphone,
+  Wallet,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { api, getAvatarUrl } from '@/lib/api-client';
 import { useFeedback } from '@/context/FeedbackContext';
 import { playSound } from '@/lib/sounds';
 import { TravelStats } from '@/types';
-import { formatDate } from '@/lib/currency';
+import { formatDate, formatPaise } from '@/lib/currency';
 
 export const SettingsPage: React.FC = () => {
   const { user, updateProfile, changePassword, uploadAvatar, deleteAccount, logout } = useAuth();
@@ -92,6 +94,66 @@ export const SettingsPage: React.FC = () => {
   const [defaultCurrency, setDefaultCurrency] = useState(user?.default_currency || 'INR');
   const [prefSaving, setPrefSaving] = useState(false);
   const [prefSuccess, setPrefSuccess] = useState<string | null>(null);
+
+  // UPI State
+  const [upiInput, setUpiInput] = useState(user?.upi_id || '');
+  const [upiSaving, setUpiSaving] = useState(false);
+  const [upiSuccess, setUpiSuccess] = useState<string | null>(null);
+  const [upiError, setUpiError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user?.upi_id !== undefined) {
+      setUpiInput(user.upi_id || '');
+    }
+  }, [user?.upi_id]);
+
+  const handleSaveUpi = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setUpiError(null);
+    setUpiSuccess(null);
+
+    const clean = upiInput.trim();
+    if (!clean) {
+      setUpiError('Please enter a valid UPI ID or click Remove to clear it.');
+      return;
+    }
+
+    const upiRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
+    if (!upiRegex.test(clean)) {
+      setUpiError('Invalid UPI ID format. Expected format like username@bank or 9876543210@upi (e.g. rahul@oksbi).');
+      return;
+    }
+
+    setUpiSaving(true);
+    try {
+      await updateProfile({ upi_id: clean });
+      setUpiSuccess('UPI ID saved successfully! Friends can now pay you directly.');
+      showConfirmation({
+        title: 'UPI ID Saved',
+        message: 'Your payment address has been updated.',
+        sound: 'click',
+      });
+    } catch (err: any) {
+      setUpiError(err.message || 'Failed to update UPI ID.');
+    } finally {
+      setUpiSaving(false);
+    }
+  };
+
+  const handleRemoveUpi = async () => {
+    setUpiError(null);
+    setUpiSuccess(null);
+    setUpiSaving(true);
+    try {
+      await updateProfile({ upi_id: '' });
+      setUpiInput('');
+      setUpiSuccess('UPI ID removed from profile.');
+    } catch (err: any) {
+      setUpiError(err.message || 'Failed to remove UPI ID.');
+    } finally {
+      setUpiSaving(false);
+    }
+  };
 
   // Password Change State
   const [isChangingPassword, setIsChangingPassword] = useState(false);
@@ -514,48 +576,60 @@ export const SettingsPage: React.FC = () => {
           </button>
         </div>
 
-        {/* Travel Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-          <div className="bg-[#FAFAF8] rounded-xl border border-[#E8E8E5] p-4 flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-neutral-900 text-white flex items-center justify-center flex-shrink-0">
-              <Compass className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#737373] block">
-                Total Trips
-              </span>
-              <span className="text-xl font-extrabold text-[#171717]">
-                {loadingTravelStats ? '...' : travelStats?.total_trips_count ?? 0}
-              </span>
-            </div>
+        {/* Travel Stats Cards (All 6 core financial & activity metrics) */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="bg-[#FAFAF8] rounded-xl border border-[#E8E8E5] p-3.5 flex flex-col justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#737373] block mb-1">
+              Total Trips
+            </span>
+            <span className="text-xl font-extrabold text-[#171717]">
+              {loadingTravelStats ? '...' : travelStats?.total_trips_count ?? 0}
+            </span>
           </div>
 
-          <div className="bg-[#FAFAF8] rounded-xl border border-[#E8E8E5] p-4 flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center flex-shrink-0">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#737373] block">
-                Trips Created
-              </span>
-              <span className="text-xl font-extrabold text-[#171717]">
-                {loadingTravelStats ? '...' : travelStats?.trips_created_count ?? 0}
-              </span>
-            </div>
+          <div className="bg-[#FAFAF8] rounded-xl border border-[#E8E8E5] p-3.5 flex flex-col justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#737373] block mb-1">
+              Created
+            </span>
+            <span className="text-xl font-extrabold text-[#171717]">
+              {loadingTravelStats ? '...' : travelStats?.trips_created_count ?? 0}
+            </span>
           </div>
 
-          <div className="bg-[#FAFAF8] rounded-xl border border-[#E8E8E5] p-4 flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center flex-shrink-0">
-              <Users className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#737373] block">
-                Trips Joined
-              </span>
-              <span className="text-xl font-extrabold text-[#171717]">
-                {loadingTravelStats ? '...' : travelStats?.trips_joined_count ?? 0}
-              </span>
-            </div>
+          <div className="bg-[#FAFAF8] rounded-xl border border-[#E8E8E5] p-3.5 flex flex-col justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#737373] block mb-1">
+              Joined
+            </span>
+            <span className="text-xl font-extrabold text-[#171717]">
+              {loadingTravelStats ? '...' : travelStats?.trips_joined_count ?? 0}
+            </span>
+          </div>
+
+          <div className="bg-[#FAFAF8] rounded-xl border border-[#E8E8E5] p-3.5 flex flex-col justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#16834A] block mb-1">
+              Active Trips
+            </span>
+            <span className="text-xl font-extrabold text-[#16834A]">
+              {loadingTravelStats ? '...' : travelStats?.active_trips_count ?? 0}
+            </span>
+          </div>
+
+          <div className="bg-[#FAFAF8] rounded-xl border border-[#E8E8E5] p-3.5 flex flex-col justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#737373] block mb-1">
+              Completed
+            </span>
+            <span className="text-xl font-extrabold text-[#171717]">
+              {loadingTravelStats ? '...' : travelStats?.completed_trips_count ?? 0}
+            </span>
+          </div>
+
+          <div className="bg-[#FAFAF8] rounded-xl border border-[#E8E8E5] p-3.5 flex flex-col justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#16834A] block mb-1">
+              Contributions
+            </span>
+            <span className="text-base font-bold font-mono text-[#171717] tabular-nums">
+              {loadingTravelStats ? '...' : formatPaise(travelStats?.total_contributions_paise || 0)}
+            </span>
           </div>
         </div>
 
@@ -812,6 +886,95 @@ export const SettingsPage: React.FC = () => {
             )}
           </div>
         )}
+      </section>
+
+      {/* --- UPI ID & PAYMENT SETTINGS --- */}
+      <section className="bg-white rounded-2xl border border-[#E8E8E5] p-5 sm:p-7 shadow-xs space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-[#F4F4F2]">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-[#DDF5E5] text-[#16834A] flex items-center justify-center">
+              <Smartphone className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base sm:text-lg font-bold text-[#171717] font-['Plus_Jakarta_Sans']">
+                UPI Payment Profile
+              </h2>
+              <p className="text-xs text-[#737373]">
+                Save your UPI ID (VPA) so trip members can transfer owed balances directly to you.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {upiSuccess && (
+          <div className="p-3.5 rounded-xl bg-[#DDF5E5] border border-[#C6ECCF] text-[#16834A] text-xs font-medium flex items-center gap-2 animate-fadeIn">
+            <Check className="w-4 h-4 text-[#16834A]" />
+            <span>{upiSuccess}</span>
+          </div>
+        )}
+        {upiError && (
+          <div className="p-3.5 rounded-xl bg-[#FFE4E6] border border-[#FDA4AF] text-[#E11D48] text-xs font-medium flex items-center gap-2 animate-fadeIn">
+            <AlertCircle className="w-4 h-4 text-[#E11D48]" />
+            <span>{upiError}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleSaveUpi} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1">
+              Your UPI ID (VPA)
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                value={upiInput}
+                onChange={(e) => {
+                  setUpiInput(e.target.value);
+                  setUpiError(null);
+                }}
+                placeholder="e.g. yourname@okhdfcbank, 9876543210@paytm, user@upi"
+                className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-3.5 py-2.5 text-sm font-mono text-[#171717] focus:outline-none focus:border-[#16834A] focus:ring-2 focus:ring-[#16834A]/10 transition-colors"
+              />
+            </div>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-[#FAFAF8] border border-[#E8E8E5] text-xs text-[#737373] space-y-1.5">
+            <div className="flex items-center gap-1.5 font-semibold text-[#171717]">
+              <ShieldCheck className="w-3.5 h-3.5 text-[#16834A]" />
+              <span>UPI Security &amp; Ownership Verification Notice</span>
+            </div>
+            <p>
+              • <strong>Syntax Validation:</strong> Format validation checks UPI address structure (e.g. name@bank). It does not guarantee or verify bank account ownership.
+            </p>
+            <p>
+              • <strong>Zero Credential Storage:</strong> ONNA-GO never requests or stores UPI PINs, OTPs, or net banking passwords.
+            </p>
+            <p>
+              • <strong>Privacy:</strong> Your payment address is only revealed to fellow trip members to facilitate settlements.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3 pt-1">
+            <button
+              type="submit"
+              disabled={upiSaving}
+              className="px-5 py-2.5 bg-[#16834A] hover:bg-[#136F3F] text-white text-xs font-semibold rounded-xl shadow-xs transition-colors disabled:opacity-50 flex items-center gap-1.5"
+            >
+              {upiSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              <span>Save UPI ID</span>
+            </button>
+            {user?.upi_id && (
+              <button
+                type="button"
+                onClick={handleRemoveUpi}
+                disabled={upiSaving}
+                className="px-4 py-2.5 text-xs text-[#E11D48] hover:text-[#BE123C] rounded-xl border border-[#FDA4AF] bg-white hover:bg-[#FFE4E6] transition-colors"
+              >
+                Remove UPI ID
+              </button>
+            )}
+          </div>
+        </form>
       </section>
 
       {/* --- 3. PREFERENCES & CURRENCY --- */}

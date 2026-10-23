@@ -6,6 +6,8 @@ import { rupeesToPaise } from '@/lib/currency';
 import { useFeedback } from '@/context/FeedbackContext';
 import { playSound } from '@/lib/sounds';
 
+import { LocationSearchInput, LocationData } from '@/components/location/LocationSearchInput';
+
 interface CreateTripModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -19,7 +21,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
 }) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [destination, setDestination] = useState('');
+  const [locationData, setLocationData] = useState<LocationData>({ destination: '' });
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [currency, setCurrency] = useState('INR');
@@ -64,7 +66,10 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
       const trip = await api.post<Trip>('/trips/', {
         name: name.trim(),
         description: description ? description.trim() : null,
-        destination: destination ? destination.trim() : null,
+        destination: locationData.destination ? locationData.destination.trim() : null,
+        destination_address: locationData.destination_address || null,
+        destination_lat: locationData.destination_lat || null,
+        destination_lng: locationData.destination_lng || null,
         start_date: startDate ? new Date(startDate).toISOString() : null,
         end_date: endDate ? new Date(endDate).toISOString() : null,
         currency,
@@ -142,23 +147,13 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1">
-                Destination
-              </label>
-              <div className="relative">
-                <MapPin className="w-4 h-4 absolute left-3 top-3 text-[#A3A3A3]" />
-                <input
-                  type="text"
-                  value={destination}
-                  onChange={(e) => setDestination(e.target.value)}
-                  placeholder="e.g. Manali, Coorg"
-                  className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl pl-9 pr-3.5 py-2.5 text-[#171717] text-sm focus:outline-none focus:border-[#16834A] focus:ring-2 focus:ring-[#16834A]/10 transition-colors"
-                />
-              </div>
-            </div>
+          {/* Destination Search & OSM Confirmation */}
+          <LocationSearchInput
+            value={locationData}
+            onChange={setLocationData}
+          />
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1">
                 Currency
@@ -173,6 +168,20 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                 <option value="EUR">EUR (€) — Euro</option>
                 <option value="GBP">GBP (£) — British Pound</option>
               </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1">
+                Estimated Budget (Optional)
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={budgetRupees}
+                onChange={(e) => setBudgetRupees(e.target.value)}
+                placeholder="e.g. 25000"
+                className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-3.5 py-2.5 text-[#171717] text-sm focus:outline-none focus:border-[#16834A] focus:ring-2 focus:ring-[#16834A]/10 transition-colors"
+              />
             </div>
           </div>
 

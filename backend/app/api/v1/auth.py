@@ -344,6 +344,19 @@ def update_profile(
         
     if user_in.avatar_url is not None:
         current_user.avatar_url = user_in.avatar_url
+
+    if user_in.upi_id is not None:
+        cleaned_upi = user_in.upi_id.strip()
+        if cleaned_upi == "":
+            current_user.upi_id = None
+        else:
+            upi_regex = re.compile(r"^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$")
+            if not upi_regex.match(cleaned_upi):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid UPI ID format. Expected format like username@bank or 9876543210@upi (e.g. name@okhdfcbank). Format check validates syntax only, not bank ownership."
+                )
+            current_user.upi_id = cleaned_upi
     
     db.commit()
     db.refresh(current_user)

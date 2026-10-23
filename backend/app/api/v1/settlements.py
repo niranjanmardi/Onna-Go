@@ -19,8 +19,10 @@ def build_settlement_response(s: Settlement, db: Session) -> SettlementResponse:
         trip_id=s.trip_id,
         payer_id=s.payer_id,
         payer_name=payer.full_name if payer else "Member",
+        payer_upi_id=payer.upi_id if payer else None,
         payee_id=s.payee_id,
         payee_name=payee.full_name if payee else "Member",
+        payee_upi_id=payee.upi_id if payee else None,
         amount_paise=s.amount_paise,
         status=s.status,
         payment_method=s.payment_method,
@@ -54,8 +56,25 @@ def create_settlement(
     payee_member = db.query(TripMember).filter(TripMember.trip_id == st_in.trip_id, TripMember.user_id == st_in.payee_id).first()
     if not payer_member or not payee_member:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Both payer and payee must be trip members.")
+
+    # Duplicate check: prevent duplicate pending settlement records
+    existing_pending = db.query(Settlement).filter(
+        Settlement.trip_id == st_in.trip_id,
+        Settlement.payer_id == st_in.payer_id,
+        Settlement.payee_id == st_in.payee_id,
+        Settlement.amount_paise == st_in.amount_paise,
+        Settlement.status.in_(["INITIATED", "PENDING_CONFIRMATION"])
+    ).first()
+    if existing_pending:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A payment of this amount between these members is already awaiting confirmation. Duplicate submission prevented."
+        )
         
-    initial_status = "PENDING_CONFIRMATION"
+    initial_status = st_in.status.upper() if st_in.status else "PENDING_CONFIRMATION"
+    if initial_status not in ["INITIATED", "PENDING_CONFIRMATION"]:
+        initial_status = "PENDING_CONFIRMATION"
+
     settlement = Settlement(
         trip_id=st_in.trip_id,
         payer_id=st_in.payer_id,
@@ -76,16 +95,16 @@ def create_settlement(
         actor_id=current_user.id,
         from_status="NONE",
         to_status=initial_status,
-        reason="Settlement recorded by user"
+        reason=f"Settlement marked as {initial_status} by {current_user.full_name}"
     )
     db.add(event)
     
-    # Notify payee to confirm
-    target_notify = st_in.payee_id if current_user.id != st_in.payee_id else st_in.payer_id
+    # Notify payee to verify and confirm receipt
+    payer_user = db.query(User).filter(User.id == st_in.payer_id).first()
     notif = Notification(
-        user_id=target_notify,
-        title="Settlement recorded for review",
-        message=f"A payment of ₹{st_in.amount_paise / 100:.2f} was recorded. Please confirm once received.",
+        user_id=st_in.payee_id,
+        title="Payment initiated for confirmation",
+        message=f"{payer_user.full_name if payer_user else 'Member'} reported initiating a payment of ₹{st_in.amount_paise / 100:.2f}. Please verify in your bank/UPI app and confirm receipt.",
         type="SETTLEMENT",
         link_url=f"/trips/{st_in.trip_id}"
     )

@@ -60,12 +60,14 @@ export const TripsListPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('newest');
 
-  // Handle URL routes /trips/new and /trips/join
+  // Handle URL routes /trips/new, /trips/join, and /history
   useEffect(() => {
     if (location.pathname === '/trips/new') {
       setIsCreateOpen(true);
     } else if (location.pathname === '/trips/join') {
       setIsJoinOpen(true);
+    } else if (location.pathname === '/history') {
+      setActiveTab('history');
     }
   }, [location.pathname]);
 
@@ -145,11 +147,11 @@ export const TripsListPage: React.FC = () => {
     }
   };
 
-  // Helper to determine trip status and ownership
+  // Helper to determine trip status and ownership (explicit completion)
   const isTripCompleted = (trip: Trip) => {
-    if (trip.status) return trip.status === 'COMPLETED';
+    if (trip.status === 'COMPLETED') return true;
+    if (trip.completed_at) return true;
     if (trip.is_archived) return true;
-    if (trip.end_date && new Date(trip.end_date) < new Date()) return true;
     return false;
   };
 

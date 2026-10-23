@@ -29,6 +29,7 @@ class UserUpdate(BaseModel):
     date_of_birth: Optional[str] = None
     default_currency: Optional[str] = None
     avatar_url: Optional[str] = None
+    upi_id: Optional[str] = None
 
 class UserResponse(BaseModel):
     id: str  # Permanent UID
@@ -41,6 +42,7 @@ class UserResponse(BaseModel):
     city: Optional[str] = None
     date_of_birth: Optional[str] = None
     default_currency: str = "INR"
+    upi_id: Optional[str] = None
     auth_provider: str = "email"
     is_active: bool
     is_verified: bool
@@ -130,6 +132,9 @@ class TripBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = None
     destination: Optional[str] = None
+    destination_address: Optional[str] = None
+    destination_lat: Optional[float] = None
+    destination_lng: Optional[float] = None
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
     currency: str = "INR"
@@ -142,11 +147,15 @@ class TripUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     destination: Optional[str] = None
+    destination_address: Optional[str] = None
+    destination_lat: Optional[float] = None
+    destination_lng: Optional[float] = None
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
     currency: Optional[str] = None
     budget_paise: Optional[int] = None
     is_archived: Optional[bool] = None
+    completed_at: Optional[datetime] = None
 
 class TripMemberResponse(BaseModel):
     id: str
@@ -154,6 +163,7 @@ class TripMemberResponse(BaseModel):
     user_id: str
     user_name: str
     user_email: str
+    user_upi_id: Optional[str] = None
     role: str
     joined_at: datetime
 
@@ -163,6 +173,7 @@ class TripResponse(TripBase):
     id: str
     invite_code: str
     is_archived: bool
+    completed_at: Optional[datetime] = None
     created_by_id: str
     members_count: int = 1
     total_expenses_paise: int = 0
@@ -177,6 +188,9 @@ class TravelStatsResponse(BaseModel):
     trips_created_count: int
     trips_joined_count: int
     total_trips_count: int
+    active_trips_count: int = 0
+    completed_trips_count: int = 0
+    total_contributions_paise: int = 0
     recent_trips: List[TripResponse]
 
 class TripJoinRequest(BaseModel):
@@ -301,6 +315,8 @@ class SettlementSuggestion(BaseModel):
     to_user_id: str
     to_user_name: str
     amount_paise: int
+    to_user_upi_id: Optional[str] = None
+    from_user_upi_id: Optional[str] = None
 
 class SettlementSuggestionsResponse(BaseModel):
     trip_id: str
@@ -312,6 +328,7 @@ class SettlementCreate(BaseModel):
     payee_id: str
     amount_paise: int = Field(..., gt=0)
     payment_method: str = "UPI"  # UPI, CASH, BANK_TRANSFER, OTHER
+    status: Optional[str] = "PENDING_CONFIRMATION"
     reference_id: Optional[str] = None
     notes: Optional[str] = None
 
@@ -324,8 +341,10 @@ class SettlementResponse(BaseModel):
     trip_id: str
     payer_id: str
     payer_name: str
+    payer_upi_id: Optional[str] = None
     payee_id: str
     payee_name: str
+    payee_upi_id: Optional[str] = None
     amount_paise: int
     status: str
     payment_method: str
@@ -402,3 +421,19 @@ class TripReportResponse(BaseModel):
     total_settled_paise: int
     category_breakdown: List[CategorySpending]
     participant_breakdown: List[ParticipantSpending]
+
+class TripSummaryResponse(BaseModel):
+    trip_id: str
+    trip_name: str
+    currency: str = "INR"
+    status: str
+    is_completed: bool
+    completed_at: Optional[datetime] = None
+    total_expenses_paise: int
+    total_settled_paise: int
+    is_fully_settled: bool
+    category_breakdown: List[CategorySpending]
+    participant_breakdown: List[ParticipantSpending]
+    settlement_suggestions: List[SettlementSuggestion]
+    pending_settlements: List[SettlementResponse]
+    all_settlements: List[SettlementResponse]

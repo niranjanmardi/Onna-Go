@@ -110,7 +110,9 @@ def get_settlement_suggestions(
                 from_user_name=from_user.full_name if from_user else "Member",
                 to_user_id=sug["to_user_id"],
                 to_user_name=to_user.full_name if to_user else "Member",
-                amount_paise=sug["amount_paise"]
+                amount_paise=sug["amount_paise"],
+                to_user_upi_id=to_user.upi_id if to_user else None,
+                from_user_upi_id=from_user.upi_id if from_user else None,
             )
         )
         
