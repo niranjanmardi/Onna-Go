@@ -18,12 +18,15 @@ import {
   Loader2,
   UserCheck,
   ShieldCheck,
-  AtSign
+  AtSign,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useFeedback } from '@/context/FeedbackContext';
+import { playSound } from '@/lib/sounds';
 
 export const FriendsPage: React.FC = () => {
   const navigate = useNavigate();
+  const { showConfirmation } = useFeedback();
   const [activeTab, setActiveTab] = useState<'friends' | 'find' | 'requests'>('friends');
 
   // Friends List State
@@ -132,7 +135,11 @@ export const FriendsPage: React.FC = () => {
       const res = await api.post<{ message: string; status: string }>('/friends/request', {
         username_or_uid: item.username || item.id,
       });
-      showSuccess(res.message);
+      showConfirmation({
+        title: res.status === 'ACCEPTED' ? 'You are now friends!' : 'Friend request sent',
+        message: res.message,
+        sound: res.status === 'ACCEPTED' ? 'trip_success' : 'notification',
+      });
 
       // Refresh search results & requests
       if (searchResults) {
@@ -150,6 +157,7 @@ export const FriendsPage: React.FC = () => {
       fetchFriends();
       fetchRequests();
     } catch (err: any) {
+      playSound('error');
       showError(err.message || 'Failed to send friend request.');
     } finally {
       setActionInProgressId(null);
@@ -162,7 +170,11 @@ export const FriendsPage: React.FC = () => {
     setActionError(null);
     try {
       const res = await api.post<{ message: string }>(`/friends/requests/${requestId}/accept`);
-      showSuccess(res.message);
+      showConfirmation({
+        title: 'Friend request accepted!',
+        message: res.message,
+        sound: 'trip_success',
+      });
       fetchFriends();
       fetchRequests();
       if (searchResults) {
@@ -173,6 +185,7 @@ export const FriendsPage: React.FC = () => {
         );
       }
     } catch (err: any) {
+      playSound('error');
       showError(err.message || 'Failed to accept friend request.');
     } finally {
       setActionInProgressId(null);

@@ -19,6 +19,9 @@ import { api } from '@/lib/api-client';
 import { TripMember, Activity, Expense } from '@/types';
 import { formatPaise, rupeesToPaise, getCurrencySymbol } from '@/lib/currency';
 import { useAuth } from '@/features/auth/AuthContext';
+import { BlueTick } from '@/components/common/BlueTick';
+import { useFeedback } from '@/context/FeedbackContext';
+import { playSound } from '@/lib/sounds';
 
 interface AddExpenseModalProps {
   isOpen: boolean;
@@ -49,6 +52,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
   onExpenseAdded,
 }) => {
   const { user } = useAuth();
+  const { showConfirmation } = useFeedback();
 
   // Core essential fields
   const [amountRupees, setAmountRupees] = useState('');
@@ -229,11 +233,17 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
       }
 
       setSuccess('Expense recorded successfully.');
+      showConfirmation({
+        title: 'Expense recorded successfully',
+        message: `${description} (${currency}) split with participants.`,
+        sound: 'expense_success',
+      });
       onExpenseAdded(created);
       setTimeout(() => {
         onClose();
       }, 700);
     } catch (err: any) {
+      playSound('error');
       setError(err.message || 'Failed to record expense.');
     } finally {
       setLoading(false);
@@ -261,10 +271,10 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
           </button>
         </div>
 
-        {/* Success Banner */}
+        {/* Success Banner with Blue Tick */}
         {success && (
-          <div className="mt-4 p-3 rounded-xl bg-[#DDF5E5] border border-[#C6ECCF] text-[#16834A] text-xs font-semibold flex items-center gap-2">
-            <Check className="w-4 h-4 text-[#16834A]" />
+          <div className="mt-4 p-3 rounded-xl bg-[#EFF6FF] border border-[#BFDBFE] text-[#1E40AF] text-xs font-semibold flex items-center gap-2.5">
+            <BlueTick size="sm" animate={true} />
             <span>{success}</span>
           </div>
         )}

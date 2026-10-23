@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import { Logo } from '@/components/brand/Logo';
 import { api } from '@/lib/api-client';
+import { useFeedback } from '@/context/FeedbackContext';
+import { playSound } from '@/lib/sounds';
 import {
   Lock,
   Mail,
@@ -19,6 +21,7 @@ import {
 
 export const RegisterPage: React.FC = () => {
   const { register } = useAuth();
+  const { showConfirmation } = useFeedback();
   const navigate = useNavigate();
 
   // Form State
@@ -129,8 +132,14 @@ export const RegisterPage: React.FC = () => {
     setLoading(true);
     try {
       await register(cleanUname, cleanName, cleanEmail, password, defaultCurrency);
+      showConfirmation({
+        title: 'Account created successfully!',
+        message: `Welcome to ONNA-GO, @${cleanUname}!`,
+        sound: 'trip_success',
+      });
       navigate('/dashboard');
     } catch (err: any) {
+      playSound('error');
       setError(err.message || 'Failed to create your account. Please check your information.');
     } finally {
       setLoading(false);

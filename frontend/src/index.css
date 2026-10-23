@@ -76,3 +76,45 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #A3A3A3;
 }
+
+/* Blue Tick Verification Animations */
+@keyframes blue-tick-pop {
+  0% {
+    transform: scale(0.65);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes blue-check-draw {
+  0% {
+    stroke-dashoffset: 36;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-blue-tick-pop {
+  animation: blue-tick-pop 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.animate-blue-check-draw {
+  animation: blue-check-draw 0.38s 0.12s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-blue-tick-pop,
+  .animate-blue-check-draw {
+    animation: none !important;
+    stroke-dashoffset: 0 !important;
+    transform: none !important;
+  }
+}
+

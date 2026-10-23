@@ -43,10 +43,13 @@ import { formatPaise, formatDate } from '@/lib/currency';
 import { useAuth } from '@/features/auth/AuthContext';
 import { AddExpenseModal } from '@/features/expenses/AddExpenseModal';
 import { RecordSettlementModal } from '@/features/settlements/RecordSettlementModal';
+import { useFeedback } from '@/context/FeedbackContext';
+import { playSound } from '@/lib/sounds';
 
 export const TripDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
+  const { showConfirmation } = useFeedback();
   const navigate = useNavigate();
 
   const [trip, setTrip] = useState<Trip | null>(null);
@@ -171,8 +174,14 @@ export const TripDetailPage: React.FC = () => {
         friend_ids: selectedFriendsToInvite,
       });
       setInvitations((prev) => [...res, ...prev]);
+      showConfirmation({
+        title: 'Trip invitations sent!',
+        message: `Invitations delivered to ${selectedFriendsToInvite.length} friend(s).`,
+        sound: 'notification',
+      });
       setIsInviteFriendsOpen(false);
     } catch (err: any) {
+      playSound('error');
       setInviteError(err.message || 'Failed to send invitations.');
     } finally {
       setSendingInvites(false);
@@ -184,6 +193,7 @@ export const TripDetailPage: React.FC = () => {
       await api.delete(`/trips/${id}/invitations/${invId}`);
       setInvitations((prev) => prev.filter((i) => i.id !== invId));
     } catch (err: any) {
+      playSound('error');
       alert(err.message || 'Failed to cancel invitation.');
     }
   };
@@ -202,6 +212,7 @@ export const TripDetailPage: React.FC = () => {
       await api.delete(`/expenses/${expenseId}`);
       await loadAllTripData();
     } catch (err: any) {
+      playSound('error');
       alert(err.message || 'Error voiding expense');
     }
   };
@@ -212,8 +223,14 @@ export const TripDetailPage: React.FC = () => {
         status: 'CONFIRMED',
         reason: 'Confirmed received by recipient',
       });
+      showConfirmation({
+        title: 'Settlement confirmed successfully',
+        message: 'Effective group balances and debts have been settled.',
+        sound: 'settlement_success',
+      });
       await loadAllTripData();
     } catch (err: any) {
+      playSound('error');
       alert(err.message || 'Failed to confirm settlement.');
     }
   };

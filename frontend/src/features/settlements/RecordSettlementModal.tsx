@@ -3,6 +3,8 @@ import { X, HandCoins, ArrowRight, AlertCircle, ShieldCheck } from 'lucide-react
 import { api } from '@/lib/api-client';
 import { TripMember, Settlement } from '@/types';
 import { rupeesToPaise, formatPaise } from '@/lib/currency';
+import { useFeedback } from '@/context/FeedbackContext';
+import { playSound } from '@/lib/sounds';
 
 interface RecordSettlementModalProps {
   isOpen: boolean;
@@ -25,6 +27,7 @@ export const RecordSettlementModal: React.FC<RecordSettlementModalProps> = ({
   initialAmountPaise,
   onSettlementRecorded,
 }) => {
+  const { showConfirmation } = useFeedback();
   const [payerId, setPayerId] = useState(initialPayerId || (members[0]?.user_id || ''));
   const [payeeId, setPayeeId] = useState(
     initialPayeeId || (members[1]?.user_id || members[0]?.user_id || '')
@@ -66,9 +69,15 @@ export const RecordSettlementModal: React.FC<RecordSettlementModalProps> = ({
         reference_id: referenceId || null,
         notes: notes || null,
       });
+      showConfirmation({
+        title: 'Settlement recorded successfully',
+        message: 'Payment recorded and pending recipient confirmation.',
+        sound: 'settlement_success',
+      });
       onSettlementRecorded(recorded);
       onClose();
     } catch (err: any) {
+      playSound('error');
       setError(err.message || 'Failed to record settlement.');
     } finally {
       setLoading(false);

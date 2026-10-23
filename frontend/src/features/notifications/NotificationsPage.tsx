@@ -4,10 +4,12 @@ import { api } from '@/lib/api-client';
 import { NotificationItem } from '@/types';
 import { formatDateTime } from '@/lib/currency';
 import { useNavigate } from 'react-router-dom';
+import { useFeedback } from '@/context/FeedbackContext';
 
 export const NotificationsPage: React.FC = () => {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const { refreshUnreadCount, playClick } = useFeedback();
   const navigate = useNavigate();
 
   const fetchNotifications = async () => {
@@ -15,6 +17,7 @@ export const NotificationsPage: React.FC = () => {
     try {
       const data = await api.get<NotificationItem[]>('/notifications/');
       setNotifications(data);
+      refreshUnreadCount();
     } catch {
       // Handle gracefully
     } finally {
@@ -30,6 +33,8 @@ export const NotificationsPage: React.FC = () => {
     try {
       await api.put('/notifications/read-all');
       setNotifications(notifications.map((n) => ({ ...n, is_read: true })));
+      refreshUnreadCount();
+      playClick();
     } catch {
       // Ignore
     }
@@ -41,6 +46,7 @@ export const NotificationsPage: React.FC = () => {
       setNotifications(
         notifications.map((n) => (n.id === id ? { ...n, is_read: true } : n))
       );
+      refreshUnreadCount();
       if (linkUrl) navigate(linkUrl);
     } catch {
       // Ignore

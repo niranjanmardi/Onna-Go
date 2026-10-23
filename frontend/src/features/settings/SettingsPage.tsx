@@ -23,13 +23,18 @@ import {
   AtSign,
   X,
   Upload,
-  Loader2
+  Loader2,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getAvatarUrl } from '@/lib/api-client';
+import { useFeedback } from '@/context/FeedbackContext';
+import { playSound } from '@/lib/sounds';
 
 export const SettingsPage: React.FC = () => {
   const { user, updateProfile, changePassword, uploadAvatar, deleteAccount, logout } = useAuth();
+  const { showConfirmation, soundsEnabled, setSoundsEnabled } = useFeedback();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -140,9 +145,15 @@ export const SettingsPage: React.FC = () => {
     try {
       await uploadAvatar(selectedFile);
       setAvatarSuccess('Profile photo updated successfully!');
+      showConfirmation({
+        title: 'Profile photo updated',
+        message: 'Your new avatar is visible across your trips.',
+        sound: 'click',
+      });
       handleCancelPhoto();
       setTimeout(() => setAvatarSuccess(null), 4000);
     } catch (err: any) {
+      playSound('error');
       setProfileError(err.message || 'Failed to upload profile photo.');
     } finally {
       setAvatarUploading(false);
@@ -171,9 +182,15 @@ export const SettingsPage: React.FC = () => {
         phone_number: phoneNumber.trim(),
       });
       setProfileSuccess('Profile details saved successfully.');
+      showConfirmation({
+        title: 'Profile details saved',
+        message: 'Your personal information was updated successfully.',
+        sound: 'click',
+      });
       setIsEditingProfile(false);
       setTimeout(() => setProfileSuccess(null), 4000);
     } catch (err: any) {
+      playSound('error');
       setProfileError(err.message || 'Failed to update personal details.');
     } finally {
       setProfileSaving(false);
@@ -197,8 +214,14 @@ export const SettingsPage: React.FC = () => {
     try {
       await updateProfile({ default_currency: newCurr });
       setPrefSuccess('Default currency preference updated.');
+      showConfirmation({
+        title: 'Currency updated',
+        message: `Default currency set to ${newCurr}.`,
+        sound: 'click',
+      });
       setTimeout(() => setPrefSuccess(null), 3000);
     } catch (err: any) {
+      playSound('error');
       setProfileError(err.message || 'Failed to save currency preference.');
     } finally {
       setPrefSaving(false);
@@ -224,12 +247,18 @@ export const SettingsPage: React.FC = () => {
     try {
       await changePassword(currentPassword, newPassword);
       setPasswordSuccess('Password changed successfully.');
+      showConfirmation({
+        title: 'Password changed successfully',
+        message: 'Your new security credentials are active.',
+        sound: 'trip_success',
+      });
       setCurrentPassword('');
       setNewPassword('');
       setConfirmNewPassword('');
       setIsChangingPassword(false);
       setTimeout(() => setPasswordSuccess(null), 4000);
     } catch (err: any) {
+      playSound('error');
       setPasswordError(err.message || 'Failed to update password. Verify your current password.');
     } finally {
       setPasswordSaving(false);
@@ -620,6 +649,64 @@ export const SettingsPage: React.FC = () => {
               <span className="text-[10px] text-[#737373]">{c.label}</span>
             </button>
           ))}
+        </div>
+
+        {/* Audio & Sound Effects Preference */}
+        <div className="pt-4 border-t border-[#F4F4F2]">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl bg-[#FAFAF8] border border-[#E8E8E5]">
+            <div className="flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-white border border-[#E8E8E5] flex items-center justify-center text-[#171717] flex-shrink-0 shadow-2xs">
+                {soundsEnabled ? (
+                  <Volume2 className="w-5 h-5 text-[#16834A]" />
+                ) : (
+                  <VolumeX className="w-5 h-5 text-[#A3A3A3]" />
+                )}
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-[#171717]">
+                  Interaction Sounds &amp; Audio Feedback
+                </p>
+                <p className="text-xs text-[#737373] mt-0.5">
+                  Subtle original audio chimes for trip creation, settlements, expenses, and alerts
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 self-end sm:self-center">
+              {soundsEnabled && (
+                <button
+                  type="button"
+                  onClick={() => playSound('trip_success')}
+                  className="px-3 py-1.5 text-xs font-semibold text-[#16834A] bg-[#DDF5E5] hover:bg-[#C6ECCF] rounded-lg transition-colors cursor-pointer"
+                >
+                  Test Chime
+                </button>
+              )}
+
+              <button
+                type="button"
+                role="switch"
+                aria-checked={soundsEnabled}
+                aria-label="Toggle interaction sounds"
+                onClick={() => {
+                  const nextState = !soundsEnabled;
+                  setSoundsEnabled(nextState);
+                  if (nextState) {
+                    playSound('click');
+                  }
+                }}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  soundsEnabled ? 'bg-[#16834A]' : 'bg-[#D6D6D2]'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${
+                    soundsEnabled ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
         </div>
       </section>
 

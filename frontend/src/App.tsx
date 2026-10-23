@@ -12,6 +12,7 @@ import { TripDetailPage } from './features/trips/TripDetailPage';
 import { NotificationsPage } from './features/notifications/NotificationsPage';
 import { SettingsPage } from './features/settings/SettingsPage';
 import { FriendsPage } from './features/friends/FriendsPage';
+import { FeedbackProvider } from './context/FeedbackContext';
 import { Logo } from './components/brand/Logo';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 
@@ -80,53 +81,55 @@ export const App: React.FC = () => {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            {/* Public landing */}
-            <Route path="/" element={<LandingPage />} />
+        <FeedbackProvider>
+          <BrowserRouter>
+            <Routes>
+              {/* Public landing */}
+              <Route path="/" element={<LandingPage />} />
 
-            {/* Auth routes */}
-            <Route
-              path="/login"
-              element={
-                <RedirectIfAuth>
-                  <LoginPage />
-                </RedirectIfAuth>
-              }
-            />
-            <Route
-              path="/register"
-              element={
-                <RedirectIfAuth>
-                  <RegisterPage />
-                </RedirectIfAuth>
-              }
-            />
-            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              {/* Auth routes */}
+              <Route
+                path="/login"
+                element={
+                  <RedirectIfAuth>
+                    <LoginPage />
+                  </RedirectIfAuth>
+                }
+              />
+              <Route
+                path="/register"
+                element={
+                  <RedirectIfAuth>
+                    <RegisterPage />
+                  </RedirectIfAuth>
+                }
+              />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
-            {/* Protected Application Routes */}
-            <Route
-              element={
-                <RequireAuth>
-                  <AppLayout />
-                </RequireAuth>
-              }
-            >
-              <Route path="/dashboard" element={<DashboardPage />} />
-              <Route path="/trips" element={<TripsListPage />} />
-              <Route path="/trips/new" element={<TripsListPage />} />
-              <Route path="/trips/join" element={<TripsListPage />} />
-              <Route path="/trips/:id" element={<TripDetailPage />} />
-              <Route path="/notifications" element={<NotificationsPage />} />
-              <Route path="/friends" element={<FriendsPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/profile" element={<SettingsPage />} />
-            </Route>
+              {/* Protected Application Routes */}
+              <Route
+                element={
+                  <RequireAuth>
+                    <AppLayout />
+                  </RequireAuth>
+                }
+              >
+                <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/trips" element={<TripsListPage />} />
+                <Route path="/trips/new" element={<TripsListPage />} />
+                <Route path="/trips/join" element={<TripsListPage />} />
+                <Route path="/trips/:id" element={<TripDetailPage />} />
+                <Route path="/notifications" element={<NotificationsPage />} />
+                <Route path="/friends" element={<FriendsPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/profile" element={<SettingsPage />} />
+              </Route>
 
-            {/* Catch-all 404 */}
-            <Route path="*" element={<NotFoundPage />} />
-          </Routes>
-        </BrowserRouter>
+              {/* Catch-all 404 */}
+              <Route path="*" element={<NotFoundPage />} />
+            </Routes>
+          </BrowserRouter>
+        </FeedbackProvider>
       </AuthProvider>
     </ErrorBoundary>
   );

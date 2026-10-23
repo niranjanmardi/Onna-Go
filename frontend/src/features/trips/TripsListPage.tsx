@@ -20,9 +20,12 @@ import { Trip, TripInvitation } from '@/types';
 import { formatPaise, formatDate } from '@/lib/currency';
 import { CreateTripModal } from './CreateTripModal';
 import { JoinTripModal } from './JoinTripModal';
+import { useFeedback } from '@/context/FeedbackContext';
+import { playSound } from '@/lib/sounds';
 
 export const TripsListPage: React.FC = () => {
   const navigate = useNavigate();
+  const { showConfirmation } = useFeedback();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -70,8 +73,14 @@ export const TripsListPage: React.FC = () => {
       const joinedTrip = await api.post<Trip>(`/trips/invitations/${invId}/accept`);
       setPendingInvitations((prev) => prev.filter((i) => i.id !== invId));
       setTrips((prev) => [joinedTrip, ...prev]);
+      showConfirmation({
+        title: 'Trip invitation accepted!',
+        message: `You joined ${joinedTrip.name}.`,
+        sound: 'trip_success',
+      });
       navigate(`/trips/${joinedTrip.id}`);
     } catch (err: any) {
+      playSound('error');
       setError(err.message || 'Failed to accept invitation.');
     } finally {
       setProcessingInvId(null);
@@ -83,7 +92,12 @@ export const TripsListPage: React.FC = () => {
     try {
       await api.post(`/trips/invitations/${invId}/decline`);
       setPendingInvitations((prev) => prev.filter((i) => i.id !== invId));
+      showConfirmation({
+        title: 'Invitation declined',
+        sound: 'click',
+      });
     } catch (err: any) {
+      playSound('error');
       setError(err.message || 'Failed to decline invitation.');
     } finally {
       setProcessingInvId(null);

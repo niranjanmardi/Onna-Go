@@ -3,6 +3,8 @@ import { X, Compass, MapPin, Calendar, Coins, ArrowRight, AlertCircle, Users, Ch
 import { api, getAvatarUrl } from '@/lib/api-client';
 import { Trip, Friend } from '@/types';
 import { rupeesToPaise } from '@/lib/currency';
+import { useFeedback } from '@/context/FeedbackContext';
+import { playSound } from '@/lib/sounds';
 
 interface CreateTripModalProps {
   isOpen: boolean;
@@ -24,6 +26,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
   const [budgetRupees, setBudgetRupees] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const { showConfirmation } = useFeedback();
 
   // Friends selection state
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -79,9 +82,15 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
         }
       }
 
+      showConfirmation({
+        title: 'Trip created successfully!',
+        message: `${trip.name} has been created.`,
+        sound: 'trip_success',
+      });
       onTripCreated(trip);
       onClose();
     } catch (err: any) {
+      playSound('error');
       setError(err.message || 'Failed to create trip.');
     } finally {
       setLoading(false);

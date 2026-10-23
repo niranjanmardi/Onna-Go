@@ -15,9 +15,11 @@ import {
 import { useAuth } from '@/features/auth/AuthContext';
 import { Logo } from '@/components/brand/Logo';
 import { getAvatarUrl } from '@/lib/api-client';
+import { useFeedback } from '@/context/FeedbackContext';
 
 export const AppLayout: React.FC = () => {
   const { user, logout } = useAuth();
+  const { unreadCount, playClick } = useFeedback();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -62,20 +64,29 @@ export const AppLayout: React.FC = () => {
           <nav className="space-y-1 mt-2">
             {navItems.map((item) => {
               const Icon = item.icon;
+              const isNotif = item.path === '/notifications';
               return (
                 <NavLink
                   key={item.path}
                   to={item.path}
+                  onClick={playClick}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                    `flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
                       isActive
                         ? 'bg-white text-[#171717] shadow-xs border border-[#E8E8E5] font-semibold'
                         : 'text-[#737373] hover:text-[#171717] hover:bg-[#F4F4F2]'
                     }`
                   }
                 >
-                  <Icon className="w-4 h-4 flex-shrink-0" />
-                  <span>{item.label}</span>
+                  <div className="flex items-center gap-3">
+                    <Icon className="w-4 h-4 flex-shrink-0" />
+                    <span>{item.label}</span>
+                  </div>
+                  {isNotif && unreadCount > 0 && (
+                    <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-[#2563EB] text-white">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
                 </NavLink>
               );
             })}
@@ -121,15 +132,21 @@ export const AppLayout: React.FC = () => {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => navigate('/notifications')}
-            className="p-2 text-[#737373] hover:text-[#171717] rounded-lg transition-colors"
+            onClick={() => {
+              playClick();
+              navigate('/notifications');
+            }}
+            className="p-2 text-[#737373] hover:text-[#171717] rounded-lg transition-colors relative cursor-pointer"
             aria-label="Notifications"
           >
             <Bell className="w-5 h-5" />
+            {unreadCount > 0 && (
+              <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-[#2563EB] ring-2 ring-white" />
+            )}
           </button>
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 text-[#737373] hover:text-[#171717] rounded-lg transition-colors"
+            className="p-2 text-[#737373] hover:text-[#171717] rounded-lg transition-colors cursor-pointer"
             aria-label="Toggle menu"
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -145,7 +162,7 @@ export const AppLayout: React.FC = () => {
               <Logo size="sm" showTagline={true} theme="light" />
               <button
                 onClick={() => setMobileMenuOpen(false)}
-                className="p-2 text-[#737373] hover:text-[#171717] rounded-lg"
+                className="p-2 text-[#737373] hover:text-[#171717] rounded-lg cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -153,10 +170,11 @@ export const AppLayout: React.FC = () => {
 
             <button
               onClick={() => {
+                playClick();
                 setMobileMenuOpen(false);
                 navigate('/trips/new');
               }}
-              className="w-full flex items-center justify-center gap-2 bg-[#16834A] text-white py-3 rounded-xl font-semibold shadow-xs"
+              className="w-full flex items-center justify-center gap-2 bg-[#16834A] text-white py-3 rounded-xl font-semibold shadow-xs cursor-pointer active:scale-[0.98] transition-all"
             >
               <Plus className="w-4 h-4" />
               <span>Create New Trip</span>
@@ -165,21 +183,32 @@ export const AppLayout: React.FC = () => {
             <nav className="space-y-1">
               {navItems.map((item) => {
                 const Icon = item.icon;
+                const isNotif = item.path === '/notifications';
                 return (
                   <NavLink
                     key={item.path}
                     to={item.path}
-                    onClick={() => setMobileMenuOpen(false)}
+                    onClick={() => {
+                      playClick();
+                      setMobileMenuOpen(false);
+                    }}
                     className={({ isActive }) =>
-                      `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium ${
+                      `flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium ${
                         isActive
                           ? 'bg-white text-[#171717] border border-[#E8E8E5] font-semibold'
                           : 'text-[#737373] hover:bg-[#F4F4F2]'
                       }`
                     }
                   >
-                    <Icon className="w-4 h-4" />
-                    <span>{item.label}</span>
+                    <div className="flex items-center gap-3">
+                      <Icon className="w-4 h-4" />
+                      <span>{item.label}</span>
+                    </div>
+                    {isNotif && unreadCount > 0 && (
+                      <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-[#2563EB] text-white">
+                        {unreadCount}
+                      </span>
+                    )}
                   </NavLink>
                 );
               })}
