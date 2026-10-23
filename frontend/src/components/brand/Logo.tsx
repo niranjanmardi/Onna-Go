@@ -28,23 +28,25 @@ export const Logo: React.FC<LogoProps> = ({
   };
 
   const taglineSizes = {
-    sm: 'text-[10px]',
-    md: 'text-xs',
-    lg: 'text-xs',
-    xl: 'text-sm',
+    sm: 'text-[10px] leading-tight',
+    md: 'text-[11px] leading-[1.35]',
+    lg: 'text-xs leading-normal',
+    xl: 'text-sm leading-normal',
   };
 
   const isDark = theme === 'dark';
 
   return (
-    <div className={`flex items-center gap-2.5 select-none ${className}`}>
+    <div
+      className={`flex ${showTagline ? 'items-start' : 'items-center'} gap-2.5 select-none min-w-0 ${className}`}
+    >
       {/* Apple-style minimalist icon emblem */}
       <div
         className={`flex-shrink-0 ${iconSizes[size]} flex items-center justify-center font-bold tracking-tighter ${
           isDark
             ? 'bg-white text-[#171717] shadow-sm'
             : 'bg-[#171717] text-white shadow-[0_1px_3px_rgba(0,0,0,0.1)]'
-        } transition-transform duration-200 hover:scale-[1.02]`}
+        } transition-transform duration-200 hover:scale-[1.02] ${showTagline ? 'mt-0.5' : ''}`}
       >
         <svg
           viewBox="0 0 24 24"
@@ -65,8 +67,8 @@ export const Logo: React.FC<LogoProps> = ({
       </div>
 
       {/* Typography Wordmark */}
-      <div className="flex flex-col justify-center whitespace-nowrap">
-        <div className="flex items-center gap-1.5 leading-none whitespace-nowrap">
+      <div className="flex flex-col justify-center min-w-0 flex-1">
+        <div className="flex items-center gap-1.5 leading-none">
           <span
             className={`font-['Plus_Jakarta_Sans'] ${textSizes[size]} font-bold tracking-tight whitespace-nowrap ${
               isDark ? 'text-white' : 'text-[#171717]'
@@ -78,9 +80,9 @@ export const Logo: React.FC<LogoProps> = ({
 
         {showTagline && (
           <span
-            className={`${taglineSizes[size]} font-normal tracking-tight mt-0.5 ${
+            className={`${taglineSizes[size]} font-normal tracking-tight mt-1 ${
               isDark ? 'text-slate-400' : 'text-[#737373]'
-            }`}
+            } break-words`}
           >
             Ride Together. Vibe Together. Split Together.
           </span>
