@@ -57,6 +57,7 @@ def build_expense_response(expense: Expense, db: Session) -> ExpenseResponse:
         notes=expense.notes,
         receipt_filename=expense.receipt_filename,
         is_void=expense.is_void,
+        client_id=expense.client_id,
         created_by_id=expense.created_by_id,
         created_at=expense.created_at,
         splits=splits_data
@@ -75,6 +76,15 @@ def create_expense(
     ).first()
     if not membership:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not a member of this trip.")
+
+    # Idempotency check: if caller is a member, return existing expense if duplicate client_id sent for trip
+    if exp_in.client_id:
+        existing = db.query(Expense).filter(
+            Expense.trip_id == exp_in.trip_id,
+            Expense.client_id == exp_in.client_id
+        ).first()
+        if existing:
+            return build_expense_response(existing, db)
         
     trip = db.query(Trip).filter(Trip.id == exp_in.trip_id).first()
     if not trip:
@@ -144,6 +154,7 @@ def create_expense(
     # Transactional write
     expense = Expense(
         trip_id=exp_in.trip_id,
+        client_id=exp_in.client_id,
         activity_id=exp_in.activity_id,
         payer_id=exp_in.payer_id,
         description=exp_in.description.strip(),

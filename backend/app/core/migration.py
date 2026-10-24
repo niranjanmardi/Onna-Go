@@ -151,6 +151,44 @@ def run_migrations():
             timestamp_type = "TIMESTAMP WITH TIME ZONE" if dialect != "sqlite" else "TIMESTAMP"
             conn.execute(text(f"ALTER TABLE trips ADD COLUMN completed_at {timestamp_type}"))
 
+        # 5. Inspect 'expenses' table for client_id
+        exp_cols = set()
+        if dialect == "sqlite":
+            result = conn.execute(text("PRAGMA table_info(expenses)"))
+            exp_cols = {row[1] for row in result.fetchall()}
+        else:
+            result = conn.execute(text(
+                "SELECT column_name FROM information_schema.columns WHERE table_name = 'expenses'"
+            ))
+            exp_cols = {row[0] for row in result.fetchall()}
+
+        if "client_id" not in exp_cols:
+            logger.info("Adding 'client_id' to 'expenses' table...")
+            conn.execute(text("ALTER TABLE expenses ADD COLUMN client_id VARCHAR(36)"))
+            conn.execute(text("""
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_expense_trip_client_id 
+                ON expenses(trip_id, client_id) WHERE client_id IS NOT NULL
+            """))
+
+        # 6. Inspect 'settlements' table for client_id
+        st_cols = set()
+        if dialect == "sqlite":
+            result = conn.execute(text("PRAGMA table_info(settlements)"))
+            st_cols = {row[1] for row in result.fetchall()}
+        else:
+            result = conn.execute(text(
+                "SELECT column_name FROM information_schema.columns WHERE table_name = 'settlements'"
+            ))
+            st_cols = {row[0] for row in result.fetchall()}
+
+        if "client_id" not in st_cols:
+            logger.info("Adding 'client_id' to 'settlements' table...")
+            conn.execute(text("ALTER TABLE settlements ADD COLUMN client_id VARCHAR(36)"))
+            conn.execute(text("""
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_settlement_trip_client_id 
+                ON settlements(trip_id, client_id) WHERE client_id IS NOT NULL
+            """))
+
     logger.info("Schema migrations successfully verified.")
 
 if __name__ == "__main__":

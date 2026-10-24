@@ -255,6 +255,7 @@ class ExpenseCreate(BaseModel):
     split_method: str = "EQUAL"  # EQUAL, EXACT, PERCENTAGE, CUSTOM
     date: Optional[datetime] = None
     notes: Optional[str] = None
+    client_id: Optional[str] = None
     participant_ids: Optional[List[str]] = None  # for EQUAL split
     splits: Optional[List[SplitInput]] = None    # for EXACT, PERCENTAGE, CUSTOM
 
@@ -297,6 +298,7 @@ class ExpenseResponse(BaseModel):
     notes: Optional[str] = None
     receipt_filename: Optional[str] = None
     is_void: bool
+    client_id: Optional[str] = None
     created_by_id: str
     created_at: datetime
     splits: List[ExpenseSplitResponse]
@@ -340,6 +342,7 @@ class SettlementCreate(BaseModel):
     status: Optional[str] = "PENDING_CONFIRMATION"
     reference_id: Optional[str] = None
     notes: Optional[str] = None
+    client_id: Optional[str] = None
 
 class SettlementStatusUpdate(BaseModel):
     status: str  # PENDING_CONFIRMATION, INITIATED, CONFIRMED, DISPUTED, CANCELLED, REJECTED
@@ -359,6 +362,7 @@ class SettlementResponse(BaseModel):
     payment_method: str
     reference_id: Optional[str] = None
     notes: Optional[str] = None
+    client_id: Optional[str] = None
     created_by_id: str
     confirmed_at: Optional[datetime] = None
     created_at: datetime

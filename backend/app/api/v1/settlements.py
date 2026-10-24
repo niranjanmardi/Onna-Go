@@ -28,6 +28,7 @@ def build_settlement_response(s: Settlement, db: Session) -> SettlementResponse:
         payment_method=s.payment_method,
         reference_id=s.reference_id,
         notes=s.notes,
+        client_id=s.client_id,
         created_by_id=s.created_by_id,
         confirmed_at=s.confirmed_at,
         created_at=s.created_at,
@@ -47,6 +48,15 @@ def create_settlement(
     ).first()
     if not member:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not a member of this trip.")
+
+    # Idempotency check: if caller is a member, return existing settlement if duplicate client_id sent for trip
+    if st_in.client_id:
+        existing = db.query(Settlement).filter(
+            Settlement.trip_id == st_in.trip_id,
+            Settlement.client_id == st_in.client_id
+        ).first()
+        if existing:
+            return build_settlement_response(existing, db)
         
     if st_in.payer_id == st_in.payee_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Payer and Payee cannot be the same person.")
@@ -84,6 +94,7 @@ def create_settlement(
 
     settlement = Settlement(
         trip_id=st_in.trip_id,
+        client_id=st_in.client_id,
         payer_id=st_in.payer_id,
         payee_id=st_in.payee_id,
         amount_paise=st_in.amount_paise,
@@ -194,12 +205,12 @@ def update_settlement_status(
         return build_settlement_response(settlement, db)
         
     # Permission rules:
-    # To CONFIRM: Only Payee (recipient) or Trip OWNER/ADMIN
+    # To CONFIRM: Only Payee (recipient)
     if target_status == "CONFIRMED":
-        if current_user.id != settlement.payee_id and member.role not in ["OWNER", "ADMIN"]:
+        if current_user.id != settlement.payee_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only the payee (recipient) or trip owner/admin can confirm settlement receipt."
+                detail="Only the payee (recipient) can confirm settlement receipt."
             )
         settlement.confirmed_at = datetime.now(timezone.utc)
 

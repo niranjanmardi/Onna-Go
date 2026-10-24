@@ -9,9 +9,7 @@ splitmate.db-shm
 backend/uploads/
 uploads/
 
-# Frontend builds
-frontend/dist/
-dist/
+# Frontend builds (pre-built frontend/dist is tracked for standalone Python host deployments)
 dist-ssr/
 
 # Python artifacts

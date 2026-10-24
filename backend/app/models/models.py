@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 from sqlalchemy import (
-    Column, String, Integer, Float, Boolean, DateTime, ForeignKey, Text, Enum as SQLEnum, Index
+    Column, String, Integer, Float, Boolean, DateTime, ForeignKey, Text, Enum as SQLEnum, Index, UniqueConstraint
 )
 from sqlalchemy.orm import relationship
 from backend.app.core.database import Base
@@ -162,6 +162,7 @@ class Expense(Base):
     notes = Column(Text, nullable=True)
     receipt_filename = Column(String(255), nullable=True)
     is_void = Column(Boolean, default=False)
+    client_id = Column(String(36), index=True, nullable=True)
     created_by_id = Column(String(36), ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), default=utc_now)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
@@ -171,6 +172,10 @@ class Expense(Base):
     activity = relationship("Activity", back_populates="expenses")
     payer = relationship("User", foreign_keys=[payer_id])
     splits = relationship("ExpenseSplit", back_populates="expense", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        UniqueConstraint("trip_id", "client_id", name="uq_expense_trip_client_id"),
+    )
 
 class ExpenseSplit(Base):
     __tablename__ = "expense_splits"
@@ -198,6 +203,7 @@ class Settlement(Base):
     payment_method = Column(String(50), default="UPI")  # UPI, CASH, BANK_TRANSFER, OTHER
     reference_id = Column(String(100), nullable=True)
     notes = Column(Text, nullable=True)
+    client_id = Column(String(36), index=True, nullable=True)
     created_by_id = Column(String(36), ForeignKey("users.id"), nullable=False)
     confirmed_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=utc_now)
@@ -207,6 +213,10 @@ class Settlement(Base):
     payer = relationship("User", foreign_keys=[payer_id])
     payee = relationship("User", foreign_keys=[payee_id])
     events = relationship("SettlementEvent", back_populates="settlement", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        UniqueConstraint("trip_id", "client_id", name="uq_settlement_trip_client_id"),
+    )
 
 class SettlementEvent(Base):
     __tablename__ = "settlement_events"
