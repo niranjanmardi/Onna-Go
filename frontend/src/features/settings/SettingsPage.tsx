@@ -1,1352 +1,977 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { useAuth } from '@/features/auth/AuthContext';
+import React, { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-  User as UserIcon,
-  Mail,
-  Coins,
+  ChevronRight,
   LogOut,
-  Check,
-  AlertCircle,
-  ShieldCheck,
-  Calendar,
-  Lock,
   Camera,
-  Trash2,
-  Bell,
   Eye,
   EyeOff,
-  Copy,
-  CheckCheck,
-  MapPin,
-  Phone,
-  FileText,
-  AtSign,
-  X,
-  Upload,
   Loader2,
-  Volume2,
-  VolumeX,
-  Compass,
-  ArrowRight,
-  ChevronRight,
-  Users,
-  Smartphone,
-  Wallet,
-  Sun,
-  Moon,
-  Monitor,
+  X,
+  AlertTriangle,
+  Download,
+  Trash2,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { api, getAvatarUrl } from '@/lib/api-client';
-import { useFeedback } from '@/context/FeedbackContext';
+import { useAuth } from '@/features/auth/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
-import { playSound } from '@/lib/sounds';
-import { TravelStats } from '@/types';
-import { formatDate, formatPaise } from '@/lib/currency';
+import { useOffline } from '@/context/OfflineContext';
+import { useFeedback } from '@/context/FeedbackContext';
+import { clearAllOfflineData } from '@/lib/offline-db';
+import { downloadHistoryCsv } from '@/lib/export-utils';
+import { getAvatarUrl } from '@/lib/api-client';
 
 export const SettingsPage: React.FC = () => {
-  const { user, updateProfile, changePassword, uploadAvatar, deleteAccount, logout } = useAuth();
-  const { showConfirmation, soundsEnabled, setSoundsEnabled, playClick } = useFeedback();
-  const { theme, setTheme, resolvedTheme } = useTheme();
+  const { user, isLoading, logout, updateProfile, changePassword, uploadAvatar, deleteAccount } = useAuth();
+  const { theme, setTheme } = useTheme();
+  const { pendingCount, lastSyncedAt, isSyncing, syncNow } = useOffline();
+  const { soundsEnabled, setSoundsEnabled } = useFeedback();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Travel Statistics & Trips State
-  const [travelStats, setTravelStats] = useState<TravelStats | null>(null);
-  const [loadingTravelStats, setLoadingTravelStats] = useState<boolean>(true);
+  // Modal / Sheet States
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [isClearDataOpen, setIsClearDataOpen] = useState(false);
+  const [isDeleteAccountOpen, setIsDeleteAccountOpen] = useState(false);
+  const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
+  const [isTermsOpen, setIsTermsOpen] = useState(false);
 
-  useEffect(() => {
-    let isMounted = true;
-    const fetchTravelStats = async () => {
-      setLoadingTravelStats(true);
-      try {
-        const stats = await api.get<TravelStats>('/trips/profile-stats');
-        if (isMounted) {
-          setTravelStats(stats);
-        }
-      } catch (err) {
-        console.error('Failed to load travel stats:', err);
-      } finally {
-        if (isMounted) setLoadingTravelStats(false);
-      }
-    };
-    fetchTravelStats();
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  // Profile Information State
-  const [fullName, setFullName] = useState(user?.full_name || '');
-  const [bio, setBio] = useState(user?.bio || '');
-  const [city, setCity] = useState(user?.city || '');
-  const [phoneNumber, setPhoneNumber] = useState(user?.phone_number || '');
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [profileSaving, setProfileSaving] = useState(false);
-  const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
+  // Edit Profile Form State
+  const [editName, setEditName] = useState('');
+  const [editUsername, setEditUsername] = useState('');
+  const [editCurrency, setEditCurrency] = useState('INR');
+  const [editUpi, setEditUpi] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
 
-  // Avatar Upload & Preview State
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [avatarUploading, setAvatarUploading] = useState(false);
-  const [avatarSuccess, setAvatarSuccess] = useState<string | null>(null);
+  // Avatar Upload State
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
-  // Copy UID State
-  const [copiedUid, setCopiedUid] = useState(false);
-
-  // Preferences State
-  const [defaultCurrency, setDefaultCurrency] = useState(user?.default_currency || 'INR');
-  const [prefSaving, setPrefSaving] = useState(false);
-  const [prefSuccess, setPrefSuccess] = useState<string | null>(null);
-
-  // UPI State
-  const [upiInput, setUpiInput] = useState(user?.upi_id || '');
-  const [upiSaving, setUpiSaving] = useState(false);
-  const [upiSuccess, setUpiSuccess] = useState<string | null>(null);
-  const [upiError, setUpiError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (user?.upi_id !== undefined) {
-      setUpiInput(user.upi_id || '');
-    }
-  }, [user?.upi_id]);
-
-  const handleSaveUpi = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setUpiError(null);
-    setUpiSuccess(null);
-
-    const clean = upiInput.trim();
-    if (!clean) {
-      setUpiError('Please enter a valid UPI ID or click Remove to clear it.');
-      return;
-    }
-
-    const upiRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
-    if (!upiRegex.test(clean)) {
-      setUpiError('Invalid UPI ID format. Expected format like username@bank or 9876543210@upi (e.g. rahul@oksbi).');
-      return;
-    }
-
-    setUpiSaving(true);
-    try {
-      await updateProfile({ upi_id: clean });
-      setUpiSuccess('UPI ID saved successfully! Friends can now pay you directly.');
-      showConfirmation({
-        title: 'UPI ID Saved',
-        message: 'Your payment address has been updated.',
-        sound: 'click',
-      });
-    } catch (err: any) {
-      setUpiError(err.message || 'Failed to update UPI ID.');
-    } finally {
-      setUpiSaving(false);
-    }
-  };
-
-  const handleRemoveUpi = async () => {
-    setUpiError(null);
-    setUpiSuccess(null);
-    setUpiSaving(true);
-    try {
-      await updateProfile({ upi_id: '' });
-      setUpiInput('');
-      setUpiSuccess('UPI ID removed from profile.');
-    } catch (err: any) {
-      setUpiError(err.message || 'Failed to remove UPI ID.');
-    } finally {
-      setUpiSaving(false);
-    }
-  };
-
-  // Password Change State
-  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  // Change Password Form State
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showCurrentPass, setShowCurrentPass] = useState(false);
   const [showNewPass, setShowNewPass] = useState(false);
-  const [passwordSaving, setPasswordSaving] = useState(false);
-  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
+  const [savingPassword, setSavingPassword] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
 
-  // Account Deletion State
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
-  const [isDeleting, setIsDeleting] = useState(false);
+  // Clear Offline Data State
+  const [clearingData, setClearingData] = useState(false);
+  const [clearDataSuccess, setClearDataSuccess] = useState<string | null>(null);
+
+  // Delete Account State
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  // Format account creation date
-  const memberSince = user?.created_at
-    ? new Date(user.created_at).toLocaleDateString('en-US', {
-        month: 'long',
-        year: 'numeric',
-      })
-    : null;
+  // Export State
+  const [exportingData, setExportingData] = useState(false);
 
-  const initials = user?.full_name
-    ? user.full_name
-        .split(' ')
-        .map((n) => n[0])
-        .slice(0, 2)
-        .join('')
-        .toUpperCase()
-    : 'U';
-
-  const handleCopyUid = () => {
-    if (!user?.id) return;
-    navigator.clipboard.writeText(user.id);
-    setCopiedUid(true);
-    setTimeout(() => setCopiedUid(false), 2500);
-  };
-
-  // Handle Photo Selection
-  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      setProfileError('Please upload a valid image file (JPG, PNG, or WebP).');
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      setProfileError('Image size exceeds 5MB limit. Please choose a smaller file.');
-      return;
-    }
-
-    setSelectedFile(file);
-    const objectUrl = URL.createObjectURL(file);
-    setPreviewUrl(objectUrl);
+  const openEditProfile = () => {
+    setEditName(user?.full_name || '');
+    setEditUsername(user?.username || '');
+    setEditCurrency(user?.default_currency || 'INR');
+    setEditUpi(user?.upi_id || '');
     setProfileError(null);
+    setProfileSuccess(null);
+    setIsEditProfileOpen(true);
   };
 
-  const handleCancelPhoto = () => {
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-    }
-    setSelectedFile(null);
-    setPreviewUrl(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
-  const handleSavePhoto = async () => {
-    if (!selectedFile) return;
-
-    setAvatarUploading(true);
-    setProfileError(null);
-    setAvatarSuccess(null);
-
-    try {
-      await uploadAvatar(selectedFile);
-      setAvatarSuccess('Profile photo updated successfully!');
-      showConfirmation({
-        title: 'Profile photo updated',
-        message: 'Your new avatar is visible across your trips.',
-        sound: 'click',
-      });
-      handleCancelPhoto();
-      setTimeout(() => setAvatarSuccess(null), 4000);
-    } catch (err: any) {
-      playSound('error');
-      setProfileError(err.message || 'Failed to upload profile photo.');
-    } finally {
-      setAvatarUploading(false);
-    }
-  };
-
-  // Handle Profile Update
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    setProfileSaving(true);
-    setProfileSuccess(null);
-    setProfileError(null);
-
-    const trimmedName = fullName.trim();
-    if (!trimmedName) {
-      setProfileError('Display name cannot be empty.');
-      setProfileSaving(false);
+    if (!editName.trim()) {
+      setProfileError('Name is required.');
       return;
     }
-
+    setSavingProfile(true);
+    setProfileError(null);
     try {
       await updateProfile({
-        full_name: trimmedName,
-        bio: bio.trim(),
-        city: city.trim(),
-        phone_number: phoneNumber.trim(),
+        full_name: editName.trim(),
+        username: editUsername.trim() || undefined,
+        default_currency: editCurrency,
+        upi_id: editUpi.trim() || null,
       });
-      setProfileSuccess('Profile details saved successfully.');
-      showConfirmation({
-        title: 'Profile details saved',
-        message: 'Your personal information was updated successfully.',
-        sound: 'click',
-      });
-      setIsEditingProfile(false);
-      setTimeout(() => setProfileSuccess(null), 4000);
+      setProfileSuccess('Profile updated successfully.');
+      setTimeout(() => {
+        setIsEditProfileOpen(false);
+        setProfileSuccess(null);
+      }, 1200);
     } catch (err: any) {
-      playSound('error');
-      setProfileError(err.message || 'Failed to update personal details.');
+      setProfileError(err.message || 'Failed to update profile.');
     } finally {
-      setProfileSaving(false);
+      setSavingProfile(false);
     }
   };
 
-  const handleCancelProfile = () => {
-    setFullName(user?.full_name || '');
-    setBio(user?.bio || '');
-    setCity(user?.city || '');
-    setPhoneNumber(user?.phone_number || '');
-    setIsEditingProfile(false);
-    setProfileError(null);
-  };
-
-  // Handle Currency Preference Update
-  const handleSaveCurrency = async (newCurr: string) => {
-    setDefaultCurrency(newCurr);
-    setPrefSaving(true);
-    setPrefSuccess(null);
+  const handleAvatarSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingAvatar(true);
     try {
-      await updateProfile({ default_currency: newCurr });
-      setPrefSuccess('Default currency preference updated.');
-      showConfirmation({
-        title: 'Currency updated',
-        message: `Default currency set to ${newCurr}.`,
-        sound: 'click',
-      });
-      setTimeout(() => setPrefSuccess(null), 3000);
+      await uploadAvatar(file);
     } catch (err: any) {
-      playSound('error');
-      setProfileError(err.message || 'Failed to save currency preference.');
+      alert(err.message || 'Failed to upload photo');
     } finally {
-      setPrefSaving(false);
+      setUploadingAvatar(false);
     }
   };
 
-  // Handle Password Change
-  const handleChangePassword = async (e: React.FormEvent) => {
+  const handleSavePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setPasswordError(null);
     setPasswordSuccess(null);
 
+    if (!currentPassword) {
+      setPasswordError('Current password is required.');
+      return;
+    }
     if (newPassword.length < 8) {
       setPasswordError('New password must be at least 8 characters long.');
       return;
     }
-    if (newPassword !== confirmNewPassword) {
-      setPasswordError('New passwords do not match. Please verify and retry.');
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Passwords do not match.');
       return;
     }
 
-    setPasswordSaving(true);
+    setSavingPassword(true);
     try {
       await changePassword(currentPassword, newPassword);
       setPasswordSuccess('Password changed successfully.');
-      showConfirmation({
-        title: 'Password changed successfully',
-        message: 'Your new security credentials are active.',
-        sound: 'trip_success',
-      });
       setCurrentPassword('');
       setNewPassword('');
-      setConfirmNewPassword('');
-      setIsChangingPassword(false);
-      setTimeout(() => setPasswordSuccess(null), 4000);
+      setConfirmPassword('');
+      setTimeout(() => {
+        setIsChangePasswordOpen(false);
+        setPasswordSuccess(null);
+      }, 1500);
     } catch (err: any) {
-      playSound('error');
-      setPasswordError(err.message || 'Failed to update password. Verify your current password.');
+      setPasswordError(err.message || 'Failed to change password.');
     } finally {
-      setPasswordSaving(false);
+      setSavingPassword(false);
     }
   };
 
-  // Handle Account Deletion
+  const handleClearOfflineData = async () => {
+    setClearingData(true);
+    try {
+      await clearAllOfflineData();
+      setClearDataSuccess('Offline data cleared.');
+      setTimeout(() => {
+        setIsClearDataOpen(false);
+        setClearDataSuccess(null);
+      }, 1200);
+    } catch (err: any) {
+      alert(err.message || 'Failed to clear offline data');
+    } finally {
+      setClearingData(false);
+    }
+  };
+
   const handleDeleteAccount = async () => {
-    if (deleteConfirmationText !== 'DELETE') {
-      setDeleteError("Please enter 'DELETE' in all capital letters to confirm.");
+    if (deleteConfirmText !== 'DELETE') {
+      setDeleteError('Type DELETE to confirm.');
       return;
     }
-    setIsDeleting(true);
+    setDeletingAccount(true);
     setDeleteError(null);
     try {
-      await deleteAccount(deleteConfirmationText);
-      navigate('/');
+      await deleteAccount('DELETE');
+      navigate('/login');
     } catch (err: any) {
-      setDeleteError(err.message || 'Failed to delete account. Please try again.');
-      setIsDeleting(false);
+      setDeleteError(err.message || 'Failed to delete account.');
+      setDeletingAccount(false);
     }
   };
 
-  const avatarDisplayUrl = previewUrl || getAvatarUrl(user?.avatar_url);
+  const handleExportData = async () => {
+    if (exportingData) return;
+    setExportingData(true);
+    try {
+      await downloadHistoryCsv();
+    } catch (err: any) {
+      alert(err.message || 'Failed to export data');
+    } finally {
+      setExportingData(false);
+    }
+  };
+
+  const formatLastSync = (date: Date | null) => {
+    if (!date) return 'Never';
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  // --- SKELETON LOADER ---
+  if (isLoading || !user) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-6 sm:py-8 space-y-8 animate-pulse">
+        <div className="h-6 w-28 bg-[#E8E8E5] dark:bg-[#262626] rounded-md" />
+        {[1, 2, 3, 4, 5].map((sec) => (
+          <div key={sec} className="space-y-3">
+            <div className="h-3 w-20 bg-[#E8E8E5] dark:bg-[#262626] rounded-sm" />
+            <div className="space-y-0 divide-y divide-[#E8E8E5] dark:divide-[#262626]">
+              {[1, 2, 3].map((row) => (
+                <div key={row} className="h-14 flex items-center justify-between">
+                  <div className="h-4 w-28 bg-[#E8E8E5] dark:bg-[#262626] rounded-md" />
+                  <div className="h-4 w-20 bg-[#E8E8E5] dark:bg-[#262626] rounded-md" />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  const avatarInitial = user.full_name ? user.full_name.charAt(0).toUpperCase() : 'U';
 
   return (
-    <div className="flex-1 p-4 md:p-8 max-w-4xl mx-auto w-full space-y-6 selection:bg-[#DDF5E5] selection:text-[#16834A]">
+    <div className="max-w-2xl mx-auto px-4 py-6 sm:py-8 space-y-9 text-[#171717] dark:text-[#EDEDED] font-['Inter',sans-serif]">
       {/* Page Title */}
       <div>
-        <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-[#171717] font-['Plus_Jakarta_Sans']">
-          Profile &amp; Settings
-        </h1>
-        <p className="text-sm text-[#737373] mt-1">
-          Manage your permanent UID, public profile, and account security.
-        </p>
+        <h1 className="text-xl font-bold tracking-tight">Settings</h1>
       </div>
 
-      {/* Global Alerts */}
-      {avatarSuccess && (
-        <div className="p-3.5 rounded-xl bg-[#DDF5E5] border border-[#C6ECCF] text-[#16834A] text-xs font-medium flex items-center gap-2.5 animate-fadeIn">
-          <Check className="w-4 h-4 text-[#16834A]" />
-          <span>{avatarSuccess}</span>
-        </div>
-      )}
-      {profileSuccess && (
-        <div className="p-3.5 rounded-xl bg-[#DDF5E5] border border-[#C6ECCF] text-[#16834A] text-xs font-medium flex items-center gap-2.5 animate-fadeIn">
-          <Check className="w-4 h-4 text-[#16834A]" />
-          <span>{profileSuccess}</span>
-        </div>
-      )}
-      {profileError && (
-        <div className="p-3.5 rounded-xl bg-[#FFE4E6] border border-[#FDA4AF] text-[#E11D48] text-xs font-medium flex items-center gap-2.5 animate-fadeIn">
-          <AlertCircle className="w-4 h-4 text-[#E11D48]" />
-          <span>{profileError}</span>
-        </div>
-      )}
+      {/* ========================================================================= */}
+      {/* --- SECTION 1: ACCOUNT --- */}
+      {/* ========================================================================= */}
+      <section className="space-y-1">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#8E8E93] pb-1">
+          Account
+        </h2>
 
-      {/* --- 1. PROFILE HEADER CARD --- */}
-      <section className="bg-white rounded-2xl border border-[#E8E8E5] p-5 sm:p-7 shadow-xs">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
-          <div className="flex items-center gap-4 sm:gap-5">
-            {/* Avatar with Upload Control */}
-            <div className="relative group">
-              {avatarDisplayUrl ? (
-                <img
-                  src={avatarDisplayUrl}
-                  alt={user?.full_name || 'User avatar'}
-                  className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover border border-[#E8E8E5] shadow-xs"
-                />
-              ) : (
-                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-[#171717] text-white flex items-center justify-center text-xl sm:text-2xl font-bold font-mono">
-                  {initials}
-                </div>
-              )}
-
-              {/* Upload trigger button */}
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={avatarUploading}
-                title="Change Photo"
-                aria-label="Upload photo"
-                className="absolute -bottom-1.5 -right-1.5 w-8 h-8 bg-white border border-[#E8E8E5] rounded-xl shadow-xs flex items-center justify-center text-[#737373] hover:text-[#16834A] hover:border-[#16834A] transition-colors cursor-pointer"
-              >
-                {avatarUploading ? (
-                  <Loader2 className="w-4 h-4 text-[#16834A] animate-spin" />
-                ) : (
-                  <Camera className="w-4 h-4" />
-                )}
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                className="hidden"
-                onChange={handlePhotoSelect}
-              />
-            </div>
-
-            {/* Profile Info Summary */}
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-xl sm:text-2xl font-bold text-[#171717] tracking-tight">
-                  {user?.full_name}
-                </h2>
-                {user?.is_verified && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#DDF5E5] text-[#16834A]">
-                    <ShieldCheck className="w-3 h-3" />
-                    Verified
-                  </span>
-                )}
-              </div>
-
-              {/* Username Handle */}
-              <p className="text-sm font-semibold text-[#16834A]">
-                @{user?.username || 'user'}
-              </p>
-
-              {/* Email (Read-only) */}
-              <p className="text-xs text-[#737373] flex items-center gap-1.5">
-                <Mail className="w-3.5 h-3.5 text-[#A3A3A3]" />
-                <span>{user?.email}</span>
-              </p>
-            </div>
-          </div>
-
-          {/* Action: Edit Profile Button */}
-          {!isEditingProfile && (
-            <button
-              type="button"
-              onClick={() => setIsEditingProfile(true)}
-              className="w-full sm:w-auto px-4 py-2 bg-white hover:bg-[#F4F4F2] text-[#171717] text-xs font-semibold rounded-xl border border-[#E8E8E5] shadow-2xs transition-colors"
-            >
-              Edit Profile
-            </button>
-          )}
-        </div>
-
-        {/* Photo Preview Actions (shown when new photo is selected) */}
-        {previewUrl && (
-          <div className="mt-4 p-3.5 bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl flex items-center justify-between gap-3 animate-fadeIn">
-            <div className="flex items-center gap-2 text-xs text-[#171717]">
-              <Upload className="w-4 h-4 text-[#16834A]" />
-              <span>New photo selected. Would you like to save it?</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleCancelPhoto}
-                disabled={avatarUploading}
-                className="px-3 py-1.5 text-xs text-[#737373] hover:text-[#171717] rounded-lg border border-[#E8E8E5] bg-white transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSavePhoto}
-                disabled={avatarUploading}
-                className="inline-flex items-center gap-1 px-3.5 py-1.5 text-xs font-semibold text-white bg-[#16834A] hover:bg-[#136F3F] rounded-lg transition-colors"
-              >
-                {avatarUploading && <Loader2 className="w-3 h-3 animate-spin" />}
-                <span>Save Photo</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Permanent UID Display with Copy UID Action */}
-        <div className="mt-5 pt-4 border-t border-[#F4F4F2] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-          <div className="flex items-center gap-2 text-xs">
-            <span className="font-semibold text-[#737373] uppercase tracking-wider">Permanent UID:</span>
-            <code className="px-2.5 py-1 bg-[#FAFAF8] border border-[#E8E8E5] rounded-lg text-xs font-mono text-[#171717] select-all">
-              {user?.id}
-            </code>
-          </div>
-          <button
-            type="button"
-            onClick={handleCopyUid}
-            className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              copiedUid
-                ? 'bg-[#DDF5E5] text-[#16834A] border border-[#C6ECCF]'
-                : 'bg-[#FAFAF8] text-[#171717] hover:bg-[#F4F4F2] border border-[#E8E8E5]'
-            }`}
+        <div className="divide-y divide-[#E8E8E5] dark:divide-[#262626]">
+          {/* Avatar & Profile Row */}
+          <div
+            onClick={openEditProfile}
+            className="h-14 flex items-center justify-between cursor-pointer hover:opacity-80 transition-opacity"
           >
-            {copiedUid ? (
-              <>
-                <CheckCheck className="w-3.5 h-3.5" />
-                <span>UID Copied!</span>
-              </>
-            ) : (
-              <>
-                <Copy className="w-3.5 h-3.5 text-[#737373]" />
-                <span>Copy UID</span>
-              </>
-            )}
-          </button>
-        </div>
-      </section>
-
-      {/* --- TRAVEL ACTIVITY & RECENT TRIPS SECTION --- */}
-      <section className="bg-white rounded-2xl border border-[#E8E8E5] p-5 sm:p-7 shadow-xs space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#F4F4F2]">
-          <div>
-            <div className="flex items-center gap-2">
-              <Compass className="w-5 h-5 text-[#16834A]" />
-              <h2 className="text-base sm:text-lg font-bold text-[#171717] font-['Plus_Jakarta_Sans']">
-                Travel Activity &amp; Trips
-              </h2>
-            </div>
-            <p className="text-xs text-[#737373] mt-0.5">
-              Your journeys, completed travel history, and group memberships.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => navigate('/trips')}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#16834A] hover:text-[#136F3F] transition-colors group"
-          >
-            <span>View All Trips</span>
-            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-          </button>
-        </div>
-
-        {/* Travel Stats Cards (All 6 core financial & activity metrics) */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <div className="bg-[#FAFAF8] rounded-xl border border-[#E8E8E5] p-3.5 flex flex-col justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#737373] block mb-1">
-              Total Trips
-            </span>
-            <span className="text-xl font-extrabold text-[#171717]">
-              {loadingTravelStats ? '...' : travelStats?.total_trips_count ?? 0}
-            </span>
-          </div>
-
-          <div className="bg-[#FAFAF8] rounded-xl border border-[#E8E8E5] p-3.5 flex flex-col justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#737373] block mb-1">
-              Created
-            </span>
-            <span className="text-xl font-extrabold text-[#171717]">
-              {loadingTravelStats ? '...' : travelStats?.trips_created_count ?? 0}
-            </span>
-          </div>
-
-          <div className="bg-[#FAFAF8] rounded-xl border border-[#E8E8E5] p-3.5 flex flex-col justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#737373] block mb-1">
-              Joined
-            </span>
-            <span className="text-xl font-extrabold text-[#171717]">
-              {loadingTravelStats ? '...' : travelStats?.trips_joined_count ?? 0}
-            </span>
-          </div>
-
-          <div className="bg-[#FAFAF8] rounded-xl border border-[#E8E8E5] p-3.5 flex flex-col justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#16834A] block mb-1">
-              Active Trips
-            </span>
-            <span className="text-xl font-extrabold text-[#16834A]">
-              {loadingTravelStats ? '...' : travelStats?.active_trips_count ?? 0}
-            </span>
-          </div>
-
-          <div className="bg-[#FAFAF8] rounded-xl border border-[#E8E8E5] p-3.5 flex flex-col justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#737373] block mb-1">
-              Completed
-            </span>
-            <span className="text-xl font-extrabold text-[#171717]">
-              {loadingTravelStats ? '...' : travelStats?.completed_trips_count ?? 0}
-            </span>
-          </div>
-
-          <div className="bg-[#FAFAF8] rounded-xl border border-[#E8E8E5] p-3.5 flex flex-col justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#16834A] block mb-1">
-              Contributions
-            </span>
-            <span className="text-base font-bold font-mono text-[#171717] tabular-nums">
-              {loadingTravelStats ? '...' : formatPaise(travelStats?.total_contributions_paise || 0)}
-            </span>
-          </div>
-        </div>
-
-        {/* Recent Trips List */}
-        <div>
-          <h3 className="text-xs font-bold uppercase tracking-wider text-[#737373] mb-3">
-            Recent Trips
-          </h3>
-
-          {loadingTravelStats ? (
-            <div className="py-8 flex flex-col items-center justify-center text-[#737373] text-xs">
-              <Loader2 className="w-5 h-5 animate-spin mb-2 text-[#16834A]" />
-              <span>Loading trips...</span>
-            </div>
-          ) : !travelStats?.recent_trips || travelStats.recent_trips.length === 0 ? (
-            <div className="bg-[#FAFAF8] rounded-xl border border-dashed border-[#E8E8E5] p-6 text-center">
-              <p className="text-xs text-[#737373] mb-3">
-                You haven't created or joined any trips yet.
-              </p>
-              <button
-                type="button"
-                onClick={() => navigate('/trips/new')}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#16834A] text-white text-xs font-semibold rounded-lg hover:bg-[#136F3F] transition-colors"
-              >
-                Create a Trip
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              {travelStats.recent_trips.map((trip) => {
-                const isCompleted = trip.status === 'COMPLETED';
-                const isOwner = trip.user_role === 'OWNER';
-
-                return (
-                  <div
-                    key={trip.id}
-                    className="bg-[#FAFAF8] rounded-xl border border-[#E8E8E5] p-4 flex flex-col justify-between hover:border-[#16834A]/50 transition-all shadow-2xs"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between gap-2 mb-2">
-                        <div className="flex items-center gap-1.5">
-                          {isCompleted ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-neutral-200/80 text-neutral-700">
-                              <Check className="w-2.5 h-2.5" />
-                              <span>Completed</span>
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                              <span>Active</span>
-                            </span>
-                          )}
-
-                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${
-                            isOwner ? 'bg-blue-100 text-blue-800' : 'bg-neutral-200/80 text-neutral-700'
-                          }`}>
-                            {isOwner ? 'Created' : 'Joined'}
-                          </span>
-                        </div>
-
-                        <span className="text-[11px] text-[#737373] flex items-center gap-1">
-                          <Users className="w-3 h-3 text-[#A3A3A3]" />
-                          <span>{trip.members_count}</span>
-                        </span>
-                      </div>
-
-                      <h4 className="text-sm font-bold text-[#171717] line-clamp-1 mb-1">
-                        {trip.name}
-                      </h4>
-
-                      {trip.destination && (
-                        <p className="text-xs text-[#737373] flex items-center gap-1.5 mb-1">
-                          <MapPin className="w-3 h-3 text-[#16834A] flex-shrink-0" />
-                          <span className="truncate">{trip.destination}</span>
-                        </p>
-                      )}
-
-                      {trip.start_date && (
-                        <p className="text-xs text-[#737373] flex items-center gap-1.5">
-                          <Calendar className="w-3 h-3 text-blue-500 flex-shrink-0" />
-                          <span>
-                            {formatDate(trip.start_date)}
-                            {trip.end_date ? ` – ${formatDate(trip.end_date)}` : ''}
-                          </span>
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="mt-4 pt-3 border-t border-[#E8E8E5] flex items-center justify-end">
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/trips/${trip.id}`)}
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-[#16834A] hover:text-[#136F3F] transition-colors"
-                      >
-                        <span>Open Trip</span>
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* --- 2. EDITABLE PERSONAL INFORMATION --- */}
-      <section className="bg-white rounded-2xl border border-[#E8E8E5] p-5 sm:p-7 shadow-xs space-y-5">
-        <div className="flex items-center justify-between pb-3 border-b border-[#F4F4F2]">
-          <div>
-            <h2 className="text-base font-bold text-[#171717]">Personal Information</h2>
-            <p className="text-xs text-[#737373] mt-0.5">Your public display info and bio</p>
-          </div>
-          {!isEditingProfile && (
-            <button
-              type="button"
-              onClick={() => setIsEditingProfile(true)}
-              className="text-xs font-semibold text-[#16834A] hover:underline"
-            >
-              Edit Details
-            </button>
-          )}
-        </div>
-
-        {isEditingProfile ? (
-          <form onSubmit={handleSaveProfile} className="space-y-4">
-            {/* Display Name */}
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1">
-                Display Name (Public)
-              </label>
-              <input
-                type="text"
-                required
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="Your display name"
-                className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-3.5 py-2.5 text-sm text-[#171717] focus:outline-none focus:border-[#16834A] focus:ring-2 focus:ring-[#16834A]/10"
-              />
-            </div>
-
-            {/* Bio */}
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1">
-                Traveler Bio (Optional)
-              </label>
-              <textarea
-                rows={2}
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
-                placeholder="e.g. Western Ghats rider, foodie, weekend traveler."
-                className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-3.5 py-2 text-sm text-[#171717] focus:outline-none focus:border-[#16834A] focus:ring-2 focus:ring-[#16834A]/10"
-              />
-            </div>
-
-            {/* Location / City */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1">
-                  City / Location (Optional)
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#A3A3A3]">
-                    <MapPin className="w-4 h-4" />
-                  </div>
-                  <input
-                    type="text"
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    placeholder="e.g. Bengaluru, India"
-                    className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl pl-9 pr-3.5 py-2.5 text-sm text-[#171717] focus:outline-none focus:border-[#16834A] focus:ring-2 focus:ring-[#16834A]/10"
-                  />
-                </div>
-              </div>
-
-              {/* Phone */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1">
-                  Phone Number (Optional)
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#A3A3A3]">
-                    <Phone className="w-4 h-4" />
-                  </div>
-                  <input
-                    type="tel"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    placeholder="+91 9876543210"
-                    className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl pl-9 pr-3.5 py-2.5 text-sm text-[#171717] focus:outline-none focus:border-[#16834A] focus:ring-2 focus:ring-[#16834A]/10"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Read-only notes inside edit form */}
-            <div className="p-3 bg-[#FAFAF8] rounded-xl border border-[#E8E8E5] text-xs text-[#737373] space-y-1">
-              <p className="flex items-center gap-1.5 font-medium text-[#171717]">
-                <Lock className="w-3.5 h-3.5 text-[#A3A3A3]" />
-                Account Identifier Notice:
-              </p>
-              <p>
-                Your username (@{user?.username}), email address ({user?.email}), and permanent UID cannot be modified through normal profile settings to maintain transaction integrity.
-              </p>
-            </div>
-
-            {/* Action buttons */}
-            <div className="flex items-center gap-3 pt-2">
-              <button
-                type="submit"
-                disabled={profileSaving}
-                className="px-5 py-2.5 bg-[#16834A] hover:bg-[#136F3F] text-white text-xs font-semibold rounded-xl shadow-xs transition-colors disabled:opacity-50 flex items-center gap-1.5"
-              >
-                {profileSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                <span>Save Profile</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleCancelProfile}
-                disabled={profileSaving}
-                className="px-4 py-2.5 text-xs text-[#737373] hover:text-[#171717] rounded-xl border border-[#E8E8E5] bg-white transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-            <div className="p-3.5 rounded-xl bg-[#FAFAF8] border border-[#E8E8E5]">
-              <span className="text-xs font-semibold text-[#737373] block mb-1">Display Name</span>
-              <p className="font-semibold text-[#171717]">{user?.full_name}</p>
-            </div>
-
-            <div className="p-3.5 rounded-xl bg-[#FAFAF8] border border-[#E8E8E5]">
-              <span className="text-xs font-semibold text-[#737373] block mb-1">Username (Permanent)</span>
-              <p className="font-semibold text-[#16834A]">@{user?.username || 'user'}</p>
-            </div>
-
-            <div className="p-3.5 rounded-xl bg-[#FAFAF8] border border-[#E8E8E5]">
-              <span className="text-xs font-semibold text-[#737373] block mb-1">Email Address (Read-only)</span>
-              <p className="font-semibold text-[#171717] truncate">{user?.email}</p>
-            </div>
-
-            <div className="p-3.5 rounded-xl bg-[#FAFAF8] border border-[#E8E8E5]">
-              <span className="text-xs font-semibold text-[#737373] block mb-1">City / Location</span>
-              <p className="font-medium text-[#171717]">{user?.city || 'Not provided'}</p>
-            </div>
-
-            {user?.bio && (
-              <div className="sm:col-span-2 p-3.5 rounded-xl bg-[#FAFAF8] border border-[#E8E8E5]">
-                <span className="text-xs font-semibold text-[#737373] block mb-1">Bio</span>
-                <p className="text-[#171717] text-xs leading-relaxed">{user.bio}</p>
-              </div>
-            )}
-          </div>
-        )}
-      </section>
-
-      {/* --- UPI ID & PAYMENT SETTINGS --- */}
-      <section className="bg-white rounded-2xl border border-[#E8E8E5] p-5 sm:p-7 shadow-xs space-y-4">
-        <div className="flex items-center justify-between pb-3 border-b border-[#F4F4F2]">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-[#DDF5E5] text-[#16834A] flex items-center justify-center">
-              <Smartphone className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base sm:text-lg font-bold text-[#171717] font-['Plus_Jakarta_Sans']">
-                UPI Payment Profile
-              </h2>
-              <p className="text-xs text-[#737373]">
-                Save your UPI ID (VPA) so trip members can transfer owed balances directly to you.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {upiSuccess && (
-          <div className="p-3.5 rounded-xl bg-[#DDF5E5] border border-[#C6ECCF] text-[#16834A] text-xs font-medium flex items-center gap-2 animate-fadeIn">
-            <Check className="w-4 h-4 text-[#16834A]" />
-            <span>{upiSuccess}</span>
-          </div>
-        )}
-        {upiError && (
-          <div className="p-3.5 rounded-xl bg-[#FFE4E6] border border-[#FDA4AF] text-[#E11D48] text-xs font-medium flex items-center gap-2 animate-fadeIn">
-            <AlertCircle className="w-4 h-4 text-[#E11D48]" />
-            <span>{upiError}</span>
-          </div>
-        )}
-
-        <form onSubmit={handleSaveUpi} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1">
-              Your UPI ID (VPA)
-            </label>
-            <div className="relative">
-              <input
-                type="text"
-                value={upiInput}
-                onChange={(e) => {
-                  setUpiInput(e.target.value);
-                  setUpiError(null);
-                }}
-                placeholder="e.g. yourname@okhdfcbank, 9876543210@paytm, user@upi"
-                className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-3.5 py-2.5 text-sm font-mono text-[#171717] focus:outline-none focus:border-[#16834A] focus:ring-2 focus:ring-[#16834A]/10 transition-colors"
-              />
-            </div>
-          </div>
-
-          <div className="p-3.5 rounded-xl bg-[#FAFAF8] border border-[#E8E8E5] text-xs text-[#737373] space-y-1.5">
-            <div className="flex items-center gap-1.5 font-semibold text-[#171717]">
-              <ShieldCheck className="w-3.5 h-3.5 text-[#16834A]" />
-              <span>UPI Security &amp; Ownership Verification Notice</span>
-            </div>
-            <p>
-              • <strong>Syntax Validation:</strong> Format validation checks UPI address structure (e.g. name@bank). It does not guarantee or verify bank account ownership.
-            </p>
-            <p>
-              • <strong>Zero Credential Storage:</strong> ONNA-GO never requests or stores UPI PINs, OTPs, or net banking passwords.
-            </p>
-            <p>
-              • <strong>Privacy:</strong> Your payment address is only revealed to fellow trip members to facilitate settlements.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3 pt-1">
-            <button
-              type="submit"
-              disabled={upiSaving}
-              className="px-5 py-2.5 bg-[#16834A] hover:bg-[#136F3F] text-white text-xs font-semibold rounded-xl shadow-xs transition-colors disabled:opacity-50 flex items-center gap-1.5"
-            >
-              {upiSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-              <span>Save UPI ID</span>
-            </button>
-            {user?.upi_id && (
-              <button
-                type="button"
-                onClick={handleRemoveUpi}
-                disabled={upiSaving}
-                className="px-4 py-2.5 text-xs text-[#E11D48] hover:text-[#BE123C] rounded-xl border border-[#FDA4AF] bg-white hover:bg-[#FFE4E6] transition-colors"
-              >
-                Remove UPI ID
-              </button>
-            )}
-          </div>
-        </form>
-      </section>
-
-      {/* --- 3. PREFERENCES & CURRENCY --- */}
-      <section className="bg-white dark:bg-[#141414] rounded-2xl border border-[#E8E8E5] dark:border-[#262626] p-5 sm:p-7 shadow-xs space-y-6">
-        <div className="pb-3 border-b border-[#F4F4F2] dark:border-[#262626]">
-          <h2 className="text-base font-bold text-[#171717] dark:text-[#EDEDED]">Preferences &amp; Appearance</h2>
-          <p className="text-xs text-[#737373] dark:text-[#9E9E9E] mt-0.5">Customize your app theme, default currency, and sound effects</p>
-        </div>
-
-        {/* Theme / Dark Mode Selector */}
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-8 h-8 rounded-lg bg-[#E8F5EE] dark:bg-[#22C55E]/15 flex items-center justify-center text-[#16834A] dark:text-[#22C55E]">
-              {theme === 'dark' ? <Moon className="w-4 h-4" /> : theme === 'light' ? <Sun className="w-4 h-4" /> : <Monitor className="w-4 h-4" />}
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-[#171717] dark:text-[#EDEDED]">App Theme &amp; Dark Mode</h3>
-              <p className="text-xs text-[#737373] dark:text-[#9E9E9E]">
-                {theme === 'system' ? `Following system (${resolvedTheme} active)` : `${theme.charAt(0).toUpperCase() + theme.slice(1)} mode active`}
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              { mode: 'system' as const, label: 'System', desc: 'Sync with device', icon: Monitor },
-              { mode: 'light' as const, label: 'Light', desc: 'Clean bright canvas', icon: Sun },
-              { mode: 'dark' as const, label: 'Dark', desc: 'Sleek night mode', icon: Moon },
-            ].map((item) => {
-              const Icon = item.icon;
-              const isSelected = theme === item.mode;
-              return (
-                <button
-                  key={item.mode}
-                  type="button"
-                  onClick={() => {
-                    playClick();
-                    setTheme(item.mode);
-                    showConfirmation({
-                      title: `Theme set to ${item.label}`,
-                      message: item.desc,
-                      sound: 'click',
-                    });
-                  }}
-                  className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
-                    isSelected
-                      ? 'border-[#16834A] dark:border-[#22C55E] bg-[#DDF5E5]/25 dark:bg-[#22C55E]/10 ring-1 ring-[#16834A] dark:ring-[#22C55E]'
-                      : 'border-[#E8E8E5] dark:border-[#262626] bg-[#FAFAF8] dark:bg-[#1A1A1A] hover:bg-[#F4F4F2] dark:hover:bg-[#222222]'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1.5">
-                    <Icon className={`w-4 h-4 ${isSelected ? 'text-[#16834A] dark:text-[#22C55E]' : 'text-[#737373] dark:text-[#9E9E9E]'}`} />
-                    {isSelected && <span className="w-2 h-2 rounded-full bg-[#16834A] dark:bg-[#22C55E]" />}
-                  </div>
-                  <span className="text-xs font-bold text-[#171717] dark:text-[#EDEDED] block">{item.label}</span>
-                  <span className="text-[10px] text-[#737373] dark:text-[#9E9E9E] block mt-0.5">{item.desc}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Currency Preference */}
-        <div className="pt-4 border-t border-[#F4F4F2] dark:border-[#262626]">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-8 h-8 rounded-lg bg-[#E8F5EE] dark:bg-[#22C55E]/15 flex items-center justify-center text-[#16834A] dark:text-[#22C55E]">
-              <Coins className="w-4 h-4" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-[#171717] dark:text-[#EDEDED]">Default Currency</h3>
-              <p className="text-xs text-[#737373] dark:text-[#9E9E9E]">For trip expenses and settlement suggestions</p>
-            </div>
-          </div>
-
-          {prefSuccess && (
-            <div className="p-3 mb-3 rounded-xl bg-[#DDF5E5] dark:bg-[#22C55E]/15 border border-[#C6ECCF] dark:border-[#22C55E]/30 text-[#16834A] dark:text-[#22C55E] text-xs font-medium flex items-center gap-2">
-              <Check className="w-4 h-4" />
-              <span>{prefSuccess}</span>
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {[
-              { code: 'INR', label: 'Indian Rupee (₹)', symbol: '₹' },
-              { code: 'USD', label: 'US Dollar ($)', symbol: '$' },
-              { code: 'EUR', label: 'Euro (€)', symbol: '€' },
-              { code: 'GBP', label: 'British Pound (£)', symbol: '£' },
-            ].map((c) => (
-              <button
-                key={c.code}
-                type="button"
-                onClick={() => handleSaveCurrency(c.code)}
-                disabled={prefSaving}
-                className={`p-3.5 rounded-xl border text-left transition-all ${
-                  defaultCurrency === c.code
-                    ? 'border-[#16834A] dark:border-[#22C55E] bg-[#DDF5E5]/20 dark:bg-[#22C55E]/10 ring-1 ring-[#16834A] dark:ring-[#22C55E]'
-                    : 'border-[#E8E8E5] dark:border-[#262626] bg-[#FAFAF8] dark:bg-[#1A1A1A] hover:bg-[#F4F4F2] dark:hover:bg-[#222222]'
-                }`}
-              >
-                <span className="text-xl font-bold font-mono text-[#171717] dark:text-[#EDEDED] block mb-0.5">
-                  {c.symbol}
-                </span>
-                <span className="text-xs font-semibold text-[#171717] dark:text-[#EDEDED] block">{c.code}</span>
-                <span className="text-[10px] text-[#737373] dark:text-[#9E9E9E]">{c.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Audio & Sound Effects Preference */}
-        <div className="pt-4 border-t border-[#F4F4F2]">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl bg-[#FAFAF8] border border-[#E8E8E5]">
-            <div className="flex items-center gap-3.5">
-              <div className="w-10 h-10 rounded-xl bg-white border border-[#E8E8E5] flex items-center justify-center text-[#171717] flex-shrink-0 shadow-2xs">
-                {soundsEnabled ? (
-                  <Volume2 className="w-5 h-5 text-[#16834A]" />
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-9 h-9 rounded-full bg-[#16834A] text-white flex items-center justify-center font-bold text-sm shrink-0 overflow-hidden">
+                {user.avatar_url ? (
+                  <img src={getAvatarUrl(user.avatar_url)} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
-                  <VolumeX className="w-5 h-5 text-[#A3A3A3]" />
+                  avatarInitial
                 )}
               </div>
-              <div>
-                <p className="text-sm font-semibold text-[#171717]">
-                  Interaction Sounds &amp; Audio Feedback
-                </p>
-                <p className="text-xs text-[#737373] mt-0.5">
-                  Subtle original audio chimes for trip creation, settlements, expenses, and alerts
-                </p>
+              <div className="min-w-0 truncate">
+                <p className="text-sm font-medium truncate">{user.full_name}</p>
+                <p className="text-xs text-[#737373] dark:text-[#8E8E93] truncate">{user.email}</p>
               </div>
             </div>
-
-            <div className="flex items-center gap-3 self-end sm:self-center">
-              {soundsEnabled && (
-                <button
-                  type="button"
-                  onClick={() => playSound('trip_success')}
-                  className="px-3 py-1.5 text-xs font-semibold text-[#16834A] bg-[#DDF5E5] hover:bg-[#C6ECCF] rounded-lg transition-colors cursor-pointer"
-                >
-                  Test Chime
-                </button>
-              )}
-
-              <button
-                type="button"
-                role="switch"
-                aria-checked={soundsEnabled}
-                aria-label="Toggle interaction sounds"
-                onClick={() => {
-                  const nextState = !soundsEnabled;
-                  setSoundsEnabled(nextState);
-                  if (nextState) {
-                    playSound('click');
-                  }
-                }}
-                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                  soundsEnabled ? 'bg-[#16834A]' : 'bg-[#D6D6D2]'
-                }`}
-              >
-                <span
-                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${
-                    soundsEnabled ? 'translate-x-5' : 'translate-x-0'
-                  }`}
-                />
-              </button>
+            <div className="flex items-center gap-1.5 text-xs text-[#737373] dark:text-[#8E8E93]">
+              <span>Edit</span>
+              <ChevronRight className="w-4 h-4" />
             </div>
           </div>
-        </div>
-      </section>
 
-      {/* --- 4. SECURITY & PASSWORD --- */}
-      <section className="bg-white rounded-2xl border border-[#E8E8E5] p-5 sm:p-7 shadow-xs space-y-4">
-        <div className="flex items-center justify-between pb-3 border-b border-[#F4F4F2]">
-          <div>
-            <h2 className="text-base font-bold text-[#171717]">Security &amp; Password</h2>
-            <p className="text-xs text-[#737373] mt-0.5">Protect your account and financial data</p>
-          </div>
-          {!isChangingPassword && (
-            <button
-              type="button"
-              onClick={() => setIsChangingPassword(true)}
-              className="text-xs font-semibold text-[#16834A] hover:underline"
-            >
-              Change Password
-            </button>
-          )}
-        </div>
-
-        {passwordSuccess && (
-          <div className="p-3.5 rounded-xl bg-[#DDF5E5] border border-[#C6ECCF] text-[#16834A] text-xs font-medium flex items-center gap-2 animate-fadeIn">
-            <Check className="w-4 h-4 text-[#16834A]" />
-            <span>{passwordSuccess}</span>
-          </div>
-        )}
-
-        {passwordError && (
-          <div className="p-3.5 rounded-xl bg-[#FFE4E6] border border-[#FDA4AF] text-[#E11D48] text-xs font-medium flex items-center gap-2 animate-fadeIn">
-            <AlertCircle className="w-4 h-4 text-[#E11D48]" />
-            <span>{passwordError}</span>
-          </div>
-        )}
-
-        {isChangingPassword ? (
-          <form onSubmit={handleChangePassword} className="space-y-4 max-w-md">
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1">
-                Current Password
-              </label>
-              <div className="relative">
-                <input
-                  type={showCurrentPass ? 'text' : 'password'}
-                  required
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl pl-3.5 pr-10 py-2.5 text-sm text-[#171717] focus:outline-none focus:border-[#16834A] focus:ring-2 focus:ring-[#16834A]/10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowCurrentPass(!showCurrentPass)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-[#A3A3A3] hover:text-[#171717]"
-                >
-                  {showCurrentPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
+          {/* Name */}
+          <div
+            onClick={openEditProfile}
+            className="h-14 flex items-center justify-between cursor-pointer hover:opacity-80 transition-opacity"
+          >
+            <span className="text-sm font-medium">Name</span>
+            <div className="flex items-center gap-1.5 text-xs text-[#737373] dark:text-[#8E8E93]">
+              <span className="truncate max-w-[180px]">{user.full_name}</span>
+              <ChevronRight className="w-4 h-4" />
             </div>
-
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1">
-                New Password (Min 8 chars)
-              </label>
-              <div className="relative">
-                <input
-                  type={showNewPass ? 'text' : 'password'}
-                  required
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl pl-3.5 pr-10 py-2.5 text-sm text-[#171717] focus:outline-none focus:border-[#16834A] focus:ring-2 focus:ring-[#16834A]/10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowNewPass(!showNewPass)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-[#A3A3A3] hover:text-[#171717]"
-                >
-                  {showNewPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1">
-                Confirm New Password
-              </label>
-              <input
-                type="password"
-                required
-                value={confirmNewPassword}
-                onChange={(e) => setConfirmNewPassword(e.target.value)}
-                className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-3.5 py-2.5 text-sm text-[#171717] focus:outline-none focus:border-[#16834A] focus:ring-2 focus:ring-[#16834A]/10"
-              />
-            </div>
-
-            <div className="flex items-center gap-3 pt-1">
-              <button
-                type="submit"
-                disabled={passwordSaving}
-                className="px-5 py-2.5 bg-[#16834A] hover:bg-[#136F3F] text-white text-xs font-semibold rounded-xl shadow-xs transition-colors disabled:opacity-50 flex items-center gap-1.5"
-              >
-                {passwordSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                <span>Update Password</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsChangingPassword(false);
-                  setPasswordError(null);
-                }}
-                className="px-4 py-2.5 text-xs text-[#737373] hover:text-[#171717] rounded-xl border border-[#E8E8E5] bg-white transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        ) : (
-          <div className="flex items-center justify-between p-3.5 bg-[#FAFAF8] rounded-xl border border-[#E8E8E5] text-xs">
-            <span className="text-[#737373]">Password was set upon registration</span>
-            <span className="text-[#16834A] font-semibold">Protected with secure hashing</span>
           </div>
-        )}
-      </section>
 
-      {/* --- 5. ACCOUNT ACTIONS & DANGER ZONE --- */}
-      <section className="bg-white rounded-2xl border border-[#E8E8E5] p-5 sm:p-7 shadow-xs space-y-4">
-        <div className="pb-3 border-b border-[#F4F4F2]">
-          <h2 className="text-base font-bold text-[#171717]">Account Actions</h2>
-          <p className="text-xs text-[#737373] mt-0.5">
-            Member since {memberSince || '2026'}. Standard username &amp; email account.
-          </p>
-        </div>
+          {/* Email */}
+          <div className="h-14 flex items-center justify-between">
+            <span className="text-sm font-medium">Email</span>
+            <span className="text-xs text-[#737373] dark:text-[#8E8E93] truncate max-w-[200px]">
+              {user.email}
+            </span>
+          </div>
 
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1">
-          <button
-            type="button"
+          {/* Username */}
+          <div
+            onClick={openEditProfile}
+            className="h-14 flex items-center justify-between cursor-pointer hover:opacity-80 transition-opacity"
+          >
+            <span className="text-sm font-medium">Username</span>
+            <div className="flex items-center gap-1.5 text-xs text-[#737373] dark:text-[#8E8E93]">
+              <span>{user.username ? `@${user.username}` : 'Not set'}</span>
+              <ChevronRight className="w-4 h-4" />
+            </div>
+          </div>
+
+          {/* Default Currency */}
+          <div
+            onClick={openEditProfile}
+            className="h-14 flex items-center justify-between cursor-pointer hover:opacity-80 transition-opacity"
+          >
+            <span className="text-sm font-medium">Default currency</span>
+            <div className="flex items-center gap-1.5 text-xs text-[#737373] dark:text-[#8E8E93]">
+              <span className="font-mono font-medium">{user.default_currency || 'INR'}</span>
+              <ChevronRight className="w-4 h-4" />
+            </div>
+          </div>
+
+          {/* Change Password */}
+          <div
+            onClick={() => {
+              setCurrentPassword('');
+              setNewPassword('');
+              setConfirmPassword('');
+              setPasswordError(null);
+              setPasswordSuccess(null);
+              setIsChangePasswordOpen(true);
+            }}
+            className="h-14 flex items-center justify-between cursor-pointer hover:opacity-80 transition-opacity"
+          >
+            <span className="text-sm font-medium">Change password</span>
+            <ChevronRight className="w-4 h-4 text-[#737373] dark:text-[#8E8E93]" />
+          </div>
+
+          {/* Sign Out */}
+          <div
             onClick={logout}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#FAFAF8] hover:bg-[#F4F4F2] text-[#171717] text-xs font-semibold border border-[#E8E8E5] shadow-xs transition-colors"
+            className="h-14 flex items-center justify-between cursor-pointer hover:opacity-80 transition-opacity text-[#171717] dark:text-[#EDEDED]"
           >
-            <LogOut className="w-4 h-4 text-[#737373]" />
-            <span>Sign Out</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setShowDeleteModal(true)}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-[#E11D48] hover:bg-[#FFE4E6]/50 text-xs font-semibold transition-colors"
-          >
-            <Trash2 className="w-4 h-4" />
-            <span>Delete Account</span>
-          </button>
+            <span className="text-sm font-medium">Sign out</span>
+            <LogOut className="w-4 h-4 text-[#737373] dark:text-[#8E8E93]" />
+          </div>
         </div>
       </section>
 
-      {/* Delete Account Modal */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-[#FDA4AF] p-6 max-w-md w-full shadow-xl space-y-4 animate-scaleUp">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-[#E11D48]">Delete Account</h3>
+      {/* ========================================================================= */}
+      {/* --- SECTION 2: APPEARANCE --- */}
+      {/* ========================================================================= */}
+      <section className="space-y-1">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#8E8E93] pb-1">
+          Appearance
+        </h2>
+
+        <div className="divide-y divide-[#E8E8E5] dark:divide-[#262626]">
+          <div className="h-14 flex items-center justify-between">
+            <span className="text-sm font-medium">Theme</span>
+            <div className="flex bg-[#F4F4F2] dark:bg-[#1C1C1C] p-1 rounded-xl border border-[#E8E8E5] dark:border-[#2E2E2E]">
               <button
-                onClick={() => setShowDeleteModal(false)}
-                className="text-[#737373] hover:text-[#171717]"
+                type="button"
+                onClick={() => setTheme('system')}
+                className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                  theme === 'system'
+                    ? 'bg-white dark:bg-[#2A2A2A] text-[#171717] dark:text-[#EDEDED] shadow-xs'
+                    : 'text-[#737373] dark:text-[#8E8E93] hover:text-[#171717] dark:hover:text-[#EDEDED]'
+                }`}
+              >
+                System
+              </button>
+              <button
+                type="button"
+                onClick={() => setTheme('light')}
+                className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                  theme === 'light'
+                    ? 'bg-white dark:bg-[#2A2A2A] text-[#171717] dark:text-[#EDEDED] shadow-xs'
+                    : 'text-[#737373] dark:text-[#8E8E93] hover:text-[#171717] dark:hover:text-[#EDEDED]'
+                }`}
+              >
+                Light
+              </button>
+              <button
+                type="button"
+                onClick={() => setTheme('dark')}
+                className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                  theme === 'dark'
+                    ? 'bg-white dark:bg-[#2A2A2A] text-[#171717] dark:text-[#EDEDED] shadow-xs'
+                    : 'text-[#737373] dark:text-[#8E8E93] hover:text-[#171717] dark:hover:text-[#EDEDED]'
+                }`}
+              >
+                Dark
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* --- SECTION 3: NOTIFICATIONS --- */}
+      {/* ========================================================================= */}
+      <section className="space-y-1">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#8E8E93] pb-1">
+          Notifications
+        </h2>
+
+        <div className="divide-y divide-[#E8E8E5] dark:divide-[#262626]">
+          {/* Trip Activity */}
+          <div className="h-14 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">Trip activity alerts</p>
+              <p className="text-xs text-[#737373] dark:text-[#8E8E93]">New expenses, splits, and settlements</p>
+            </div>
+            <span className="text-xs text-[#737373] dark:text-[#8E8E93] px-2 py-0.5 rounded-md bg-[#F4F4F2] dark:bg-[#1C1C1C] border border-[#E8E8E5] dark:border-[#2E2E2E]">
+              Coming soon
+            </span>
+          </div>
+
+          {/* Settlement Reminders */}
+          <div className="h-14 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">Settlement reminders</p>
+              <p className="text-xs text-[#737373] dark:text-[#8E8E93]">Reminders for outstanding balances</p>
+            </div>
+            <span className="text-xs text-[#737373] dark:text-[#8E8E93] px-2 py-0.5 rounded-md bg-[#F4F4F2] dark:bg-[#1C1C1C] border border-[#E8E8E5] dark:border-[#2E2E2E]">
+              Coming soon
+            </span>
+          </div>
+
+          {/* In-app sound effects */}
+          <div className="h-14 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">Sound effects</p>
+              <p className="text-xs text-[#737373] dark:text-[#8E8E93]">Subtle audio cues on split and sync</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSoundsEnabled(!soundsEnabled)}
+              className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors cursor-pointer ${
+                soundsEnabled ? 'bg-[#16834A] dark:bg-[#22C55E]' : 'bg-[#E8E8E5] dark:bg-[#333333]'
+              }`}
+            >
+              <div
+                className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${
+                  soundsEnabled ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* --- SECTION 4: DATA --- */}
+      {/* ========================================================================= */}
+      <section className="space-y-1">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#8E8E93] pb-1">
+          Data
+        </h2>
+
+        <div className="divide-y divide-[#E8E8E5] dark:divide-[#262626]">
+          {/* Offline Data Status */}
+          <div className="h-14 flex items-center justify-between">
+            <div className="min-w-0 pr-3">
+              <p className="text-sm font-medium">Offline data</p>
+              <p className="text-xs text-[#737373] dark:text-[#8E8E93] truncate">
+                {pendingCount} pending changes &bull; Last sync: {formatLastSync(lastSyncedAt)}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => syncNow()}
+              disabled={isSyncing}
+              className="text-xs font-semibold text-[#16834A] dark:text-[#22C55E] hover:underline cursor-pointer disabled:opacity-50 shrink-0"
+            >
+              {isSyncing ? 'Syncing...' : 'Sync now'}
+            </button>
+          </div>
+
+          {/* Clear Offline Data */}
+          <div className="h-14 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">Clear offline data</p>
+              <p className="text-xs text-[#737373] dark:text-[#8E8E93]">Reset local cache and outbox store</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsClearDataOpen(true)}
+              className="text-xs font-semibold text-[#737373] dark:text-[#8E8E93] hover:text-[#171717] dark:hover:text-[#EDEDED] hover:underline cursor-pointer"
+            >
+              Clear
+            </button>
+          </div>
+
+          {/* Export My Data */}
+          <div className="h-14 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">Export my data</p>
+              <p className="text-xs text-[#737373] dark:text-[#8E8E93]">Download complete trip history as CSV</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleExportData}
+              disabled={exportingData}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#16834A] dark:text-[#22C55E] hover:underline cursor-pointer disabled:opacity-50"
+            >
+              {exportingData ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Exporting...</span>
+                </>
+              ) : (
+                <>
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Export CSV</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* --- SECTION 5: ABOUT --- */}
+      {/* ========================================================================= */}
+      <section className="space-y-1 pb-16">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#8E8E93] pb-1">
+          About
+        </h2>
+
+        <div className="divide-y divide-[#E8E8E5] dark:divide-[#262626]">
+          {/* Version */}
+          <div className="h-14 flex items-center justify-between">
+            <span className="text-sm font-medium">Version</span>
+            <span className="text-xs font-mono text-[#737373] dark:text-[#8E8E93]">v1.0.0 (Production)</span>
+          </div>
+
+          {/* Privacy Policy */}
+          <div
+            onClick={() => setIsPrivacyOpen(true)}
+            className="h-14 flex items-center justify-between cursor-pointer hover:opacity-80 transition-opacity"
+          >
+            <span className="text-sm font-medium">Privacy policy</span>
+            <ChevronRight className="w-4 h-4 text-[#737373] dark:text-[#8E8E93]" />
+          </div>
+
+          {/* Terms of Service */}
+          <div
+            onClick={() => setIsTermsOpen(true)}
+            className="h-14 flex items-center justify-between cursor-pointer hover:opacity-80 transition-opacity"
+          >
+            <span className="text-sm font-medium">Terms of service</span>
+            <ChevronRight className="w-4 h-4 text-[#737373] dark:text-[#8E8E93]" />
+          </div>
+
+          {/* Delete Account */}
+          <div
+            onClick={() => {
+              setDeleteConfirmText('');
+              setDeleteError(null);
+              setIsDeleteAccountOpen(true);
+            }}
+            className="h-14 flex items-center justify-between cursor-pointer hover:opacity-80 transition-opacity"
+          >
+            <span className="text-sm font-medium text-[#E11D48] dark:text-[#F43F5E]">Delete account</span>
+            <Trash2 className="w-4 h-4 text-[#E11D48] dark:text-[#F43F5E]" />
+          </div>
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* --- MODAL 1: EDIT PROFILE (BOTTOM SHEET ON MOBILE) --- */}
+      {/* ========================================================================= */}
+      {isEditProfileOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white dark:bg-[#141414] text-[#171717] dark:text-[#EDEDED] rounded-t-2xl sm:rounded-2xl border-t sm:border border-[#E8E8E5] dark:border-[#262626] shadow-xl max-w-md w-full p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+            {/* Mobile drag handle */}
+            <div className="sm:hidden w-12 h-1 bg-[#E8E8E5] dark:bg-[#333333] rounded-full mx-auto mb-1" />
+
+            <div className="flex items-center justify-between pb-2 border-b border-[#E8E8E5] dark:border-[#262626]">
+              <h3 className="text-base font-semibold">Edit Profile</h3>
+              <button
+                type="button"
+                onClick={() => setIsEditProfileOpen(false)}
+                className="p-1 rounded-lg text-[#737373] hover:text-[#171717] dark:hover:text-[#EDEDED] cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <p className="text-xs text-[#737373] leading-relaxed">
-              This action permanently soft-deletes your account while conserving past trip expense records so group balances remain mathematically consistent.
-            </p>
-
-            <div className="p-3 bg-[#FFE4E6]/40 rounded-xl border border-[#FDA4AF] text-xs text-[#E11D48]">
-              Type <strong className="font-mono font-bold">DELETE</strong> to confirm deletion.
+            {/* Avatar upload */}
+            <div className="flex items-center gap-4">
+              <div className="relative w-14 h-14 rounded-full bg-[#16834A] text-white flex items-center justify-center font-bold text-lg shrink-0 overflow-hidden">
+                {uploadingAvatar ? (
+                  <Loader2 className="w-6 h-6 animate-spin text-white" />
+                ) : user.avatar_url ? (
+                  <img src={getAvatarUrl(user.avatar_url)} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  avatarInitial
+                )}
+              </div>
+              <div>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*"
+                  onChange={handleAvatarSelect}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingAvatar}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-[#E8E8E5] dark:border-[#2E2E2E] rounded-xl text-xs font-semibold hover:bg-[#F4F4F2] dark:hover:bg-[#1C1C1C] cursor-pointer"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  <span>Change photo</span>
+                </button>
+              </div>
             </div>
 
-            <input
-              type="text"
-              value={deleteConfirmationText}
-              onChange={(e) => setDeleteConfirmationText(e.target.value)}
-              placeholder="DELETE"
-              className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-3.5 py-2.5 text-sm font-mono text-[#171717] focus:outline-none focus:border-[#E11D48]"
-            />
-
-            {deleteError && (
-              <p className="text-xs text-[#E11D48]">{deleteError}</p>
+            {profileError && (
+              <p className="text-xs text-[#E11D48] dark:text-[#F43F5E] bg-[#FFE4E6] dark:bg-[#3F1118] p-2.5 rounded-lg border border-[#FDA4AF] dark:border-[#9F1239]">
+                {profileError}
+              </p>
             )}
 
-            <div className="flex items-center justify-end gap-2.5 pt-2">
+            {profileSuccess && (
+              <p className="text-xs text-[#16834A] dark:text-[#22C55E] bg-[#DDF5E5] dark:bg-[#0E331E] p-2.5 rounded-lg border border-[#C6ECCF] dark:border-[#166534]">
+                {profileSuccess}
+              </p>
+            )}
+
+            <form onSubmit={handleSaveProfile} className="space-y-4">
+              {/* Full Name */}
+              <div className="space-y-1">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#8E8E93]">
+                  Full Name *
+                </label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full h-12 px-3.5 bg-transparent border border-[#E8E8E5] dark:border-[#2E2E2E] rounded-[10px] text-sm focus:outline-none focus:border-[#16834A] dark:focus:border-[#22C55E]"
+                  required
+                />
+              </div>
+
+              {/* Username */}
+              <div className="space-y-1">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#8E8E93]">
+                  Username
+                </label>
+                <input
+                  type="text"
+                  value={editUsername}
+                  onChange={(e) => setEditUsername(e.target.value)}
+                  placeholder="e.g. rahul_ride"
+                  className="w-full h-12 px-3.5 bg-transparent border border-[#E8E8E5] dark:border-[#2E2E2E] rounded-[10px] text-sm focus:outline-none focus:border-[#16834A] dark:focus:border-[#22C55E]"
+                />
+              </div>
+
+              {/* Default Currency */}
+              <div className="space-y-1">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#8E8E93]">
+                  Default Currency
+                </label>
+                <select
+                  value={editCurrency}
+                  onChange={(e) => setEditCurrency(e.target.value)}
+                  className="w-full h-12 px-3.5 bg-white dark:bg-[#141414] border border-[#E8E8E5] dark:border-[#2E2E2E] rounded-[10px] text-sm focus:outline-none focus:border-[#16834A] dark:focus:border-[#22C55E]"
+                >
+                  <option value="INR">INR (₹)</option>
+                  <option value="USD">USD ($)</option>
+                  <option value="EUR">EUR (€)</option>
+                  <option value="GBP">GBP (£)</option>
+                </select>
+              </div>
+
+              {/* UPI ID */}
+              <div className="space-y-1">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#8E8E93]">
+                  UPI ID (VPA)
+                </label>
+                <input
+                  type="text"
+                  value={editUpi}
+                  onChange={(e) => setEditUpi(e.target.value)}
+                  placeholder="name@upi / 9876543210@paytm"
+                  className="w-full h-12 px-3.5 bg-transparent border border-[#E8E8E5] dark:border-[#2E2E2E] rounded-[10px] text-sm focus:outline-none focus:border-[#16834A] dark:focus:border-[#22C55E]"
+                />
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={savingProfile}
+                  className="w-full h-12 bg-[#16834A] dark:bg-[#22C55E] text-white dark:text-[#0A0A0A] font-semibold text-sm rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center cursor-pointer"
+                >
+                  {savingProfile ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Save changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* --- MODAL 2: CHANGE PASSWORD --- */}
+      {/* ========================================================================= */}
+      {isChangePasswordOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white dark:bg-[#141414] text-[#171717] dark:text-[#EDEDED] rounded-t-2xl sm:rounded-2xl border-t sm:border border-[#E8E8E5] dark:border-[#262626] shadow-xl max-w-md w-full p-6 space-y-5">
+            <div className="sm:hidden w-12 h-1 bg-[#E8E8E5] dark:bg-[#333333] rounded-full mx-auto mb-1" />
+
+            <div className="flex items-center justify-between pb-2 border-b border-[#E8E8E5] dark:border-[#262626]">
+              <h3 className="text-base font-semibold">Change Password</h3>
               <button
                 type="button"
-                onClick={() => setShowDeleteModal(false)}
-                className="px-4 py-2 text-xs font-semibold text-[#737373] hover:text-[#171717] rounded-xl"
+                onClick={() => setIsChangePasswordOpen(false)}
+                className="p-1 rounded-lg text-[#737373] hover:text-[#171717] dark:hover:text-[#EDEDED] cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {passwordError && (
+              <p className="text-xs text-[#E11D48] dark:text-[#F43F5E] bg-[#FFE4E6] dark:bg-[#3F1118] p-2.5 rounded-lg border border-[#FDA4AF] dark:border-[#9F1239]">
+                {passwordError}
+              </p>
+            )}
+
+            {passwordSuccess && (
+              <p className="text-xs text-[#16834A] dark:text-[#22C55E] bg-[#DDF5E5] dark:bg-[#0E331E] p-2.5 rounded-lg border border-[#C6ECCF] dark:border-[#166534]">
+                {passwordSuccess}
+              </p>
+            )}
+
+            <form onSubmit={handleSavePassword} className="space-y-4">
+              <div className="space-y-1">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#8E8E93]">
+                  Current Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showCurrentPass ? 'text' : 'password'}
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    className="w-full h-12 px-3.5 pr-10 bg-transparent border border-[#E8E8E5] dark:border-[#2E2E2E] rounded-[10px] text-sm focus:outline-none focus:border-[#16834A] dark:focus:border-[#22C55E]"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPass(!showCurrentPass)}
+                    className="absolute right-3 top-3.5 text-[#737373] hover:text-[#171717] dark:hover:text-[#EDEDED]"
+                  >
+                    {showCurrentPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#8E8E93]">
+                  New Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showNewPass ? 'text' : 'password'}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full h-12 px-3.5 pr-10 bg-transparent border border-[#E8E8E5] dark:border-[#2E2E2E] rounded-[10px] text-sm focus:outline-none focus:border-[#16834A] dark:focus:border-[#22C55E]"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPass(!showNewPass)}
+                    className="absolute right-3 top-3.5 text-[#737373] hover:text-[#171717] dark:hover:text-[#EDEDED]"
+                  >
+                    {showNewPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#8E8E93]">
+                  Confirm New Password
+                </label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full h-12 px-3.5 bg-transparent border border-[#E8E8E5] dark:border-[#2E2E2E] rounded-[10px] text-sm focus:outline-none focus:border-[#16834A] dark:focus:border-[#22C55E]"
+                  required
+                />
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={savingPassword}
+                  className="w-full h-12 bg-[#16834A] dark:bg-[#22C55E] text-white dark:text-[#0A0A0A] font-semibold text-sm rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center cursor-pointer"
+                >
+                  {savingPassword ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Update password'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* --- MODAL 3: CLEAR OFFLINE DATA CONFIRMATION --- */}
+      {/* ========================================================================= */}
+      {isClearDataOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white dark:bg-[#141414] text-[#171717] dark:text-[#EDEDED] rounded-2xl border border-[#E8E8E5] dark:border-[#262626] shadow-xl max-w-sm w-full p-5 space-y-4">
+            <div className="flex items-center gap-2.5 text-[#B45309] dark:text-[#FBBF24]">
+              <AlertTriangle className="w-5 h-5 shrink-0" />
+              <h3 className="text-base font-semibold text-[#171717] dark:text-[#EDEDED]">Clear Offline Data?</h3>
+            </div>
+            <p className="text-xs text-[#737373] dark:text-[#8E8E93] leading-relaxed">
+              Any unsynced offline changes will be permanently lost. Are you sure you want to clear the local database?
+            </p>
+
+            {clearDataSuccess && (
+              <p className="text-xs text-[#16834A] dark:text-[#22C55E] bg-[#DDF5E5] dark:bg-[#0E331E] p-2 rounded-lg">
+                {clearDataSuccess}
+              </p>
+            )}
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsClearDataOpen(false)}
+                className="flex-1 py-2.5 text-xs font-semibold border border-[#E8E8E5] dark:border-[#2E2E2E] rounded-xl hover:bg-[#F4F4F2] dark:hover:bg-[#1C1C1C] cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleClearOfflineData}
+                disabled={clearingData}
+                className="flex-1 py-2.5 text-xs font-semibold bg-[#171717] dark:bg-[#EDEDED] text-white dark:text-[#0A0A0A] rounded-xl hover:opacity-90 disabled:opacity-50 cursor-pointer flex items-center justify-center"
+              >
+                {clearingData ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirm clear'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* --- MODAL 4: DELETE ACCOUNT CONFIRMATION --- */}
+      {/* ========================================================================= */}
+      {isDeleteAccountOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white dark:bg-[#141414] text-[#171717] dark:text-[#EDEDED] rounded-2xl border border-[#E8E8E5] dark:border-[#262626] shadow-xl max-w-sm w-full p-5 space-y-4">
+            <div className="flex items-center gap-2.5 text-[#E11D48] dark:text-[#F43F5E]">
+              <Trash2 className="w-5 h-5 shrink-0" />
+              <h3 className="text-base font-semibold">Delete Account</h3>
+            </div>
+            <p className="text-xs text-[#737373] dark:text-[#8E8E93] leading-relaxed">
+              This action is permanent and cannot be undone. All your trips, expense shares, and balances will be removed.
+            </p>
+
+            <div className="space-y-1">
+              <label className="block text-[11px] font-semibold text-[#737373] dark:text-[#8E8E93]">
+                Type DELETE to confirm:
+              </label>
+              <input
+                type="text"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder="DELETE"
+                className="w-full h-10 px-3 bg-transparent border border-[#E8E8E5] dark:border-[#2E2E2E] rounded-lg text-xs font-mono uppercase focus:outline-none focus:border-[#E11D48]"
+              />
+            </div>
+
+            {deleteError && (
+              <p className="text-xs text-[#E11D48] dark:text-[#F43F5E]">{deleteError}</p>
+            )}
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsDeleteAccountOpen(false)}
+                className="flex-1 py-2.5 text-xs font-semibold border border-[#E8E8E5] dark:border-[#2E2E2E] rounded-xl hover:bg-[#F4F4F2] dark:hover:bg-[#1C1C1C] cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleDeleteAccount}
-                disabled={isDeleting || deleteConfirmationText !== 'DELETE'}
-                className="px-4 py-2 bg-[#E11D48] hover:bg-[#BE123C] text-white text-xs font-semibold rounded-xl shadow-xs disabled:opacity-50"
+                disabled={deletingAccount || deleteConfirmText !== 'DELETE'}
+                className="flex-1 py-2.5 text-xs font-semibold bg-[#E11D48] text-white rounded-xl hover:bg-[#BE123C] disabled:opacity-50 cursor-pointer flex items-center justify-center"
               >
-                {isDeleting ? 'Deleting...' : 'Permanently Delete'}
+                {deletingAccount ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Delete forever'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* --- MODAL 5: PRIVACY POLICY --- */}
+      {/* ========================================================================= */}
+      {isPrivacyOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white dark:bg-[#141414] text-[#171717] dark:text-[#EDEDED] rounded-2xl border border-[#E8E8E5] dark:border-[#262626] shadow-xl max-w-lg w-full p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-2 border-b border-[#E8E8E5] dark:border-[#262626]">
+              <h3 className="text-base font-semibold">Privacy Policy</h3>
+              <button
+                type="button"
+                onClick={() => setIsPrivacyOpen(false)}
+                className="p-1 rounded-lg text-[#737373] hover:text-[#171717] dark:hover:text-[#EDEDED] cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="text-xs text-[#737373] dark:text-[#8E8E93] space-y-3 leading-relaxed">
+              <p>
+                <strong>Data Minimization:</strong> ONNA-GO collects only the data necessary to coordinate group trips and accurately simplify peer-to-peer debts (name, email, default currency, and trip expenses).
+              </p>
+              <p>
+                <strong>Offline Storage:</strong> Your pending expenses and cached trips are stored locally on your device in IndexedDB. Offline data is never shared with third parties and is cleared automatically upon sign-out.
+              </p>
+              <p>
+                <strong>Account Deletion &amp; Ledger Integrity:</strong> When you delete your account, your profile is permanently deactivated and your email and username are anonymized. However, shared trip expense records and split allocations are preserved so that remaining trip members retain complete, accurate ledgers and zero-sum balance invariants.
+              </p>
+              <p>
+                <strong>Encryption &amp; Security:</strong> All API communication takes place over HTTPS. Session tokens are stored securely in local browser storage and cookie credentials.
+              </p>
+            </div>
+            <div className="pt-2 text-right">
+              <button
+                type="button"
+                onClick={() => setIsPrivacyOpen(false)}
+                className="px-4 py-2 bg-[#171717] dark:bg-[#EDEDED] text-white dark:text-[#0A0A0A] rounded-xl text-xs font-semibold cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* --- MODAL 6: TERMS OF SERVICE --- */}
+      {/* ========================================================================= */}
+      {isTermsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white dark:bg-[#141414] text-[#171717] dark:text-[#EDEDED] rounded-2xl border border-[#E8E8E5] dark:border-[#262626] shadow-xl max-w-lg w-full p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-2 border-b border-[#E8E8E5] dark:border-[#262626]">
+              <h3 className="text-base font-semibold">Terms of Service</h3>
+              <button
+                type="button"
+                onClick={() => setIsTermsOpen(false)}
+                className="p-1 rounded-lg text-[#737373] hover:text-[#171717] dark:hover:text-[#EDEDED] cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="text-xs text-[#737373] dark:text-[#8E8E93] space-y-3 leading-relaxed">
+              <p>
+                <strong>Service Usage:</strong> ONNA-GO is a collaborative group trip expense management application designed to track shared costs and simplify debt repayments.
+              </p>
+              <p>
+                <strong>Financial Disclaimer:</strong> ONNA-GO provides mathematical debt simplification based on user inputs. ONNA-GO does not process bank transactions directly; actual settlement transfers are completed via UPI or external payment rails.
+              </p>
+              <p>
+                <strong>Account Responsibility:</strong> You are responsible for keeping your login credentials confidential and for all activities recorded under your account.
+              </p>
+            </div>
+            <div className="pt-2 text-right">
+              <button
+                type="button"
+                onClick={() => setIsTermsOpen(false)}
+                className="px-4 py-2 bg-[#171717] dark:bg-[#EDEDED] text-white dark:text-[#0A0A0A] rounded-xl text-xs font-semibold cursor-pointer"
+              >
+                Close
               </button>
             </div>
           </div>
@@ -1355,3 +980,5 @@ export const SettingsPage: React.FC = () => {
     </div>
   );
 };
+
+export default SettingsPage;
