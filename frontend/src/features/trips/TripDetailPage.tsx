@@ -29,6 +29,7 @@ import {
   SlidersHorizontal,
   ArrowDownLeft,
   ArrowUpRight,
+  Pencil,
 } from 'lucide-react';
 import { api, getAvatarUrl } from '@/lib/api-client';
 import {
@@ -53,6 +54,8 @@ import {
   getCachedTripDetails,
   getOutboxItemsForTrip,
 } from '@/lib/offline-db';
+import { calculateLocalBalances } from '@/lib/balance-calculator';
+import { queueExpenseDelete, isDeviceOnline } from '@/lib/sync-manager';
 
 export const TripDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -74,6 +77,7 @@ export const TripDetailPage: React.FC = () => {
 
   // Modals state
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [isRecordSettlementOpen, setIsRecordSettlementOpen] = useState(false);
   const [isMembersModalOpen, setIsMembersModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
@@ -234,8 +238,17 @@ export const TripDetailPage: React.FC = () => {
       if (tData) setTrip(tData);
       setMembers(mData);
       setExpenses(eData);
-      setBalances(bData);
-      setSuggestions(sData);
+
+      // Compute live balances locally, including all pending outbox items and offline changes
+      if (mData.length > 0) {
+        const localBalances = calculateLocalBalances(id, mData, eData, stData);
+        setBalances(localBalances.balances);
+        setSuggestions(localBalances.suggestions);
+      } else {
+        setBalances(bData);
+        setSuggestions(sData);
+      }
+
       setSettlements(stData);
       setError(null);
     } catch (err: any) {
@@ -455,22 +468,50 @@ export const TripDetailPage: React.FC = () => {
     }
   };
 
-  // Void Expense
+  // Void Expense (supports both online and offline queueing)
   const handleVoidExpense = async (expenseId: string, description: string) => {
     if (!confirm(`Are you sure you want to void "${description}"? This will exclude it from balance calculations.`)) {
       return;
     }
     try {
-      await api.delete(`/expenses/${expenseId}`);
-      showConfirmation({
-        title: 'Expense voided',
-        message: `"${description}" has been removed from balances.`,
-        sound: 'notification',
-      });
+      if (!isDeviceOnline()) {
+        await queueExpenseDelete(id!, expenseId);
+        showConfirmation({
+          title: 'Saved offline ⏳',
+          message: `"${description}" voided locally. Changes will sync when online.`,
+          sound: 'notification',
+        });
+      } else {
+        try {
+          await api.delete(`/expenses/${expenseId}`);
+          showConfirmation({
+            title: 'Expense voided',
+            message: `"${description}" has been removed from balances.`,
+            sound: 'notification',
+          });
+        } catch (apiErr: any) {
+          if (!window.navigator.onLine || apiErr?.message?.includes('fetch') || apiErr?.message?.includes('Network')) {
+            await queueExpenseDelete(id!, expenseId);
+            showConfirmation({
+              title: 'Saved offline ⏳',
+              message: `"${description}" voided locally. Changes will sync when online.`,
+              sound: 'notification',
+            });
+          } else {
+            throw apiErr;
+          }
+        }
+      }
       await loadAllTripData();
     } catch (err: any) {
       alert(err.message || 'Failed to void expense.');
     }
+  };
+
+  // Start Edit Expense
+  const handleStartEditExpense = (exp: Expense) => {
+    setEditingExpense(exp);
+    setIsAddExpenseOpen(true);
   };
 
   // Copy Invite Code
@@ -1287,13 +1328,22 @@ export const TripDetailPage: React.FC = () => {
                     </div>
 
                     {canVoid && !isTripCompleted && (
-                      <button
-                        onClick={() => handleVoidExpense(exp.id, exp.description)}
-                        className="p-1.5 text-[#A3A3A3] hover:text-[#E11D48] rounded-lg transition-colors cursor-pointer"
-                        title="Void expense"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleStartEditExpense(exp)}
+                          className="p-1.5 text-[#A3A3A3] hover:text-[#16834A] dark:hover:text-[#22C55E] rounded-lg transition-colors cursor-pointer"
+                          title="Edit expense"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleVoidExpense(exp.id, exp.description)}
+                          className="p-1.5 text-[#A3A3A3] hover:text-[#E11D48] rounded-lg transition-colors cursor-pointer"
+                          title="Void expense"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -1678,16 +1728,24 @@ export const TripDetailPage: React.FC = () => {
         </div>
       )}
 
-      {/* --- ADD EXPENSE MODAL --- */}
+      {/* --- ADD / EDIT EXPENSE MODAL --- */}
       <AddExpenseModal
         isOpen={isAddExpenseOpen}
-        onClose={() => setIsAddExpenseOpen(false)}
+        onClose={() => {
+          setIsAddExpenseOpen(false);
+          setEditingExpense(null);
+        }}
         tripId={trip.id}
         currency={trip.currency}
         members={members}
         activities={[]}
+        initialExpense={editingExpense}
         onExpenseAdded={() => {
           loadAllTripData();
+        }}
+        onExpenseUpdated={() => {
+          loadAllTripData();
+          setEditingExpense(null);
         }}
       />
 

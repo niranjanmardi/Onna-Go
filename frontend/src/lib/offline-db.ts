@@ -3,15 +3,16 @@ import { Trip, Expense, Settlement, TripMember } from '../types';
 
 export interface OutboxItem {
   client_id: string;
-  type: 'EXPENSE' | 'SETTLEMENT';
+  type: 'EXPENSE' | 'EXPENSE_UPDATE' | 'EXPENSE_DELETE' | 'SETTLEMENT';
   trip_id: string;
   endpoint: string;
-  method: 'POST' | 'PUT' | 'PATCH';
+  method: 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   payload: any;
   created_at: string;
   status: 'PENDING' | 'SYNCING' | 'FAILED';
   error?: string | null;
   retry_count: number;
+  next_retry_at?: string | null;
 }
 
 export interface CachedTripData {
@@ -135,6 +136,32 @@ export async function clearSyncedOutbox(): Promise<void> {
   // Can be called to cleanup any stale items if needed
 }
 
+export async function getFailedOutboxItems(): Promise<OutboxItem[]> {
+  const db = await getOfflineDB();
+  const all = await db.getAll('outbox');
+  return all.filter((item) => item.status === 'FAILED');
+}
+
+/**
+ * Clear ALL IndexedDB stores (outbox, cached_trips, cached_trip_details).
+ * Used on user logout and account switch to ensure data isolation.
+ */
+export async function clearAllOfflineData(): Promise<void> {
+  try {
+    const db = await getOfflineDB();
+    const storeNames = ['outbox', 'cached_trips', 'cached_trip_details'] as const;
+    const tx = db.transaction(storeNames as any, 'readwrite');
+    for (const store of storeNames) {
+      if (db.objectStoreNames.contains(store)) {
+        await tx.objectStore(store).clear();
+      }
+    }
+    await tx.done;
+  } catch (err) {
+    console.warn('Error clearing offline IndexedDB stores:', err);
+  }
+}
+
 // --- Cache Operations ---
 
 export async function cacheTripsList(trips: Trip[]): Promise<void> {
@@ -173,3 +200,48 @@ export async function getCachedTripDetails(tripId: string): Promise<CachedTripDa
   const db = await getOfflineDB();
   return db.get('cached_trip_details', tripId);
 }
+
+export async function updateCachedExpense(tripId: string, updatedExpense: Expense): Promise<void> {
+  const db = await getOfflineDB();
+  const details = await db.get('cached_trip_details', tripId);
+  if (details) {
+    const idx = details.expenses.findIndex(
+      (e) => e.id === updatedExpense.id || (e.client_id && e.client_id === updatedExpense.client_id)
+    );
+    if (idx >= 0) {
+      details.expenses[idx] = updatedExpense;
+    } else {
+      details.expenses.unshift(updatedExpense);
+    }
+    details.updated_at = new Date().toISOString();
+    await db.put('cached_trip_details', details);
+  }
+}
+
+export async function voidCachedExpense(tripId: string, expenseId: string): Promise<void> {
+  const db = await getOfflineDB();
+  const details = await db.get('cached_trip_details', tripId);
+  if (details) {
+    const target = details.expenses.find(
+      (e) => e.id === expenseId || (e.client_id && e.client_id === expenseId)
+    );
+    if (target) {
+      target.is_void = true;
+      details.updated_at = new Date().toISOString();
+      await db.put('cached_trip_details', details);
+    }
+  }
+}
+
+export async function deleteCachedExpense(tripId: string, expenseId: string): Promise<void> {
+  const db = await getOfflineDB();
+  const details = await db.get('cached_trip_details', tripId);
+  if (details) {
+    details.expenses = details.expenses.filter(
+      (e) => e.id !== expenseId && (!e.client_id || e.client_id !== expenseId)
+    );
+    details.updated_at = new Date().toISOString();
+    await db.put('cached_trip_details', details);
+  }
+}
+

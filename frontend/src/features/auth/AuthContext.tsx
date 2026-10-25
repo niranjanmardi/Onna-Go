@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { api, ApiError } from '@/lib/api-client';
 import { User } from '@/types';
+import { clearAllOfflineData } from '@/lib/offline-db';
+import { resetSyncState, resumeSyncQueue } from '@/lib/sync-manager';
 
 interface AuthContextType {
   user: User | null;
@@ -85,8 +87,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUser(me);
             localStorage.setItem('onnago_user', JSON.stringify(me));
           })
-          .catch((err) => {
+          .catch(async (err) => {
             if (err instanceof ApiError && err.status === 401) {
+              await clearAllOfflineData();
+              resetSyncState();
               setUser(null);
               localStorage.removeItem('onnago_token');
               localStorage.removeItem('onnago_user');
@@ -97,8 +101,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
+    const handleAuthRequired = async () => {
+      setUser(null);
+      localStorage.removeItem('onnago_token');
+      localStorage.removeItem('onnago_user');
+      localStorage.removeItem('rupaii_token');
+      localStorage.removeItem('rupaii_user');
+    };
+
     window.addEventListener('online', handleOnline);
-    return () => window.removeEventListener('online', handleOnline);
+    window.addEventListener('onnago:auth-required', handleAuthRequired);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('onnago:auth-required', handleAuthRequired);
+    };
   }, []);
 
   const login = async (identifier: string, password: string) => {
@@ -108,9 +124,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email: identifier.trim(),
         password,
       });
+
+      // Account switch detection: If a different user was previously logged in, clear all offline stores
+      const prevUserStr = localStorage.getItem('onnago_user') || localStorage.getItem('rupaii_user');
+      if (prevUserStr) {
+        try {
+          const prevUser = JSON.parse(prevUserStr);
+          if (prevUser && prevUser.id && prevUser.id !== data.user.id) {
+            await clearAllOfflineData();
+            resetSyncState();
+          }
+        } catch {
+          await clearAllOfflineData();
+          resetSyncState();
+        }
+      }
+
       localStorage.setItem('onnago_token', data.access_token);
       localStorage.setItem('onnago_user', JSON.stringify(data.user));
       setUser(data.user);
+      resumeSyncQueue();
     } finally {
       setIsLoading(false);
     }
@@ -132,9 +165,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         password,
         default_currency: defaultCurrency,
       });
+
+      // Clear previous user's offline data on registering a new account
+      await clearAllOfflineData();
+      resetSyncState();
+
       localStorage.setItem('onnago_token', data.access_token);
       localStorage.setItem('onnago_user', JSON.stringify(data.user));
       setUser(data.user);
+      resumeSyncQueue();
     } finally {
       setIsLoading(false);
     }
@@ -144,8 +183,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await api.post('/auth/logout');
     } catch {
-      // Ignore logout errors
+      // Ignore network errors on logout
     } finally {
+      // Clear ALL IndexedDB stores (outbox, cached trips, cached details) and runtime caches
+      await clearAllOfflineData();
+      resetSyncState();
       localStorage.removeItem('onnago_token');
       localStorage.removeItem('onnago_user');
       localStorage.removeItem('rupaii_token');

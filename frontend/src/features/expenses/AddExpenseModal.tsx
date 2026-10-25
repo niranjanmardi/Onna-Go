@@ -25,7 +25,7 @@ import { useAuth } from '@/features/auth/AuthContext';
 import { BlueTick } from '@/components/common/BlueTick';
 import { useFeedback } from '@/context/FeedbackContext';
 import { playSound } from '@/lib/sounds';
-import { queueExpenseCreation, isDeviceOnline } from '@/lib/sync-manager';
+import { queueExpenseCreation, queueExpenseUpdate, isDeviceOnline } from '@/lib/sync-manager';
 
 interface AddExpenseModalProps {
   isOpen: boolean;
@@ -35,6 +35,8 @@ interface AddExpenseModalProps {
   members: TripMember[];
   activities: Activity[];
   onExpenseAdded: (exp: Expense) => void;
+  initialExpense?: Expense | null;
+  onExpenseUpdated?: (exp: Expense) => void;
 }
 
 const CATEGORIES = [
@@ -56,6 +58,8 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
   members,
   activities,
   onExpenseAdded,
+  initialExpense,
+  onExpenseUpdated,
 }) => {
   const { user } = useAuth();
   const { showConfirmation } = useFeedback();
@@ -90,9 +94,64 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
 
   const currencySymbol = getCurrencySymbol(currency);
 
-  // Initialize defaults when modal opens or members change
+  // Initialize defaults when modal opens, members change, or initialExpense changes
   useEffect(() => {
-    if (members.length > 0) {
+    if (initialExpense) {
+      setAmountRupees((initialExpense.amount_paise / 100).toString());
+      setDescription(initialExpense.description);
+      setCategory(initialExpense.category || 'Food');
+      setPayerId(initialExpense.payer_id);
+      setDate(
+        initialExpense.date
+          ? new Date(initialExpense.date).toISOString().split('T')[0]
+          : new Date().toISOString().split('T')[0]
+      );
+      setNotes(initialExpense.notes || '');
+      setActivityId(initialExpense.activity_id || '');
+
+      const initSelected: Record<string, boolean> = {};
+      const initExact: Record<string, string> = {};
+      const initPct: Record<string, string> = {};
+      const initCustom: Record<string, string> = {};
+
+      const defaultPct = (100 / (members.length || 1)).toFixed(2);
+      members.forEach((m) => {
+        initSelected[m.user_id] = false;
+        initExact[m.user_id] = '';
+        initPct[m.user_id] = defaultPct;
+        initCustom[m.user_id] = '1';
+      });
+
+      if (initialExpense.splits && initialExpense.splits.length > 0) {
+        initialExpense.splits.forEach((s) => {
+          initSelected[s.user_id] = true;
+          if (s.amount_paise) initExact[s.user_id] = (s.amount_paise / 100).toString();
+          if (s.percentage) initPct[s.user_id] = s.percentage.toString();
+          if (s.shares) initCustom[s.user_id] = s.shares.toString();
+        });
+      } else {
+        members.forEach((m) => (initSelected[m.user_id] = true));
+      }
+
+      setSelectedParticipants(initSelected);
+      setExactShares(initExact);
+      setPercentageShares(initPct);
+      setCustomShares(initCustom);
+      setSplitMode(
+        initialExpense.splits && initialExpense.splits.length < members.length
+          ? 'SELECTED_MEMBERS'
+          : 'EQUAL_ALL'
+      );
+      setError(null);
+      setSuccess(null);
+    } else if (members.length > 0) {
+      setAmountRupees('');
+      setDescription('');
+      setCategory('Food');
+      setNotes('');
+      setActivityId('');
+      setDate(new Date().toISOString().split('T')[0]);
+
       const currentUserMember = members.find((m) => m.user_id === user?.id);
       setPayerId(currentUserMember ? currentUserMember.user_id : members[0].user_id);
 
@@ -117,7 +176,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
       setError(null);
       setSuccess(null);
     }
-  }, [members, user?.id, isOpen]);
+  }, [members, user?.id, isOpen, initialExpense]);
 
   if (!isOpen) return null;
 
@@ -246,8 +305,55 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
       };
 
       const payerObj = members.find((m) => m.user_id === payerId);
-      let created: Expense;
 
+      // --- EDIT EXISTING EXPENSE ---
+      if (initialExpense) {
+        let updated: Expense;
+        if (!isDeviceOnline()) {
+          updated = await queueExpenseUpdate(tripId, initialExpense.id, expensePayload, initialExpense);
+          setSuccess('Updated offline. Waiting to sync.');
+          showConfirmation({
+            title: 'Updated offline ⏳',
+            message: `${description} (${formatPaise(totalPaise, currency)}) updated locally and will sync when online.`,
+            sound: 'expense_success',
+          });
+        } else {
+          try {
+            updated = await api.put<Expense>(`/expenses/${initialExpense.id}`, expensePayload);
+            setSuccess('Expense updated successfully.');
+            showConfirmation({
+              title: 'Expense updated successfully',
+              message: `${description} (${formatPaise(totalPaise, currency)}) updated.`,
+              sound: 'expense_success',
+            });
+          } catch (apiErr: any) {
+            if (!window.navigator.onLine || apiErr?.message?.includes('fetch') || apiErr?.message?.includes('Network')) {
+              updated = await queueExpenseUpdate(tripId, initialExpense.id, expensePayload, initialExpense);
+              setSuccess('Network unavailable. Updated offline.');
+              showConfirmation({
+                title: 'Updated offline ⏳',
+                message: `${description} (${formatPaise(totalPaise, currency)}) updated locally.`,
+                sound: 'expense_success',
+              });
+            } else {
+              throw apiErr;
+            }
+          }
+        }
+
+        if (onExpenseUpdated) {
+          onExpenseUpdated(updated);
+        } else {
+          onExpenseAdded(updated);
+        }
+        setTimeout(() => {
+          onClose();
+        }, 600);
+        return;
+      }
+
+      // --- CREATE NEW EXPENSE ---
+      let created: Expense;
       if (!isDeviceOnline()) {
         created = await queueExpenseCreation(tripId, expensePayload, payerObj?.user_name || 'You');
         setSuccess('Saved offline. Waiting to sync.');
@@ -310,10 +416,10 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
         <div className="flex items-center justify-between pb-4 border-b border-[#E8E8E5]">
           <div>
             <h2 className="text-lg font-bold text-[#171717] font-['Plus_Jakarta_Sans']">
-              Record Expense
+              {initialExpense ? 'Edit Expense' : 'Record Expense'}
             </h2>
             <p className="text-xs text-[#737373] mt-0.5">
-              Split group costs with automatic debt calculation
+              {initialExpense ? 'Modify expense amount, payer, or split details' : 'Split group costs with automatic debt calculation'}
             </p>
           </div>
           <button
@@ -663,15 +769,15 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
               {loading ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Recording Expense...</span>
+                  <span>{initialExpense ? 'Saving Changes...' : 'Recording Expense...'}</span>
                 </>
               ) : success ? (
                 <>
                   <Check className="w-4 h-4" />
-                  <span>Expense Saved</span>
+                  <span>{initialExpense ? 'Changes Saved' : 'Expense Saved'}</span>
                 </>
               ) : (
-                <span>Record Expense</span>
+                <span>{initialExpense ? 'Save Changes' : 'Record Expense'}</span>
               )}
             </button>
           </div>

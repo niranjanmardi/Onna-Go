@@ -266,6 +266,127 @@ def get_expense(
         
     return build_expense_response(expense, db)
 
+@router.put("/{expense_id}", response_model=ExpenseResponse)
+def update_expense(
+    expense_id: str,
+    exp_in: ExpenseUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    expense = db.query(Expense).filter(Expense.id == expense_id).first()
+    if not expense:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Expense not found.")
+    if expense.is_void:
+        raise HTTPException(status_code=status.HTTP_410_GONE, detail="Cannot edit a voided expense.")
+        
+    membership = db.query(TripMember).filter(
+        TripMember.trip_id == expense.trip_id,
+        TripMember.user_id == current_user.id
+    ).first()
+    if not membership or (membership.role not in ["OWNER", "ADMIN"] and expense.created_by_id != current_user.id and expense.payer_id != current_user.id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to edit this expense.")
+
+    trip = db.query(Trip).filter(Trip.id == expense.trip_id).first()
+    if not trip or trip.completed_at is not None or trip.is_archived:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot edit expenses in an ended/completed trip."
+        )
+
+    trip_members = db.query(TripMember).filter(TripMember.trip_id == expense.trip_id).all()
+    valid_member_ids = {m.user_id for m in trip_members}
+
+    # Update simple fields
+    if exp_in.description is not None:
+        expense.description = exp_in.description.strip()
+    if exp_in.category is not None:
+        expense.category = exp_in.category
+    if exp_in.notes is not None:
+        expense.notes = exp_in.notes
+    if exp_in.date is not None:
+        expense.date = exp_in.date
+    if exp_in.activity_id is not None:
+        expense.activity_id = exp_in.activity_id
+    if exp_in.currency is not None:
+        expense.currency = exp_in.currency.upper()
+    if exp_in.payer_id is not None:
+        if exp_in.payer_id not in valid_member_ids:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Payer is not a valid member.")
+        expense.payer_id = exp_in.payer_id
+
+    # If amount_paise or split_method or splits or participant_ids changed, recalculate splits
+    amount_paise = exp_in.amount_paise if exp_in.amount_paise is not None else expense.amount_paise
+    split_method = (exp_in.split_method or expense.split_method).upper()
+
+    needs_split_recalc = (
+        exp_in.amount_paise is not None or
+        exp_in.split_method is not None or
+        exp_in.participant_ids is not None or
+        exp_in.splits is not None
+    )
+
+    if needs_split_recalc:
+        expense.amount_paise = amount_paise
+        expense.split_method = split_method
+        try:
+            if split_method in [SplitMethod.EQUAL.value, SplitMethod.SELECTED.value]:
+                if exp_in.participant_ids is not None:
+                    p_ids = exp_in.participant_ids
+                else:
+                    existing_splits = db.query(ExpenseSplit).filter(ExpenseSplit.expense_id == expense.id).all()
+                    p_ids = [s.user_id for s in existing_splits] if existing_splits else list(valid_member_ids)
+                if not p_ids:
+                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="At least one participant required.")
+                for pid in p_ids:
+                    if pid not in valid_member_ids:
+                        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Participant {pid} is not a valid member.")
+                calculated_splits = calculate_equal_split(amount_paise, p_ids)
+            elif split_method == SplitMethod.EXACT.value:
+                if not exp_in.splits:
+                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Splits required for EXACT method.")
+                shares = [{"user_id": s.user_id, "amount_paise": s.amount_paise or 0} for s in exp_in.splits]
+                calculated_splits = calculate_exact_split(amount_paise, shares)
+            elif split_method == SplitMethod.PERCENTAGE.value:
+                if not exp_in.splits:
+                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Splits required for PERCENTAGE method.")
+                pcts = [{"user_id": s.user_id, "percentage": s.percentage or 0.0} for s in exp_in.splits]
+                calculated_splits = calculate_percentage_split(amount_paise, pcts)
+            elif split_method == SplitMethod.CUSTOM.value:
+                if not exp_in.splits:
+                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Splits required for CUSTOM method.")
+                custom_shares = [{"user_id": s.user_id, "shares": s.shares or 1.0} for s in exp_in.splits]
+                calculated_splits = calculate_custom_split(amount_paise, custom_shares)
+            else:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unsupported split method: {split_method}")
+        except ValueError as ve:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(ve))
+
+        # Delete existing splits and insert updated ones
+        db.query(ExpenseSplit).filter(ExpenseSplit.expense_id == expense.id).delete()
+        for item in calculated_splits:
+            split = ExpenseSplit(
+                expense_id=expense.id,
+                user_id=item["user_id"],
+                amount_paise=item["amount_paise"],
+                percentage=item.get("percentage"),
+                shares=item.get("shares")
+            )
+            db.add(split)
+
+    audit = AuditLog(
+        trip_id=expense.trip_id,
+        user_id=current_user.id,
+        action="EDIT_EXPENSE",
+        entity_type="EXPENSE",
+        entity_id=expense.id,
+        details_json=json.dumps({"description": expense.description, "amount_paise": expense.amount_paise})
+    )
+    db.add(audit)
+    db.commit()
+    db.refresh(expense)
+    return build_expense_response(expense, db)
+
+
 @router.delete("/{expense_id}")
 def void_expense(
     expense_id: str,
