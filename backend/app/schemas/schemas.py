@@ -201,6 +201,7 @@ class TripResponse(TripBase):
     created_by_id: str
     members_count: int = 1
     total_expenses_paise: int = 0
+    expenses_count: int = 0
     created_at: datetime
     updated_at: datetime
     user_role: Optional[str] = None

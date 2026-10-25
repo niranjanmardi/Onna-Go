@@ -47,6 +47,7 @@ export interface Trip {
   created_by_id: string;
   members_count: number;
   total_expenses_paise: number;
+  expenses_count?: number;
   created_at: string;
   updated_at: string;
   user_role?: 'OWNER' | 'ADMIN' | 'MEMBER';

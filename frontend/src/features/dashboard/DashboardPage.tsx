@@ -1,465 +1,406 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Compass,
-  Plus,
-  ArrowUpRight,
-  ArrowDownLeft,
-  Wallet,
-  Receipt,
-  Users,
-  AlertCircle,
-  ChevronRight,
-  CheckCircle2,
-  Clock,
-  KeyRound,
-  MapPin,
-  Calendar,
-  FileText,
-  FileSpreadsheet,
-  Loader2,
-} from 'lucide-react';
-import { api } from '@/lib/api-client';
-import { DashboardSummary } from '@/types';
-import { formatPaise, formatDate } from '@/lib/currency';
+import { Plus, X } from 'lucide-react';
+import { api, getAvatarUrl } from '@/lib/api-client';
+import { Trip, Expense, DashboardSummary } from '@/types';
+import { formatPaise } from '@/lib/currency';
 import { useAuth } from '@/features/auth/AuthContext';
-import { downloadHistoryPdf, downloadHistoryCsv } from '@/lib/export-utils';
+import { cacheTripsList, getCachedTripsList } from '@/lib/offline-db';
+
+function formatRelativeTime(dateString?: string | null): string {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffSec = Math.floor((now.getTime() - date.getTime()) / 1000);
+  if (isNaN(diffSec) || diffSec < 0) return 'just now';
+  if (diffSec < 60) return 'just now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays === 1) return 'yesterday';
+  if (diffDays < 7) return `${diffDays}d ago`;
+  const diffWeeks = Math.floor(diffDays / 7);
+  if (diffWeeks < 4) return `${diffWeeks}w ago`;
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
 
 export const DashboardPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [data, setData] = useState<DashboardSummary | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [exportingPdf, setExportingPdf] = useState(false);
-  const [exportingCsv, setExportingCsv] = useState(false);
 
-  const fetchDashboard = async () => {
-    setLoading(true);
+  const [loading, setLoading] = useState(true);
+  const [totalOwePaise, setTotalOwePaise] = useState(0);
+  const [totalOwedPaise, setTotalOwedPaise] = useState(0);
+  const [trips, setTrips] = useState<Trip[]>([]);
+  const [recentExpenses, setRecentExpenses] = useState<Expense[]>([]);
+  const [isTripPickerOpen, setIsTripPickerOpen] = useState(false);
+
+  const loadDashboardData = useCallback(async () => {
     try {
       const res = await api.get<DashboardSummary>('/dashboard/summary');
-      setData(res);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load dashboard summary.');
+      setTotalOwePaise(res.total_owe_paise || 0);
+      setTotalOwedPaise(res.total_owed_paise || 0);
+      setTrips(res.active_trips || []);
+      setRecentExpenses(res.recent_expenses || []);
+
+      // Cache trips for offline use
+      if (res.active_trips && res.active_trips.length > 0) {
+        cacheTripsList(res.active_trips).catch(() => {});
+      }
+    } catch {
+      // Fallback to offline cached data
+      try {
+        const cached = await getCachedTripsList();
+        if (cached && cached.length > 0) {
+          setTrips(cached);
+          const owe = cached.reduce((sum, t) => sum + (t.user_owes_paise || 0), 0);
+          const owed = cached.reduce((sum, t) => sum + (t.user_receives_paise || 0), 0);
+          setTotalOwePaise(owe);
+          setTotalOwedPaise(owed);
+        }
+      } catch {
+        // Ignore offline read failure
+      }
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchDashboard();
   }, []);
 
-  if (loading) {
-    return (
-      <div className="flex-1 p-6 md:p-12 flex items-center justify-center min-h-[60vh]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-[#E8E8E5] border-t-[#16834A] rounded-full animate-spin" />
-          <p className="text-sm font-medium text-[#737373]">Loading summary...</p>
-        </div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    loadDashboardData();
 
-  const firstName = user?.full_name ? user.full_name.split(' ')[0] : 'Traveler';
+    const handleOnline = () => loadDashboardData();
+    window.addEventListener('online', handleOnline);
+
+    const handleAddAction = (e: Event) => {
+      e.preventDefault();
+      handleOpenAddExpense();
+    };
+    window.addEventListener('app-add-action', handleAddAction);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('app-add-action', handleAddAction);
+    };
+  }, [loadDashboardData, trips]);
+
+  const handleOpenAddExpense = () => {
+    if (!trips || trips.length === 0) {
+      navigate('/trips/new');
+      return;
+    }
+    if (trips.length === 1) {
+      navigate(`/trips/${trips[0].id}?action=add-expense`);
+      return;
+    }
+    setIsTripPickerOpen(true);
+  };
+
+  const userInitial = user?.full_name ? user.full_name.charAt(0).toUpperCase() : 'U';
 
   return (
-    <div className="flex-1 p-5 md:p-8 max-w-6xl mx-auto w-full space-y-8">
-      {/* --- Personalized Welcome Header & Actions --- */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-[#171717] font-['Plus_Jakarta_Sans']">
-              Welcome back, {firstName}
-            </h1>
-          </div>
-          <p className="text-sm text-[#737373] mt-1">
-            Here is your active group travel &amp; shared balance overview.
-          </p>
-        </div>
+    <div className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-6 md:py-8">
+      {/* --- Top Bar: Page title & Profile avatar --- */}
+      <header className="flex items-center justify-between pb-4">
+        <h1 className="text-xl md:text-2xl font-bold tracking-tight text-[#171717] dark:text-[#EDEDED]">
+          Dashboard
+        </h1>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={async () => {
-              if (exportingPdf) return;
-              setExportingPdf(true);
-              try {
-                await downloadHistoryPdf();
-              } catch (err: any) {
-                alert(err.message || 'Failed to download travel history PDF');
-              } finally {
-                setExportingPdf(false);
-              }
-            }}
-            disabled={exportingPdf}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-[#171717] bg-white hover:bg-[#F4F4F2] border border-[#E8E8E5] rounded-xl shadow-xs transition-colors disabled:opacity-50"
-            title="Download complete personal travel & expense history report"
-          >
-            {exportingPdf ? <Loader2 className="w-3.5 h-3.5 animate-spin text-[#16834A]" /> : <FileText className="w-3.5 h-3.5 text-[#16834A]" />}
-            <span>{exportingPdf ? 'Exporting PDF...' : 'History PDF'}</span>
-          </button>
-          <button
-            onClick={async () => {
-              if (exportingCsv) return;
-              setExportingCsv(true);
-              try {
-                await downloadHistoryCsv();
-              } catch (err: any) {
-                alert(err.message || 'Failed to download travel history CSV');
-              } finally {
-                setExportingCsv(false);
-              }
-            }}
-            disabled={exportingCsv}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-[#171717] bg-white hover:bg-[#F4F4F2] border border-[#E8E8E5] rounded-xl shadow-xs transition-colors disabled:opacity-50"
-            title="Download personal travel expenses spreadsheet"
-          >
-            {exportingCsv ? <Loader2 className="w-3.5 h-3.5 animate-spin text-[#16834A]" /> : <FileSpreadsheet className="w-3.5 h-3.5 text-[#16834A]" />}
-            <span>{exportingCsv ? 'Exporting CSV...' : 'History CSV'}</span>
-          </button>
-          <button
-            onClick={() => navigate('/trips/join')}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium text-[#171717] bg-white hover:bg-[#F4F4F2] border border-[#E8E8E5] rounded-xl shadow-xs transition-colors"
-          >
-            <KeyRound className="w-3.5 h-3.5 text-[#737373]" />
-            <span>Join with Code</span>
-          </button>
-          <button
-            onClick={() => navigate('/trips/new')}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-[#16834A] hover:bg-[#136F3F] rounded-xl shadow-xs transition-all active:scale-[0.98]"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Create Trip</span>
-          </button>
-        </div>
-      </div>
-
-      {error && (
-        <div className="p-4 rounded-xl bg-[#FFE4E6] border border-[#FDA4AF] text-[#E11D48] text-sm flex items-center gap-3">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-
-      {/* --- Apple-Style Financial Overview Cards --- */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {/* Total Spent */}
-        <div className="bg-white dark:bg-[#141414] p-5 rounded-2xl border border-[#E8E8E5] dark:border-[#262626] shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#A1A1A1]">Total Spent</span>
-            <div className="w-8 h-8 rounded-lg bg-[#FAFAF8] dark:bg-[#1F1F1F] border border-[#E8E8E5] dark:border-[#2E2E2E] flex items-center justify-center text-[#737373] dark:text-[#A1A1A1]">
-              <Wallet className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-4">
-            <p className="text-3xl font-bold font-mono tracking-tight text-[#171717] dark:text-[#EDEDED] tabular-nums">
-              {formatPaise(data?.total_spent_paise || 0)}
-            </p>
-            <p className="text-xs text-[#737373] dark:text-[#A1A1A1] mt-1">Across all your trips</p>
-          </div>
-        </div>
-
-        {/* You Are Owed (Positive Net Balance) */}
-        <div className="bg-[#DDF5E5]/40 dark:bg-[#0E1A12] p-5 rounded-2xl border border-[#C6ECCF] dark:border-[#22C55E]/50 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-[#16834A] dark:text-[#22C55E]">You Are Owed</span>
-            <div className="w-8 h-8 rounded-lg bg-[#DDF5E5] dark:bg-[#22C55E]/25 border border-[#C6ECCF] dark:border-[#22C55E]/40 text-[#16834A] dark:text-[#22C55E] flex items-center justify-center">
-              <ArrowDownLeft className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-4">
-            <p className="text-3xl font-bold font-mono tracking-tight text-[#16834A] dark:text-[#22C55E] tabular-nums">
-              {formatPaise(data?.total_owed_paise || 0)}
-            </p>
-            <p className="text-xs text-[#16834A]/80 dark:text-[#22C55E]/80 mt-1">Friends owe this to you</p>
-          </div>
-        </div>
-
-        {/* You Owe (Negative Net Balance) */}
-        <div className="bg-[#FEF3C7]/40 dark:bg-[#1A140A] p-5 rounded-2xl border border-[#FDE68A] dark:border-[#F59E0B]/60 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-[#B45309] dark:text-[#FBBF24]">You Owe</span>
-            <div className="w-8 h-8 rounded-lg bg-[#FEF3C7] dark:bg-[#F59E0B]/25 border border-[#FDE68A] dark:border-[#F59E0B]/40 text-[#B45309] dark:text-[#FBBF24] flex items-center justify-center">
-              <ArrowUpRight className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-4">
-            <p className="text-3xl font-bold font-mono tracking-tight text-[#B45309] dark:text-[#FBBF24] tabular-nums">
-              {formatPaise(data?.total_owe_paise || 0)}
-            </p>
-            <p className="text-xs text-[#B45309]/80 dark:text-[#FBBF24]/80 mt-1">To settle with friends</p>
-          </div>
-        </div>
-      </div>
-
-      {/* --- Main 2-Column Grid: Active Trips & Settlements --- */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left Column: Active Trips (2/3 width) */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Compass className="w-4 h-4 text-[#16834A]" />
-              <h2 className="text-lg font-bold text-[#171717] font-['Plus_Jakarta_Sans']">
-                Active Trips ({data?.active_trips.length || 0})
-              </h2>
-            </div>
-            <button
-              onClick={() => navigate('/trips')}
-              className="text-xs font-medium text-[#16834A] hover:underline flex items-center gap-0.5"
-            >
-              <span>View All</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          {data?.active_trips.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-[#E8E8E5] p-10 text-center space-y-3 shadow-xs">
-              <div className="w-12 h-12 bg-[#FAFAF8] border border-[#E8E8E5] text-[#737373] rounded-xl flex items-center justify-center mx-auto">
-                <Compass className="w-6 h-6" />
-              </div>
-              <h3 className="text-base font-bold text-[#171717]">No active trips yet</h3>
-              <p className="text-sm text-[#737373] max-w-sm mx-auto">
-                Planning a bike trip, road expedition, or weekend outing? Start your first trip and invite your friends.
-              </p>
-              <div className="pt-2">
-                <button
-                  onClick={() => navigate('/trips/new')}
-                  className="inline-flex items-center gap-1.5 bg-[#16834A] hover:bg-[#136F3F] text-white font-medium text-sm py-2 px-4 rounded-xl shadow-xs transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Create Trip</span>
-                </button>
-              </div>
-            </div>
+        {/* Profile Avatar */}
+        <button
+          onClick={() => navigate('/profile')}
+          className="cursor-pointer active:scale-95 transition-transform rounded-full focus:outline-hidden"
+          title={user?.full_name || 'Profile'}
+          aria-label="Profile"
+        >
+          {user?.avatar_url ? (
+            <img
+              src={getAvatarUrl(user.avatar_url)}
+              alt={user.full_name}
+              className="w-9 h-9 rounded-full object-cover border border-[#E8E8E5] dark:border-[#262626]"
+            />
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {data?.active_trips.map((trip) => {
-                const userOwes = trip.user_owes_paise || 0;
-                const userReceives = trip.user_receives_paise || 0;
-                const userPaid = trip.user_contribution_paise || 0;
-                const pendingCount = trip.pending_settlements_count || 0;
-                const contributions = trip.member_contributions || [];
-
-                return (
-                  <div
-                    key={trip.id}
-                    className="bg-white p-5 rounded-2xl border border-[#E8E8E5] shadow-xs hover:border-[#16834A]/50 hover:shadow-md transition-all duration-200 flex flex-col justify-between"
-                  >
-                    <div>
-                      {/* Header */}
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-[#FAFAF8] text-[#16834A] border border-[#E8E8E5]">
-                            {trip.currency}
-                          </span>
-                          {trip.destination && (
-                            <span className="text-xs text-[#737373] truncate flex items-center gap-1">
-                              <MapPin className="w-3 h-3 text-[#16834A] flex-shrink-0" />
-                              <span className="truncate">{trip.destination}</span>
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-xs text-[#737373] flex items-center gap-1 flex-shrink-0">
-                          <Users className="w-3.5 h-3.5 text-[#A3A3A3]" />
-                          <span>{trip.members_count} members</span>
-                        </span>
-                      </div>
-
-                      <h3 className="text-base font-bold text-[#171717] mt-2 font-['Plus_Jakarta_Sans'] truncate">
-                        {trip.name}
-                      </h3>
-
-                      {/* Total Expenses & Your Contribution */}
-                      <div className="mt-3 grid grid-cols-2 gap-2 p-3 bg-[#FAFAF8] rounded-xl border border-[#E8E8E5]/70">
-                        <div>
-                          <span className="text-[10px] font-semibold text-[#737373] uppercase tracking-wider block">
-                            Total Expenses
-                          </span>
-                          <span className="text-sm font-bold font-mono text-[#171717] tabular-nums">
-                            {formatPaise(trip.total_expenses_paise, trip.currency)}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-[10px] font-semibold text-[#737373] uppercase tracking-wider block">
-                            You Paid
-                          </span>
-                          <span className="text-sm font-bold font-mono text-[#16834A] tabular-nums">
-                            {formatPaise(userPaid, trip.currency)}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Your Net Balance Status */}
-                      <div className="mt-2.5 flex items-center justify-between text-xs px-1">
-                        <span className="text-[#737373] font-medium">
-                          You owe:{' '}
-                          <strong className={userOwes > 0 ? 'text-[#B45309]' : 'text-[#171717]'}>
-                            {formatPaise(userOwes, trip.currency)}
-                          </strong>
-                        </span>
-                        <span className="text-[#737373] font-medium">
-                          You will receive:{' '}
-                          <strong className={userReceives > 0 ? 'text-[#16834A]' : 'text-[#171717]'}>
-                            {formatPaise(userReceives, trip.currency)}
-                          </strong>
-                        </span>
-                      </div>
-
-                      {/* Member Contributions Summary */}
-                      {contributions.length > 0 && (
-                        <div className="mt-3 pt-2.5 border-t border-[#F4F4F2] space-y-1">
-                          <span className="text-[10px] font-semibold uppercase tracking-wider text-[#A3A3A3] block">
-                            Member Contributions
-                          </span>
-                          <div className="space-y-1 max-h-16 overflow-y-auto">
-                            {contributions.slice(0, 3).map((c) => (
-                              <div key={c.user_id} className="flex items-center justify-between text-xs text-[#737373]">
-                                <span className="truncate pr-2">{c.user_name}</span>
-                                <span className="font-mono font-medium text-[#171717] tabular-nums flex-shrink-0">
-                                  {formatPaise(c.amount_paise, trip.currency)}
-                                </span>
-                              </div>
-                            ))}
-                            {contributions.length > 3 && (
-                              <p className="text-[10px] text-[#A3A3A3] italic">
-                                +{contributions.length - 3} more members
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Pending Settlement Alert */}
-                      {pendingCount > 0 && (
-                        <div className="mt-2.5 px-2.5 py-1.5 rounded-lg bg-[#FEF3C7] border border-[#FDE68A] text-[#B45309] text-xs flex items-center gap-1.5">
-                          <Clock className="w-3.5 h-3.5 flex-shrink-0" />
-                          <span className="font-medium text-[11px]">
-                            {pendingCount} settlement {pendingCount === 1 ? 'request' : 'requests'} pending confirmation
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="mt-4 pt-3 border-t border-[#F4F4F2] flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => navigate(`/trips/${trip.id}?tab=settlements`)}
-                        className="px-3 py-1.5 text-xs font-semibold text-[#171717] bg-white hover:bg-[#F4F4F2] border border-[#E8E8E5] rounded-xl shadow-xs transition-colors"
-                      >
-                        View Settlement
-                      </button>
-                      <button
-                        onClick={() => navigate(`/trips/${trip.id}`)}
-                        className="inline-flex items-center gap-1 px-3.5 py-1.5 text-xs font-semibold text-white bg-[#16834A] hover:bg-[#136F3F] rounded-xl shadow-xs transition-colors"
-                      >
-                        <span>View Trip</span>
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="w-9 h-9 rounded-full bg-[#E8E8E5] dark:bg-[#262626] text-[#171717] dark:text-[#EDEDED] flex items-center justify-center font-semibold text-xs">
+              {userInitial}
             </div>
           )}
+        </button>
+      </header>
 
-          {/* --- Recent Expenses --- */}
-          <div className="mt-8 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Receipt className="w-4 h-4 text-[#16834A]" />
-                <h2 className="text-lg font-bold text-[#171717] font-['Plus_Jakarta_Sans']">
-                  Recent Expenses
-                </h2>
-              </div>
+      {/* --- Loading State: Skeleton Loaders (No spinners) --- */}
+      {loading ? (
+        <div className="space-y-8 mt-2" aria-busy="true" aria-label="Loading dashboard">
+          {/* Summary Block Skeleton */}
+          <div className="py-5 border-b border-[#E8E8E5] dark:border-[#262626] grid grid-cols-2 gap-6 sm:flex sm:gap-16">
+            <div>
+              <div className="w-16 h-3.5 bg-[#E8E8E5] dark:bg-[#262626] rounded animate-pulse mb-2" />
+              <div className="w-28 h-8 bg-[#E8E8E5] dark:bg-[#262626] rounded animate-pulse" />
             </div>
-
-            {data?.recent_expenses.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-[#E8E8E5] p-6 text-center text-sm text-[#737373] shadow-xs">
-                No recent expenses recorded yet.
-              </div>
-            ) : (
-              <div className="bg-white rounded-2xl border border-[#E8E8E5] divide-y divide-[#F4F4F2] shadow-xs overflow-hidden">
-                {data?.recent_expenses.map((exp) => (
-                  <div key={exp.id} className="p-4 flex items-center justify-between hover:bg-[#FAFAF8] transition-colors">
-                    <div className="flex items-center gap-3.5 min-w-0">
-                      <div className="w-9 h-9 rounded-xl bg-[#F4F4F2] text-[#171717] flex items-center justify-center font-bold text-xs flex-shrink-0">
-                        {exp.category[0].toUpperCase()}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-[#171717] truncate">{exp.description}</p>
-                        <p className="text-xs text-[#737373]">
-                          Paid by <span className="font-medium text-[#171717]">{exp.payer_name}</span> • {formatDate(exp.date)}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right flex-shrink-0 ml-4">
-                      <p className="text-sm font-bold font-mono text-[#171717] tabular-nums">
-                        {formatPaise(exp.amount_paise, exp.currency)}
-                      </p>
-                      <span className="text-[10px] font-medium text-[#737373] bg-[#F4F4F2] px-2 py-0.5 rounded-md">
-                        {exp.split_method}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right Column: Pending Settlements (1/3 width) */}
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-[#B45309]" />
-              <h2 className="text-lg font-bold text-[#171717] font-['Plus_Jakarta_Sans']">
-                Settlements Pending
-              </h2>
+            <div>
+              <div className="w-20 h-3.5 bg-[#E8E8E5] dark:bg-[#262626] rounded animate-pulse mb-2" />
+              <div className="w-28 h-8 bg-[#E8E8E5] dark:bg-[#262626] rounded animate-pulse" />
             </div>
           </div>
 
-          {data?.pending_settlements.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-[#E8E8E5] p-6 text-center shadow-xs">
-              <CheckCircle2 className="w-7 h-7 text-[#16834A] mx-auto mb-2" />
-              <p className="text-sm font-bold text-[#171717]">All Settled Up</p>
-              <p className="text-xs text-[#737373] mt-1">No unverified transfers currently pending.</p>
-            </div>
-          ) : (
-            <div className="bg-white rounded-2xl border border-[#E8E8E5] p-4 space-y-3 shadow-xs">
-              {data?.pending_settlements.map((st) => (
-                <div key={st.id} className="p-3.5 rounded-xl bg-[#FAFAF8] border border-[#E8E8E5] flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-semibold text-[#171717]">
-                      {st.payer_name} ➔ {st.payee_name}
-                    </p>
-                    <p className="text-[11px] text-[#737373] mt-0.5">
-                      via {st.payment_method} {st.reference_id ? `(${st.reference_id})` : ''}
-                    </p>
+          {/* Trips Feed Skeleton */}
+          <div>
+            <div className="w-16 h-3 bg-[#E8E8E5] dark:bg-[#262626] rounded animate-pulse mb-4" />
+            <div className="divide-y divide-[#E8E8E5] dark:divide-[#262626]">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="py-3.5 flex items-center justify-between">
+                  <div className="flex items-center gap-3.5 flex-1 min-w-0">
+                    <div className="w-11 h-11 rounded-lg bg-[#E8E8E5] dark:bg-[#262626] rounded animate-pulse shrink-0" />
+                    <div className="space-y-1.5 flex-1 min-w-0">
+                      <div className="w-36 h-4 bg-[#E8E8E5] dark:bg-[#262626] rounded animate-pulse" />
+                      <div className="w-24 h-3 bg-[#E8E8E5] dark:bg-[#262626] rounded animate-pulse" />
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <span className="text-xs font-bold font-mono text-[#171717] tabular-nums">
-                      {formatPaise(st.amount_paise)}
-                    </span>
-                    <span className="text-[10px] block text-[#B45309] font-medium">
-                      Awaiting verification
-                    </span>
-                  </div>
+                  <div className="w-16 h-5 bg-[#E8E8E5] dark:bg-[#262626] rounded animate-pulse shrink-0 ml-4" />
                 </div>
               ))}
             </div>
-          )}
+          </div>
 
-          {/* Quick Info Box */}
-          <div className="bg-white rounded-2xl border border-[#E8E8E5] p-5 shadow-xs space-y-2">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-[#171717]">
-              Zero-Sum Assurance
-            </h3>
-            <p className="text-xs text-[#737373] leading-relaxed">
-              All financial calculations in ONNA-GO are computed in integer paise minor units. Group balances always reconcile to zero with zero rounding discrepancies.
-            </p>
+          {/* Activity Feed Skeleton */}
+          <div>
+            <div className="w-28 h-3 bg-[#E8E8E5] dark:bg-[#262626] rounded animate-pulse mb-4" />
+            <div className="divide-y divide-[#E8E8E5] dark:divide-[#262626]">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="py-3 flex items-center justify-between">
+                  <div className="flex items-center gap-3 flex-1 min-w-0 pr-4">
+                    <div className="w-8 h-8 rounded-lg bg-[#E8E8E5] dark:bg-[#262626] rounded animate-pulse shrink-0" />
+                    <div className="w-48 h-4 bg-[#E8E8E5] dark:bg-[#262626] rounded animate-pulse" />
+                  </div>
+                  <div className="w-14 h-4 bg-[#E8E8E5] dark:bg-[#262626] rounded animate-pulse shrink-0" />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <>
+          {/* --- Summary Block: Two Plain Numbers (Red & Green, Tabular) --- */}
+          <section className="py-5 border-b border-[#E8E8E5] dark:border-[#262626] grid grid-cols-2 gap-6 sm:flex sm:gap-16">
+            <div>
+              <span className="text-xs font-medium text-[#737373] dark:text-[#8E8E93] block mb-1">
+                You owe
+              </span>
+              <span className="text-2xl sm:text-3xl font-semibold tabular-nums tracking-tight text-[#DC2626] dark:text-[#EF4444]">
+                {formatPaise(totalOwePaise)}
+              </span>
+            </div>
+            <div>
+              <span className="text-xs font-medium text-[#737373] dark:text-[#8E8E93] block mb-1">
+                You're owed
+              </span>
+              <span className="text-2xl sm:text-3xl font-semibold tabular-nums tracking-tight text-[#16834A] dark:text-[#22C55E]">
+                {formatPaise(totalOwedPaise)}
+              </span>
+            </div>
+          </section>
+
+          {/* --- Trips List (Feed Rows) --- */}
+          <section className="mt-8">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#8E8E93] mb-2">
+              Trips
+            </h2>
+
+            {trips.length === 0 ? (
+              <div className="py-8 text-center border-b border-[#E8E8E5] dark:border-[#262626]">
+                <p className="text-sm text-[#737373] dark:text-[#8E8E93] mb-3">No trips yet.</p>
+                <button
+                  onClick={() => navigate('/trips/new')}
+                  className="px-4 py-2 text-xs font-semibold text-[#171717] dark:text-[#EDEDED] bg-white dark:bg-[#1A1A1A] border border-[#E8E8E5] dark:border-[#262626] rounded-xl hover:bg-[#F4F4F2] dark:hover:bg-[#222222] transition-colors cursor-pointer"
+                >
+                  Create a trip
+                </button>
+              </div>
+            ) : (
+              <div className="divide-y divide-[#E8E8E5] dark:divide-[#262626]">
+                {trips.map((trip) => {
+                  const userOwes = trip.user_owes_paise || 0;
+                  const userReceives = trip.user_receives_paise || 0;
+                  const membersCount = trip.members_count || 1;
+                  const expensesCount = trip.expenses_count ?? 0;
+                  const initial = trip.name ? trip.name.charAt(0).toUpperCase() : 'T';
+
+                  return (
+                    <div
+                      key={trip.id}
+                      onClick={() => navigate(`/trips/${trip.id}`)}
+                      className="py-3.5 px-2 -mx-2 hover:bg-[#F4F4F2]/70 dark:hover:bg-[#1A1A1A]/70 rounded-xl transition-colors cursor-pointer flex items-center justify-between group"
+                    >
+                      {/* Left + Middle */}
+                      <div className="flex items-center gap-3.5 min-w-0 flex-1 pr-3">
+                        {/* Cover image or initial avatar */}
+                        <div className="w-11 h-11 rounded-lg bg-[#F4F4F2] dark:bg-[#1C1C1C] text-[#171717] dark:text-[#EDEDED] font-semibold text-sm flex items-center justify-center shrink-0 border border-[#E8E8E5] dark:border-[#262626]">
+                          {initial}
+                        </div>
+
+                        {/* Middle: Name and "X people · Y expenses" */}
+                        <div className="min-w-0 flex-1">
+                          <h3 className="font-medium text-sm sm:text-base text-[#171717] dark:text-[#EDEDED] truncate">
+                            {trip.name}
+                          </h3>
+                          <p className="text-xs text-[#737373] dark:text-[#8E8E93] mt-0.5 truncate">
+                            {membersCount} {membersCount === 1 ? 'person' : 'people'} - {expensesCount} {expensesCount === 1 ? 'expense' : 'expenses'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Right: Your Balance */}
+                      <div className="text-right shrink-0 ml-3">
+                        {userReceives > 0 ? (
+                          <>
+                            <span className="text-sm font-semibold tabular-nums text-[#16834A] dark:text-[#22C55E] block">
+                              +{formatPaise(userReceives, trip.currency)}
+                            </span>
+                            <span className="text-[10px] text-[#16834A]/80 dark:text-[#22C55E]/80">
+                              you're owed
+                            </span>
+                          </>
+                        ) : userOwes > 0 ? (
+                          <>
+                            <span className="text-sm font-semibold tabular-nums text-[#DC2626] dark:text-[#EF4444] block">
+                              -{formatPaise(userOwes, trip.currency)}
+                            </span>
+                            <span className="text-[10px] text-[#DC2626]/80 dark:text-[#EF4444]/80">
+                              you owe
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-sm font-medium tabular-nums text-[#737373] dark:text-[#8E8E93] block">
+                              {formatPaise(0, trip.currency)}
+                            </span>
+                            <span className="text-[10px] text-[#737373] dark:text-[#8E8E93]">
+                              settled
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          {/* --- Recent Activity List (Feed Rows) --- */}
+          <section className="mt-8 mb-24 sm:mb-12">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#8E8E93] mb-2">
+              Recent activity
+            </h2>
+
+            {recentExpenses.length === 0 ? (
+              <div className="py-6 text-center">
+                <p className="text-sm text-[#737373] dark:text-[#8E8E93]">No recent activity.</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-[#E8E8E5] dark:divide-[#262626]">
+                {recentExpenses.map((exp) => {
+                  const initial = exp.category ? exp.category.charAt(0).toUpperCase() : 'E';
+
+                  return (
+                    <div
+                      key={exp.id}
+                      onClick={() => navigate(`/trips/${exp.trip_id}`)}
+                      className="py-3 px-2 -mx-2 hover:bg-[#F4F4F2]/70 dark:hover:bg-[#1A1A1A]/70 rounded-xl transition-colors cursor-pointer flex items-center justify-between"
+                    >
+                      {/* Left: Category avatar */}
+                      <div className="flex items-center gap-3 min-w-0 flex-1 pr-3">
+                        <div className="w-8 h-8 rounded-lg bg-[#F4F4F2] dark:bg-[#1C1C1C] text-[#171717] dark:text-[#EDEDED] font-medium text-xs flex items-center justify-center shrink-0 border border-[#E8E8E5] dark:border-[#262626]">
+                          {initial}
+                        </div>
+
+                        {/* Middle: One line per item with relative time */}
+                        <div className="flex items-center min-w-0 flex-1 truncate">
+                          <span className="text-sm font-medium text-[#171717] dark:text-[#EDEDED] truncate">
+                            {exp.description}
+                          </span>
+                          <span className="text-xs text-[#737373] dark:text-[#8E8E93] shrink-0 ml-1.5">
+                            &bull; {formatRelativeTime(exp.created_at || exp.date)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Right: Amount */}
+                      <div className="text-right shrink-0 ml-3">
+                        <span className="text-sm font-medium font-mono tabular-nums text-[#171717] dark:text-[#EDEDED]">
+                          {formatPaise(exp.amount_paise, exp.currency)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        </>
+      )}
+
+      {/* --- Mobile Floating Action Button (+) --- */}
+      <button
+        onClick={handleOpenAddExpense}
+        className="sm:hidden fixed bottom-20 right-5 w-14 h-14 rounded-full bg-[#16834A] dark:bg-[#22C55E] text-white dark:text-[#0A0A0A] flex items-center justify-center shadow-lg active:scale-95 transition-transform z-30 cursor-pointer"
+        aria-label="Add expense"
+      >
+        <Plus className="w-6 h-6 stroke-[2.5]" />
+      </button>
+
+      {/* --- Trip Picker Modal (if multiple trips exist when adding expense) --- */}
+      {isTripPickerOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#141414] border border-[#E8E8E5] dark:border-[#262626] rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-xl animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-2 border-b border-[#E8E8E5] dark:border-[#262626]">
+              <h3 className="text-base font-semibold text-[#171717] dark:text-[#EDEDED]">
+                Select a trip
+              </h3>
+              <button
+                onClick={() => setIsTripPickerOpen(false)}
+                className="p-1 rounded-lg text-[#737373] dark:text-[#8E8E93] hover:text-[#171717] dark:hover:text-[#EDEDED] cursor-pointer"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="divide-y divide-[#E8E8E5] dark:divide-[#262626] max-h-60 overflow-y-auto">
+              {trips.map((trip) => (
+                <button
+                  key={trip.id}
+                  onClick={() => {
+                    setIsTripPickerOpen(false);
+                    navigate(`/trips/${trip.id}?action=add-expense`);
+                  }}
+                  className="w-full text-left py-3 px-2 flex items-center justify-between hover:bg-[#F4F4F2] dark:hover:bg-[#1F1F1F] rounded-lg transition-colors cursor-pointer"
+                >
+                  <span className="text-sm font-medium text-[#171717] dark:text-[#EDEDED] truncate">
+                    {trip.name}
+                  </span>
+                  <span className="text-xs text-[#737373] dark:text-[#8E8E93] shrink-0 ml-2">
+                    {trip.members_count || 1} people
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() => {
+                setIsTripPickerOpen(false);
+                navigate('/trips/new');
+              }}
+              className="w-full py-2.5 text-xs font-semibold text-center text-[#16834A] dark:text-[#22C55E] hover:underline"
+            >
+              + Create a new trip
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
+export default DashboardPage;
