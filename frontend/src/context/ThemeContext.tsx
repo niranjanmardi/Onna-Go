@@ -15,14 +15,6 @@ export const THEME_STORAGE_KEY = 'onnago_theme';
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<Theme>(() => {
     try {
-      // Restrict URL parameter override strictly to dev / automated test modes
-      if (typeof window !== 'undefined' && (import.meta.env.DEV || import.meta.env.MODE === 'test')) {
-        const urlParams = new URLSearchParams(window.location.search);
-        const urlTheme = urlParams.get('theme');
-        if (urlTheme === 'light' || urlTheme === 'dark' || urlTheme === 'system') {
-          return urlTheme;
-        }
-      }
       const saved = localStorage.getItem(THEME_STORAGE_KEY) as Theme | null;
       if (saved === 'light' || saved === 'dark' || saved === 'system') {
         return saved;

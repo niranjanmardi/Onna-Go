@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import { Logo } from '@/components/brand/Logo';
-import { Lock, User as UserIcon, ArrowRight, AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
   const { login } = useAuth();
@@ -43,130 +43,105 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAFAF8] dark:bg-[#0A0A0A] flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 text-[#171717] dark:text-[#EDEDED] selection:bg-[#DDF5E5] selection:text-[#16834A] transition-colors duration-200">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
-        <div className="inline-block cursor-pointer mb-2" onClick={() => navigate('/')}>
-          <Logo size="lg" showTagline={true} />
+    <div className="min-h-screen bg-[#FFFFFF] dark:bg-[#0A0A0A] flex flex-col justify-center px-4 sm:px-6 py-12 text-[#121212] dark:text-[#EDEDED] transition-colors">
+      <div className="w-full max-w-[400px] mx-auto">
+        <div className="mb-6">
+          <div className="inline-block cursor-pointer" onClick={() => navigate('/')}>
+            <Logo size="sm" showTagline={false} />
+          </div>
+          <h1 className="mt-4 text-2xl font-semibold tracking-tight text-[#121212] dark:text-[#EDEDED]">
+            Sign in
+          </h1>
         </div>
-        <h1 className="mt-6 text-2xl sm:text-3xl font-bold tracking-tight text-[#171717] dark:text-[#EDEDED] font-['Plus_Jakarta_Sans']">
-          Welcome Back
-        </h1>
-        <p className="mt-2 text-sm text-[#737373] dark:text-[#A1A1A1]">
-          Sign in to access your trips, friends, and shared balances.
-        </p>
-      </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white dark:bg-[#141414] border border-[#E8E8E5] dark:border-[#262626] py-8 px-6 sm:px-10 rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.03)] space-y-6">
-          {error && (
-            <div
-              role="alert"
-              className="p-3.5 rounded-xl bg-[#FFE4E6] dark:bg-[#E11D48]/15 border border-[#FDA4AF] dark:border-[#E11D48]/30 text-[#E11D48] dark:text-[#FB7185] text-xs flex items-start gap-2.5 animate-fadeIn"
+        {error && (
+          <div
+            role="alert"
+            className="p-3 rounded-[10px] bg-[#FEF2F2] dark:bg-[#450A0A]/40 border border-[#FCA5A5] dark:border-[#991B1B]/40 text-[#DC2626] dark:text-[#EF4444] text-xs mb-4 animate-fadeIn"
+          >
+            {error}
+          </div>
+        )}
+
+        <form className="space-y-4" onSubmit={handleSubmit} noValidate>
+          <div>
+            <label
+              htmlFor="identifier"
+              className="block text-xs font-medium text-[#71717A] dark:text-[#9E9E9E] mb-1.5"
             >
-              <AlertCircle className="w-4 h-4 flex-shrink-0 text-[#E11D48] dark:text-[#FB7185] mt-0.5" />
-              <span className="leading-relaxed">{error}</span>
-            </div>
-          )}
+              Username or email
+            </label>
+            <input
+              id="identifier"
+              name="identifier"
+              type="text"
+              autoComplete="username"
+              required
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              placeholder="Username or email"
+              className="w-full h-12 bg-[#FAFAF9] dark:bg-[#121212] border border-[#E4E4E7] dark:border-[#222222] rounded-[10px] px-3.5 text-sm text-[#121212] dark:text-[#EDEDED] placeholder-[#A1A1AA] focus:outline-none focus:border-[#16834A] dark:focus:border-[#22C55E] focus:ring-1 focus:ring-[#16834A] dark:focus:ring-[#22C55E] transition-colors"
+            />
+          </div>
 
-          <form className="space-y-4" onSubmit={handleSubmit} noValidate>
-            <div>
-              <label
-                htmlFor="identifier"
-                className="block text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#A1A1A1] mb-1.5"
-              >
-                Username or Email
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#A3A3A3]">
-                  <UserIcon className="w-4 h-4" />
-                </div>
-                <input
-                  id="identifier"
-                  name="identifier"
-                  type="text"
-                  autoComplete="username"
-                  required
-                  value={identifier}
-                  onChange={(e) => setIdentifier(e.target.value)}
-                  placeholder="e.g. rider_alex or alex@example.com"
-                  className="w-full bg-[#FAFAF8] dark:bg-[#1A1A1A] border border-[#E8E8E5] dark:border-[#262626] rounded-xl pl-10 pr-4 py-2.5 text-[#171717] dark:text-[#EDEDED] placeholder-[#A3A3A3] text-sm focus:outline-none focus:border-[#16834A] dark:focus:border-[#22C55E] focus:ring-2 focus:ring-[#16834A]/10 transition-colors"
-                />
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label
-                  htmlFor="password"
-                  className="block text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#A1A1A1]"
-                >
-                  Password
-                </label>
-                <Link
-                  to="/forgot-password"
-                  className="text-xs text-[#16834A] dark:text-[#22C55E] hover:underline font-medium"
-                >
-                  Forgot password?
-                </Link>
-              </div>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#A3A3A3]">
-                  <Lock className="w-4 h-4" />
-                </div>
-                <input
-                  id="password"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="current-password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full bg-[#FAFAF8] dark:bg-[#1A1A1A] border border-[#E8E8E5] dark:border-[#262626] rounded-xl pl-10 pr-10 py-2.5 text-[#171717] dark:text-[#EDEDED] placeholder-[#A3A3A3] text-sm focus:outline-none focus:border-[#16834A] dark:focus:border-[#22C55E] focus:ring-2 focus:ring-[#16834A]/10 transition-colors"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-[#A3A3A3] hover:text-[#171717] dark:hover:text-[#EDEDED] transition-colors cursor-pointer"
-                  aria-label="Toggle password visibility"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-            <div className="pt-2">
+          <div>
+            <label
+              htmlFor="password"
+              className="block text-xs font-medium text-[#71717A] dark:text-[#9E9E9E] mb-1.5"
+            >
+              Password
+            </label>
+            <div className="relative">
+              <input
+                id="password"
+                name="password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password"
+                className="w-full h-12 bg-[#FAFAF9] dark:bg-[#121212] border border-[#E4E4E7] dark:border-[#222222] rounded-[10px] pl-3.5 pr-11 text-sm text-[#121212] dark:text-[#EDEDED] placeholder-[#A1A1AA] focus:outline-none focus:border-[#16834A] dark:focus:border-[#22C55E] focus:ring-1 focus:ring-[#16834A] dark:focus:ring-[#22C55E] transition-colors"
+              />
               <button
-                type="submit"
-                disabled={loading}
-                className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-xl text-sm font-semibold text-white dark:text-[#0A0A0A] bg-[#16834A] dark:bg-[#22C55E] hover:bg-[#136F3F] dark:hover:bg-[#16A34A] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#16834A] disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-all duration-200 active:scale-[0.98] cursor-pointer"
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#A1A1AA] hover:text-[#121212] dark:hover:text-[#EDEDED] transition-colors cursor-pointer"
+                aria-label="Toggle password visibility"
               >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Signing in...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Sign In</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
-          </form>
-        </div>
+            <div className="flex justify-end pt-1.5">
+              <Link
+                to="/forgot-password"
+                className="text-xs text-[#71717A] dark:text-[#9E9E9E] hover:text-[#121212] dark:hover:text-[#EDEDED] hover:underline"
+              >
+                Forgot password?
+              </Link>
+            </div>
+          </div>
 
-        <div className="text-center mt-6">
-          <p className="text-sm text-[#737373] dark:text-[#A1A1A1]">
-            Don't have an account yet?{' '}
-            <Link
-              to="/register"
-              className="font-semibold text-[#16834A] dark:text-[#22C55E] hover:text-[#136F3F] dark:hover:text-[#16A34A] transition-colors"
+          <div className="pt-2">
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full h-12 rounded-[10px] bg-[#16834A] dark:bg-[#22C55E] text-white dark:text-[#0A0A0A] font-medium text-sm hover:opacity-95 active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-none"
             >
-              Create Account
-            </Link>
-          </p>
+              {loading && <Loader2 className="w-4 h-4 animate-spin shrink-0" />}
+              <span>Sign in</span>
+            </button>
+          </div>
+        </form>
+
+        <div className="text-center mt-6 text-sm text-[#71717A] dark:text-[#9E9E9E]">
+          New here?{' '}
+          <Link
+            to="/register"
+            className="font-medium text-[#16834A] dark:text-[#22C55E] hover:underline transition-colors"
+          >
+            Create account
+          </Link>
         </div>
       </div>
     </div>
