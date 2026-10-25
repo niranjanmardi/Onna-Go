@@ -109,9 +109,9 @@ export function calculateLocalBalances(
     }
   });
 
-  // Sort descending by amount
-  debtors.sort((a, b) => b.amount - a.amount);
-  creditors.sort((a, b) => b.amount - a.amount);
+  // Sort descending by amount, with user_id tie-breaker (matches backend settlements.py)
+  debtors.sort((a, b) => b.amount - a.amount || a.user_id.localeCompare(b.user_id));
+  creditors.sort((a, b) => b.amount - a.amount || a.user_id.localeCompare(b.user_id));
 
   const suggestions: SettlementSuggestion[] = [];
   let dIdx = 0;
