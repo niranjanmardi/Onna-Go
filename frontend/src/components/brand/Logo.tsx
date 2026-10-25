@@ -19,7 +19,10 @@ export const Logo: React.FC<LogoProps> = ({
     const { resolvedTheme } = useTheme();
     if (!activeTheme) activeTheme = resolvedTheme;
   } catch {
-    if (!activeTheme) activeTheme = 'light';
+    if (!activeTheme) {
+      const isDarkDom = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+      activeTheme = isDarkDom ? 'dark' : 'light';
+    }
   }
   const iconSizes = {
     sm: 'w-6 h-6 rounded-lg text-xs',
@@ -52,8 +55,8 @@ export const Logo: React.FC<LogoProps> = ({
       <div
         className={`flex-shrink-0 ${iconSizes[size]} flex items-center justify-center font-bold tracking-tighter ${
           isDark
-            ? 'bg-white text-[#171717] shadow-sm'
-            : 'bg-[#171717] text-white shadow-[0_1px_3px_rgba(0,0,0,0.1)]'
+            ? '!bg-white !text-[#171717] shadow-sm'
+            : '!bg-[#171717] !text-white shadow-[0_1px_3px_rgba(0,0,0,0.1)]'
         } transition-transform duration-200 hover:scale-[1.02] ${showTagline ? 'mt-0.5' : ''}`}
       >
         <svg
@@ -79,7 +82,7 @@ export const Logo: React.FC<LogoProps> = ({
         <div className="flex items-center gap-1.5 leading-none">
           <span
             className={`font-['Plus_Jakarta_Sans'] ${textSizes[size]} font-bold tracking-tight whitespace-nowrap ${
-              isDark ? 'text-white' : 'text-[#171717]'
+              isDark ? '!text-white' : '!text-[#171717]'
             }`}
           >
             ONNA-GO
@@ -89,7 +92,7 @@ export const Logo: React.FC<LogoProps> = ({
         {showTagline && (
           <span
             className={`${taglineSizes[size]} font-normal tracking-tight mt-1 ${
-              isDark ? 'text-slate-400' : 'text-[#737373]'
+              isDark ? '!text-[#A1A1A1]' : '!text-[#737373]'
             } break-words`}
           >
             Ride Together. Vibe Together. Split Together.

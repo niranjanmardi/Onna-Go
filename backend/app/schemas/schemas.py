@@ -9,7 +9,7 @@ class UserBase(BaseModel):
     default_currency: str = "INR"
 
 class UserRegister(UserBase):
-    username: str = Field(..., min_length=3, max_length=20, pattern=r"^[a-zA-Z0-9_]{3,20}$")
+    username: Optional[str] = Field(default=None, min_length=3, max_length=20, pattern=r"^[a-zA-Z0-9_]{3,20}$")
     password: str = Field(..., min_length=8, description="Minimum 8 characters")
 
 class UsernameCheckResponse(BaseModel):

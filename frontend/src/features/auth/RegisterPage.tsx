@@ -147,21 +147,21 @@ export const RegisterPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAFAF8] flex flex-col justify-center py-10 px-4 sm:px-6 lg:px-8 text-[#171717] selection:bg-[#DDF5E5] selection:text-[#16834A]">
+    <div className="min-h-screen bg-[#FAFAF8] dark:bg-[#0A0A0A] flex flex-col justify-center py-10 px-4 sm:px-6 lg:px-8 text-[#171717] dark:text-[#EDEDED] selection:bg-[#DDF5E5] selection:text-[#16834A] transition-colors duration-200">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
         <div className="inline-block cursor-pointer mb-2" onClick={() => navigate('/')}>
-          <Logo size="lg" showTagline={true} theme="light" />
+          <Logo size="lg" showTagline={true} />
         </div>
-        <h1 className="mt-5 text-2xl sm:text-3xl font-bold tracking-tight text-[#171717] font-['Plus_Jakarta_Sans']">
+        <h1 className="mt-5 text-2xl sm:text-3xl font-bold tracking-tight text-[#171717] dark:text-[#EDEDED] font-['Plus_Jakarta_Sans']">
           Create Your Account
         </h1>
-        <p className="mt-2 text-sm text-[#737373]">
+        <p className="mt-2 text-sm text-[#737373] dark:text-[#A1A1A1]">
           Good trips. Great friends. No awkward splits.
         </p>
       </div>
 
       <div className="mt-7 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white border border-[#E8E8E5] py-7 px-5 sm:px-9 rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.03)] space-y-5">
+        <div className="bg-white dark:bg-[#141414] border border-[#E8E8E5] dark:border-[#262626] py-7 px-5 sm:px-9 rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.03)] space-y-5">
           {error && (
             <div
               role="alert"
@@ -383,7 +383,7 @@ export const RegisterPage: React.FC = () => {
               <button
                 type="submit"
                 disabled={loading || usernameStatus.available === false}
-                className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-xl text-sm font-semibold text-white bg-[#16834A] hover:bg-[#136F3F] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#16834A] disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-all duration-200 active:scale-[0.98]"
+                className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-xl text-sm font-semibold text-white dark:text-[#0A0A0A] bg-[#16834A] dark:bg-[#22C55E] hover:bg-[#136F3F] dark:hover:bg-[#16A34A] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#16834A] disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-all duration-200 active:scale-[0.98] cursor-pointer"
               >
                 {loading ? (
                   <>
@@ -400,17 +400,17 @@ export const RegisterPage: React.FC = () => {
             </div>
           </form>
 
-          <p className="text-center text-xs text-[#737373]">
+          <p className="text-center text-xs text-[#737373] dark:text-[#A1A1A1]">
             By continuing, you agree to ONNA-GO's commitment to zero paise discrepancies and fair group settlements.
           </p>
         </div>
 
         <div className="text-center mt-6">
-          <p className="text-sm text-[#737373]">
+          <p className="text-sm text-[#737373] dark:text-[#A1A1A1]">
             Already have an account?{' '}
             <Link
               to="/login"
-              className="font-semibold text-[#16834A] hover:text-[#136F3F] transition-colors"
+              className="font-semibold text-[#16834A] dark:text-[#22C55E] hover:text-[#136F3F] dark:hover:text-[#16A34A] transition-colors"
             >
               Sign In
             </Link>

@@ -4,35 +4,83 @@
 
 @layer base {
   :root {
-    --bg-canvas: #FAFAF8;
-    --bg-surface: #FFFFFF;
-    --bg-surface-elevated: #F4F4F2;
-    --text-primary: #171717;
-    --text-secondary: #737373;
-    --text-muted: #A3A3A3;
-    --border-subtle: #E8E8E5;
-    --border-hover: #D6D6D2;
+    /* Surfaces: Crisp, neutral canvas & clean surfaces */
+    --bg-canvas: #FFFFFF;
+    --bg-surface: #FAFAF9;
+    --bg-surface-elevated: #F5F5F4;
+    --bg-muted: #F0F0EE;
+
+    /* Text: Deep neutral, high-contrast, human */
+    --text-primary: #121212;
+    --text-secondary: #71717A;
+    --text-muted: #A1A1AA;
+
+    /* Thin 1px Hairline Borders */
+    --border-subtle: #E4E4E7;
+    --border-hover: #D4D4D8;
+    --border-strong: #A1A1AA;
+
+    /* Single Brand Accent: #16834A (Light) */
     --accent-primary: #16834A;
-    --accent-soft: #DDF5E5;
     --accent-hover: #136F3F;
-    --font-heading: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    --accent-soft: rgba(22, 131, 74, 0.08);
+
+    /* Money States: Green for positive/received, Red for debt/owed */
+    --money-positive: #16834A;
+    --money-owed: #DC2626;
+    --money-neutral: #71717A;
+
+    /* Typography: System Font Stack (-apple-system, SF Pro, Inter, Segoe UI) */
+    --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-heading: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace;
+
+    /* Modest Radii: 8px to 12px */
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+
+    /* Elevation: Flat & Hairline, no heavy shadows or colored glows */
+    --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.04);
+    --shadow-dropdown: 0 4px 12px rgba(0, 0, 0, 0.08);
+
+    /* Animation Timing: fast & subtle 150-200ms */
+    --duration-fast: 150ms;
+    --duration-normal: 200ms;
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   html.dark,
   body.dark {
+    /* Surfaces: Intentional Near-Black (#0A0A0A, surfaces #121212/#1A1A1A) */
     --bg-canvas: #0A0A0A;
-    --bg-surface: #141414;
-    --bg-surface-elevated: #1F1F1F;
+    --bg-surface: #121212;
+    --bg-surface-elevated: #181818;
+    --bg-muted: #222222;
+
+    /* Text: Soft white #EDEDED & clean muted text */
     --text-primary: #EDEDED;
-    --text-secondary: #A1A1A1;
-    --text-muted: #6B7280;
-    --border-subtle: #262626;
-    --border-hover: #383838;
+    --text-secondary: #9E9E9E;
+    --text-muted: #666666;
+
+    /* Hairline borders in dark mode */
+    --border-subtle: #222222;
+    --border-hover: #2E2E2E;
+    --border-strong: #404040;
+
+    /* Single Brand Accent: Brighter green for dark canvas (#22C55E) */
     --accent-primary: #22C55E;
-    --accent-soft: rgba(34, 197, 94, 0.15);
     --accent-hover: #16A34A;
+    --accent-soft: rgba(34, 197, 94, 0.12);
+
+    /* Money States in Dark Mode */
+    --money-positive: #22C55E;
+    --money-owed: #EF4444;
+    --money-neutral: #9E9E9E;
+
+    --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-dropdown: 0 6px 16px rgba(0, 0, 0, 0.6);
   }
 
   body {
@@ -42,63 +90,131 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     margin: 0;
+    line-height: 1.5;
+    letter-spacing: -0.01em;
   }
 
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-heading);
     color: var(--text-primary);
     letter-spacing: -0.02em;
+    font-weight: 600;
+  }
+
+  button, input, select, textarea {
+    font-family: inherit;
   }
 }
 
-/* Tabular Numerals for Financial Data */
+/* Tabular Numerals for Financial Alignment */
 .tabular-nums {
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
+  font-feature-settings: "tnum";
 }
 
-/* Subtle Apple-style Borders & Cards */
+/* Minimal Hairline Borders */
+.hairline {
+  border: 1px solid var(--border-subtle);
+}
+.hairline-b {
+  border-bottom: 1px solid var(--border-subtle);
+}
+.hairline-t {
+  border-top: 1px solid var(--border-subtle);
+}
+.hairline-y {
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+/* Modest Card: 1px hairline border, modest 12px radius, no heavy dropshadow */
 .apple-card {
   background-color: var(--bg-surface);
   border: 1px solid var(--border-subtle);
-  border-radius: 1rem;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-subtle);
+  transition: border-color var(--duration-fast) var(--ease-out);
 }
-
 .apple-card:hover {
   border-color: var(--border-hover);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
-html.dark .apple-card {
-  background-color: var(--bg-surface);
-  border-color: var(--border-subtle);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+/* Press State Feedback for Touch & Mouse */
+.btn-press {
+  transition: transform var(--duration-fast) var(--ease-out), opacity var(--duration-fast) var(--ease-out);
+  cursor: pointer;
+}
+.btn-press:active {
+  transform: scale(0.98);
+  opacity: 0.92;
 }
 
-html.dark .apple-card:hover {
-  border-color: var(--border-hover);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+/* Venmo / Instagram-style List Row */
+.feed-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+.feed-row:last-child {
+  border-bottom: none;
+}
+
+/* Skeleton Loading Shimmer (Content-first, replaces spinners) */
+.skeleton {
+  background-color: var(--bg-surface-elevated);
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0,
+    rgba(255, 255, 255, 0.25) 20%,
+    rgba(255, 255, 255, 0.4) 60%,
+    rgba(255, 255, 255, 0)
+  );
+  animation: skeleton-shimmer 1.4s infinite;
+}
+html.dark .skeleton::after {
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0,
+    rgba(255, 255, 255, 0.04) 20%,
+    rgba(255, 255, 255, 0.08) 60%,
+    rgba(255, 255, 255, 0)
+  );
+}
+@keyframes skeleton-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 /* Segmented Control Pill Container */
 .segmented-control {
   background-color: var(--bg-surface-elevated);
-  padding: 4px;
-  border-radius: 12px;
+  padding: 3px;
+  border-radius: var(--radius-md);
   display: inline-flex;
   gap: 2px;
+  border: 1px solid var(--border-subtle);
 }
-
 html.dark .segmented-control {
-  background-color: #1A1A1A;
+  background-color: #161616;
 }
 
 /* Custom Minimal Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -111,10 +227,10 @@ html.dark .segmented-control {
   background: var(--text-muted);
 }
 html.dark ::-webkit-scrollbar-thumb {
-  background: #333333;
+  background: #2E2E2E;
 }
 html.dark ::-webkit-scrollbar-thumb:hover {
-  background: #555555;
+  background: #444444;
 }
 
 /* PWA Standalone Mode & Safe Area Inset Helpers */
@@ -133,7 +249,6 @@ html.dark ::-webkit-scrollbar-thumb:hover {
   }
 }
 
-/* In standalone PWA mode, adjust header padding */
 @media all and (display-mode: standalone) {
   .pwa-header-spacer {
     height: env(safe-area-inset-top, 0px);
@@ -147,7 +262,7 @@ html.dark ::-webkit-scrollbar-thumb:hover {
     opacity: 0;
   }
   60% {
-    transform: scale(1.12);
+    transform: scale(1.1);
   }
   100% {
     transform: scale(1);
@@ -165,63 +280,94 @@ html.dark ::-webkit-scrollbar-thumb:hover {
 }
 
 .animate-blue-tick-pop {
-  animation: blue-tick-pop 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  animation: blue-tick-pop 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
 
 .animate-blue-check-draw {
-  animation: blue-check-draw 0.38s 0.12s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+  animation: blue-check-draw 0.3s 0.1s cubic-bezier(0.25, 1, 0.5, 1) forwards;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-blue-tick-pop,
-  .animate-blue-check-draw {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .skeleton::after {
     animation: none !important;
-    stroke-dashoffset: 0 !important;
-    transform: none !important;
   }
 }
 
-/* Comprehensive Dark Mode Component & Design Token Adaptations */
+/* Comprehensive Dark Mode Compatibility Adaptations */
 html.dark .bg-white,
 body.dark .bg-white {
   background-color: var(--bg-surface) !important;
 }
 html.dark .bg-white\/95,
 body.dark .bg-white\/95 {
-  background-color: rgba(26, 26, 26, 0.95) !important;
+  background-color: rgba(18, 18, 18, 0.95) !important;
 }
 html.dark .bg-white\/90,
 body.dark .bg-white\/90 {
-  background-color: rgba(26, 26, 26, 0.90) !important;
+  background-color: rgba(18, 18, 18, 0.90) !important;
 }
 html.dark .bg-\[\#FAFAF8\],
-body.dark .bg-\[\#FAFAF8\] {
+body.dark .bg-\[\#FAFAF8\],
+html.dark .bg-\[\#FAFAF9\],
+body.dark .bg-\[\#FAFAF9\] {
   background-color: var(--bg-canvas) !important;
 }
+html.dark .bg-\[\#FAFAF8\]\/85,
+body.dark .bg-\[\#FAFAF8\]\/85,
+html.dark .bg-\[\#FAFAF8\]\/90,
+body.dark .bg-\[\#FAFAF8\]\/90,
+html.dark .bg-\[\#FAFAF8\]\/95,
+body.dark .bg-\[\#FAFAF8\]\/95 {
+  background-color: rgba(10, 10, 10, 0.90) !important;
+}
+html.dark .bg-white\/80,
+body.dark .bg-white\/80,
+html.dark .hover\:bg-white\/80:hover,
+body.dark .hover\:bg-white\/80:hover {
+  background-color: rgba(34, 34, 34, 0.80) !important;
+}
 html.dark .bg-\[\#F4F4F2\],
-body.dark .bg-\[\#F4F4F2\] {
+body.dark .bg-\[\#F4F4F2\],
+html.dark .bg-\[\#F5F5F4\],
+body.dark .bg-\[\#F5F5F4\] {
   background-color: var(--bg-surface-elevated) !important;
 }
 html.dark .text-\[\#171717\],
-body.dark .text-\[\#171717\] {
+body.dark .text-\[\#171717\],
+html.dark .text-\[\#121212\],
+body.dark .text-\[\#121212\] {
   color: var(--text-primary) !important;
 }
 html.dark .text-\[\#737373\],
-body.dark .text-\[\#737373\] {
+body.dark .text-\[\#737373\],
+html.dark .text-\[\#71717A\],
+body.dark .text-\[\#71717A\] {
   color: var(--text-secondary) !important;
 }
 html.dark .border-\[\#E8E8E5\],
 body.dark .border-\[\#E8E8E5\],
+html.dark .border-\[\#E4E4E7\],
+body.dark .border-\[\#E4E4E7\],
 html.dark .border-\[\#F4F4F2\],
 body.dark .border-\[\#F4F4F2\] {
   border-color: var(--border-subtle) !important;
 }
 html.dark .border-\[\#D6D6D2\],
-body.dark .border-\[\#D6D6D2\] {
+body.dark .border-\[\#D6D6D2\],
+html.dark .border-\[\#D4D4D8\],
+body.dark .border-\[\#D4D4D8\] {
   border-color: var(--border-hover) !important;
 }
 
-/* Accessible Brand Accent in Dark Mode (WCAG AAA Contrast > 9:1 against dark backgrounds) */
+/* Brand Accent & Money Colors in Dark Mode */
 html.dark .text-\[\#16834A\],
 body.dark .text-\[\#16834A\] {
   color: var(--accent-primary) !important;
@@ -237,7 +383,7 @@ body.dark .bg-\[\#16834A\]:hover {
 }
 html.dark .bg-\[\#DDF5E5\],
 body.dark .bg-\[\#DDF5E5\] {
-  background-color: rgba(34, 197, 94, 0.22) !important;
+  background-color: rgba(34, 197, 94, 0.14) !important;
 }
 html.dark .bg-\[\#DDF5E5\]\/40,
 body.dark .bg-\[\#DDF5E5\]\/40,
@@ -245,55 +391,55 @@ html.dark .bg-\[\#DDF5E5\]\/25,
 body.dark .bg-\[\#DDF5E5\]\/25,
 html.dark .bg-\[\#DDF5E5\]\/20,
 body.dark .bg-\[\#DDF5E5\]\/20 {
-  background: linear-gradient(135deg, rgba(34, 197, 94, 0.16) 0%, rgba(34, 197, 94, 0.06) 100%), #141414 !important;
+  background-color: rgba(34, 197, 94, 0.12) !important;
 }
 html.dark .border-\[\#C6ECCF\],
 body.dark .border-\[\#C6ECCF\] {
-  border-color: rgba(34, 197, 94, 0.50) !important;
+  border-color: rgba(34, 197, 94, 0.3) !important;
 }
 html.dark .text-\[\#16834A\]\/80,
 body.dark .text-\[\#16834A\]\/80 {
   color: rgba(34, 197, 94, 0.85) !important;
 }
 
-/* Amber / "You Owe" Tokens in Dark Mode (High-contrast WCAG AAA > 10:1 against #0A0A0A & #141414) */
+/* Money Owed / Debt: Clean Red */
 html.dark .text-\[\#B45309\],
 body.dark .text-\[\#B45309\],
 html.dark .text-\[\#92400E\],
 body.dark .text-\[\#92400E\] {
-  color: #FBBF24 !important;
+  color: #EF4444 !important;
 }
 html.dark .text-\[\#B45309\]\/80,
 body.dark .text-\[\#B45309\]\/80 {
-  color: rgba(251, 191, 36, 0.85) !important;
+  color: rgba(239, 68, 68, 0.85) !important;
 }
 html.dark .bg-\[\#FEF3C7\],
 body.dark .bg-\[\#FEF3C7\] {
-  background-color: rgba(245, 158, 11, 0.22) !important;
+  background-color: rgba(239, 68, 68, 0.12) !important;
 }
 html.dark .bg-\[\#FEF3C7\]\/40,
 body.dark .bg-\[\#FEF3C7\]\/40 {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.18) 0%, rgba(245, 158, 11, 0.08) 100%), #141414 !important;
+  background-color: rgba(239, 68, 68, 0.1) !important;
 }
 html.dark .border-\[\#FDE68A\],
 body.dark .border-\[\#FDE68A\] {
-  border-color: rgba(245, 158, 11, 0.50) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
 }
 
-/* Rose / Danger Tokens in Dark Mode */
+/* Danger / Destructive Tokens */
 html.dark .text-\[\#E11D48\],
 body.dark .text-\[\#E11D48\] {
-  color: #FB7185 !important;
+  color: #F87171 !important;
 }
 html.dark .bg-\[\#FFE4E6\],
 body.dark .bg-\[\#FFE4E6\] {
-  background-color: rgba(225, 29, 72, 0.15) !important;
+  background-color: rgba(239, 68, 68, 0.12) !important;
 }
 html.dark .border-\[\#FDA4AF\],
 body.dark .border-\[\#FDA4AF\],
 html.dark .border-\[\#FECDD3\],
 body.dark .border-\[\#FECDD3\] {
-  border-color: rgba(225, 29, 72, 0.40) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
 }
 
 /* Dark Mode Inputs, Selects, and Textareas */
@@ -303,7 +449,7 @@ html.dark select,
 body.dark select,
 html.dark textarea,
 body.dark textarea {
-  background-color: #1A1A1A !important;
+  background-color: #161616 !important;
   color: var(--text-primary) !important;
   border-color: var(--border-subtle) !important;
 }
@@ -327,4 +473,3 @@ html.dark [role="dialog"],
 body.dark [role="dialog"] {
   color: var(--text-primary) !important;
 }
-

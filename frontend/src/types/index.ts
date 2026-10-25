@@ -109,6 +109,8 @@ export interface Expense {
   notes?: string | null;
   receipt_filename?: string | null;
   is_void: boolean;
+  client_id?: string | null;
+  is_pending_sync?: boolean;
   created_by_id: string;
   created_at: string;
   splits: ExpenseSplit[];
@@ -154,6 +156,8 @@ export interface Settlement {
   payment_method: string;
   reference_id?: string | null;
   notes?: string | null;
+  client_id?: string | null;
+  is_pending_sync?: boolean;
   created_by_id: string;
   confirmed_at?: string | null;
   created_at: string;

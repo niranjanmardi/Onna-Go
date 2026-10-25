@@ -99,21 +99,35 @@ def check_username(username: str = Query(..., min_length=1, max_length=50), db: 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 def register(user_in: UserRegister, response: Response, db: Session = Depends(get_db)):
-    # 1. Validate username format
-    clean_username = user_in.username.strip().lower()
-    if not USERNAME_REGEX.match(clean_username):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username must be 3–20 characters long and contain only letters, numbers, and underscores."
-        )
-
-    # 2. Check username availability (case-insensitive)
-    existing_username = db.query(User).filter(func.lower(User.username) == clean_username).first()
-    if existing_username:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="An account with this username already exists."
-        )
+    # 1. Determine and validate username
+    if user_in.username:
+        clean_username = user_in.username.strip().lower()
+        if not USERNAME_REGEX.match(clean_username):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Username must be 3–20 characters long and contain only letters, numbers, and underscores."
+            )
+        existing_username = db.query(User).filter(func.lower(User.username) == clean_username).first()
+        if existing_username:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="An account with this username already exists."
+            )
+    else:
+        # Auto-derive unique username from email prefix
+        base_handle = re.sub(r'[^a-zA-Z0-9_]', '', user_in.email.split('@')[0].lower())[:14]
+        if len(base_handle) < 3:
+            base_handle = "user"
+        candidate = base_handle
+        counter = 1
+        while db.query(User).filter(func.lower(User.username) == candidate).first():
+            suffix = f"_{uuid.uuid4().hex[:4]}"
+            candidate = f"{base_handle[:15]}{suffix}"
+            counter += 1
+            if counter > 10:
+                candidate = f"u_{uuid.uuid4().hex[:8]}"
+                break
+        clean_username = candidate
 
     # 3. Check email uniqueness (case-insensitive)
     clean_email = user_in.email.strip().lower()

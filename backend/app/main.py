@@ -112,6 +112,10 @@ if os.path.isdir(frontend_dist):
             headers = {}
             if full_path.startswith("assets/"):
                 headers["Cache-Control"] = "public, max-age=31536000, immutable"
+            elif full_path in ("sw.js", "manifest.webmanifest") or full_path.startswith("workbox-"):
+                headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+                headers["Pragma"] = "no-cache"
+                headers["Expires"] = "0"
             return FileResponse(file_path, headers=headers)
         index_file = os.path.join(frontend_dist, "index.html")
         if os.path.isfile(index_file):

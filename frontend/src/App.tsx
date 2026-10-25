@@ -5,6 +5,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { AppLayout } from './components/layout/AppLayout';
 import { FeedbackProvider } from './context/FeedbackContext';
 import { Logo } from './components/brand/Logo';
+import { OfflineProvider } from './context/OfflineContext';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 // Lazy-loaded route components for high performance and fast initial load
@@ -33,9 +34,9 @@ const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#FAFAF8] flex flex-col items-center justify-center text-[#171717]">
-        <Logo size="lg" showTagline={true} theme="light" />
-        <div className="w-7 h-7 border-2 border-[#E8E8E5] border-t-[#16834A] rounded-full animate-spin mt-6" />
+      <div className="min-h-screen bg-[#FAFAF8] dark:bg-[#0A0A0A] flex flex-col items-center justify-center text-[#171717] dark:text-[#EDEDED] transition-colors duration-200">
+        <Logo size="lg" showTagline={true} />
+        <div className="w-7 h-7 border-2 border-[#E8E8E5] dark:border-[#262626] border-t-[#16834A] dark:border-t-[#22C55E] rounded-full animate-spin mt-6" />
       </div>
     );
   }
@@ -53,9 +54,9 @@ const RedirectIfAuth: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#FAFAF8] flex flex-col items-center justify-center text-[#171717]">
-        <Logo size="lg" showTagline={true} theme="light" />
-        <div className="w-7 h-7 border-2 border-[#E8E8E5] border-t-[#16834A] rounded-full animate-spin mt-6" />
+      <div className="min-h-screen bg-[#FAFAF8] dark:bg-[#0A0A0A] flex flex-col items-center justify-center text-[#171717] dark:text-[#EDEDED] transition-colors duration-200">
+        <Logo size="lg" showTagline={true} />
+        <div className="w-7 h-7 border-2 border-[#E8E8E5] dark:border-[#262626] border-t-[#16834A] dark:border-t-[#22C55E] rounded-full animate-spin mt-6" />
       </div>
     );
   }
@@ -70,16 +71,16 @@ const RedirectIfAuth: React.FC<{ children: React.ReactNode }> = ({ children }) =
 // 404 Page
 const NotFoundPage: React.FC = () => {
   return (
-    <div className="min-h-screen bg-[#FAFAF8] text-[#171717] flex flex-col items-center justify-center p-6 text-center">
-      <Logo size="lg" showTagline={false} theme="light" />
-      <h1 className="text-5xl font-bold text-[#171717] mt-6 font-mono tabular-nums">404</h1>
-      <h2 className="text-lg font-bold mt-2">Route Not Found</h2>
-      <p className="text-[#737373] text-sm mt-1 max-w-sm">
+    <div className="min-h-screen bg-[#FAFAF8] dark:bg-[#0A0A0A] text-[#171717] dark:text-[#EDEDED] flex flex-col items-center justify-center p-6 text-center transition-colors duration-200">
+      <Logo size="lg" showTagline={false} />
+      <h1 className="text-5xl font-bold text-[#171717] dark:text-[#EDEDED] mt-6 font-mono tabular-nums">404</h1>
+      <h2 className="text-lg font-bold mt-2 text-[#171717] dark:text-[#EDEDED]">Route Not Found</h2>
+      <p className="text-[#737373] dark:text-[#A1A1A1] text-sm mt-1 max-w-sm">
         The page you are looking for does not exist or has been moved.
       </p>
       <a
         href="/dashboard"
-        className="mt-6 px-5 py-2.5 bg-[#16834A] hover:bg-[#136F3F] text-white font-medium text-sm rounded-xl shadow-xs transition-colors"
+        className="mt-6 px-5 py-2.5 bg-[#16834A] dark:bg-[#22C55E] hover:bg-[#136F3F] dark:hover:bg-[#16A34A] text-white dark:text-[#0A0A0A] font-medium text-sm rounded-xl shadow-xs transition-colors"
       >
         Back to Dashboard
       </a>
@@ -92,8 +93,9 @@ export const App: React.FC = () => {
     <ErrorBoundary>
       <ThemeProvider>
         <AuthProvider>
-          <FeedbackProvider>
-            <BrowserRouter>
+          <OfflineProvider>
+            <FeedbackProvider>
+              <BrowserRouter>
               <Suspense fallback={<RouteLoadingFallback />}>
                 <Routes>
                   {/* Public landing */}
@@ -144,7 +146,8 @@ export const App: React.FC = () => {
               </Suspense>
             </BrowserRouter>
           </FeedbackProvider>
-        </AuthProvider>
+        </OfflineProvider>
+      </AuthProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );

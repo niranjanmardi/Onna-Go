@@ -18,6 +18,7 @@ import { Logo } from '@/components/brand/Logo';
 import { getAvatarUrl } from '@/lib/api-client';
 import { useFeedback } from '@/context/FeedbackContext';
 import { InstallPrompt } from '@/components/pwa/InstallPrompt';
+import { OfflineBanner } from '@/components/offline/OfflineBanner';
 
 export const AppLayout: React.FC = () => {
   const { user, logout } = useAuth();
@@ -261,6 +262,7 @@ export const AppLayout: React.FC = () => {
 
       {/* --- Main Content Area --- */}
       <main className="flex-1 flex flex-col min-w-0 pb-20 md:pb-0 overflow-y-auto">
+        <OfflineBanner />
         <Outlet />
       </main>
 

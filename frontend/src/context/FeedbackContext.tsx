@@ -79,6 +79,15 @@ export const FeedbackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // Notification Polling (every 30 seconds for logged-in sessions)
   const refreshUnreadCount = useCallback(async () => {
+    // Quietly skip if offline or user is not logged in
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      return;
+    }
+    const token = localStorage.getItem('onnago_token') || localStorage.getItem('rupaii_token');
+    if (!token) {
+      return;
+    }
+
     try {
       const notifs = await api.get<NotificationItem[]>('/notifications/');
       if (!Array.isArray(notifs)) return;
@@ -99,14 +108,23 @@ export const FeedbackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
       }
     } catch {
-      // Ignore background notification fetch errors
+      // Ignore background notification fetch errors quietly
     }
   }, []);
 
   useEffect(() => {
     refreshUnreadCount();
     const interval = window.setInterval(refreshUnreadCount, 30000);
-    return () => window.clearInterval(interval);
+
+    const handleOnline = () => {
+      refreshUnreadCount();
+    };
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('online', handleOnline);
+    };
   }, [refreshUnreadCount]);
 
   return (

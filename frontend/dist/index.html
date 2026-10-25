@@ -65,9 +65,9 @@
         console.error('[ONNA-GO Unhandled Rejection]', e);
       });
     </script>
-    <script type="module" crossorigin src="/assets/index-C3r9C7Dc.js"></script>
+    <script type="module" crossorigin src="/assets/index-CAOFv5z9.js"></script>
     <link rel="modulepreload" crossorigin href="/assets/createLucideIcon-BLmgJ_bX.js">
-    <link rel="stylesheet" crossorigin href="/assets/index-B0TgBwCr.css">
+    <link rel="stylesheet" crossorigin href="/assets/index-LG6MhdVj.css">
   <link rel="manifest" href="/manifest.webmanifest"></head>
   <body class="bg-[#FAFAF8] text-[#171717] antialiased selection:bg-[#DDF5E5] selection:text-[#16834A]">
     <!-- Instant Zero-Layout-Shift Branded Splash Overlay -->
@@ -121,6 +121,23 @@
     <!-- Health Check & Wake-Up Controller Script -->
     <script>
       (function() {
+        // --- 1. IMMEDIATE OFFLINE BAILOUT ---
+        // Runs in the VERY FIRST lines of the inline script before any /health fetch or timer setup.
+        // If the browser is offline at startup, immediately remove/hide the splash screen
+        // so the app mounts instantly without any /health calls or wake-up messages.
+        if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+          var initialSplash = document.getElementById('splash-screen');
+          if (initialSplash) {
+            initialSplash.style.display = 'none';
+            if (initialSplash.parentNode) {
+              initialSplash.parentNode.removeChild(initialSplash);
+            }
+          }
+          window.__onReactMounted = function() {};
+          return;
+        }
+
+        // --- 2. ONLINE STARTUP CONTROLLER ---
         var startTime = Date.now();
         var wakeUpTriggered = false;
         var healthCheckComplete = false;
@@ -198,14 +215,18 @@
           if (errEl) errEl.style.display = 'block';
         }
 
+        function clearAllTimers() {
+          if (msgInterval) { clearInterval(msgInterval); msgInterval = null; }
+          if (slowTimer) { clearTimeout(slowTimer); slowTimer = null; }
+          if (elapsedHintTimer) { clearTimeout(elapsedHintTimer); elapsedHintTimer = null; }
+          if (timeoutTimer) { clearTimeout(timeoutTimer); timeoutTimer = null; }
+          if (retryTimeout) { clearTimeout(retryTimeout); retryTimeout = null; }
+        }
+
         function dismissSplash() {
+          clearAllTimers();
           var splash = document.getElementById('splash-screen');
           if (!splash) return;
-          if (msgInterval) clearInterval(msgInterval);
-          if (slowTimer) clearTimeout(slowTimer);
-          if (elapsedHintTimer) clearTimeout(elapsedHintTimer);
-          if (timeoutTimer) clearTimeout(timeoutTimer);
-          if (retryTimeout) clearTimeout(retryTimeout);
 
           var prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
           if (prefersReduced) {
@@ -217,18 +238,25 @@
           splash.style.pointerEvents = 'none';
           setTimeout(function() {
             if (splash.parentNode) splash.parentNode.removeChild(splash);
-          }, 420);
+          }, 250);
         }
 
         function checkReady() {
-          if (healthCheckComplete && reactMounted) {
-            dismissSplash();
+          if (healthCheckComplete) {
+            if (reactMounted) {
+              dismissSplash();
+            } else {
+              // Safety fallback: if health is done, ensure splash is dismissed after 200ms even if mount event is delayed
+              setTimeout(dismissSplash, 200);
+            }
           }
         }
 
         window.__onReactMounted = function() {
           reactMounted = true;
-          checkReady();
+          if (healthCheckComplete) {
+            dismissSplash();
+          }
         };
 
         window.__retrySplashConnection = function() {
@@ -245,14 +273,45 @@
           ping();
         };
 
-        // Trigger wake-up state if server takes >2s
+        // Offline event listener: dismiss splash immediately if network drops while waiting
+        window.addEventListener('offline', function() {
+          healthCheckComplete = true;
+          clearAllTimers();
+          dismissSplash();
+        });
+
+        // Online event listener: run quiet background health check when reconnected
+        window.addEventListener('online', function() {
+          fetch('/health', {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' }
+          })
+          .then(function(res) {
+            if (res.ok) {
+              window.dispatchEvent(new CustomEvent('onnago:server-healthy'));
+            }
+          })
+          .catch(function() {
+            // Quiet background failure
+          });
+        });
+
+        // Start slow timer to detect delays (>2s) for Render cold start
         slowTimer = setTimeout(showWakeUpState, slowThreshold);
-        // Trigger elapsed hint if server takes >15s
         elapsedHintTimer = setTimeout(showElapsedHint, elapsedHintThreshold);
-        // Trigger timeout error if server takes >90s
         timeoutTimer = setTimeout(showTimeoutError, timeoutLimit);
 
         function ping() {
+          if (healthCheckComplete) return;
+
+          if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+            healthCheckComplete = true;
+            clearAllTimers();
+            dismissSplash();
+            return;
+          }
+
+          var pingStart = Date.now();
           var controller = window.AbortController ? new AbortController() : null;
           var timeoutId = controller ? setTimeout(function() { controller.abort(); }, 8000) : null;
           
@@ -265,23 +324,49 @@
             if (timeoutId) clearTimeout(timeoutId);
             if (res.ok) {
               healthCheckComplete = true;
+              clearAllTimers();
               checkReady();
+            } else if (res.status === 502 || res.status === 503 || res.status === 504) {
+              // Real Render cold start! Show "Waking things up..." and retry
+              showWakeUpState();
+              scheduleRetry();
             } else {
-              throw new Error('Health returned ' + res.status);
+              // Other status - complete health check so app can mount
+              healthCheckComplete = true;
+              clearAllTimers();
+              checkReady();
             }
           })
           .catch(function(err) {
             if (timeoutId) clearTimeout(timeoutId);
+            var pingDuration = Date.now() - pingStart;
+
+            // Instant network error (failed quickly <2s, e.g. server down or airplane mode):
+            // Treat as "no connection" -> mount app in offline mode immediately.
+            // Do NOT show "Waking things up...". Do NOT retry.
+            if (pingDuration < slowThreshold || (typeof navigator !== 'undefined' && navigator.onLine === false)) {
+              healthCheckComplete = true;
+              clearAllTimers();
+              dismissSplash();
+              return;
+            }
+
+            // If the request was actually slow (>2s) or timeout reached:
+            showWakeUpState();
+
             if (Date.now() - startTime >= timeoutLimit) {
               showTimeoutError();
               return;
             }
-            // Exponential backoff with random jitter (±300ms)
+            scheduleRetry();
+          });
+
+          function scheduleRetry() {
             var jitter = (Math.random() - 0.5) * 600;
             var nextDelay = Math.min(Math.max(1000, currentRetryDelay + jitter), 8000);
             currentRetryDelay = Math.min(currentRetryDelay * 1.5, 8000);
             retryTimeout = setTimeout(ping, nextDelay);
-          });
+          }
         }
 
         ping();

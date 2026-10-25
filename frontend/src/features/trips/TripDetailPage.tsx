@@ -48,6 +48,11 @@ import { TripSummaryModal } from '@/features/trips/TripSummaryModal';
 import { useFeedback } from '@/context/FeedbackContext';
 import { playSound } from '@/lib/sounds';
 import { downloadTripPdf, downloadTripCsv } from '@/lib/export-utils';
+import {
+  cacheTripDetails,
+  getCachedTripDetails,
+  getOutboxItemsForTrip,
+} from '@/lib/offline-db';
 
 export const TripDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -103,25 +108,136 @@ export const TripDetailPage: React.FC = () => {
   const [expenseFilterMaxAmount, setExpenseFilterMaxAmount] = useState('');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
-  // Load all trip data
+  // Load all trip data (with offline cache fallback & outbox merge)
   const loadAllTripData = async () => {
     if (!id) return;
     try {
-      const [tData, mData, eData, bData, sData, stData] = await Promise.all([
-        api.get<Trip>(`/trips/${id}`),
-        api.get<TripMember[]>(`/trips/${id}/members`),
-        api.get<Expense[]>(`/expenses/trip/${id}`),
-        api.get<TripBalances>(`/balances/trip/${id}`).catch(() => null),
-        api.get<{ trip_id: string; suggestions: SettlementSuggestion[] }>(`/balances/trip/${id}/suggestions`).catch(() => ({ trip_id: id, suggestions: [] })),
-        api.get<Settlement[]>(`/settlements/trip/${id}`).catch(() => []),
-      ]);
+      let tData: Trip | null = null;
+      let mData: TripMember[] = [];
+      let eData: Expense[] = [];
+      let bData: TripBalances | null = null;
+      let sData: SettlementSuggestion[] = [];
+      let stData: Settlement[] = [];
 
-      setTrip(tData);
+      try {
+        const [resT, resM, resE, resB, resS, resSt] = await Promise.all([
+          api.get<Trip>(`/trips/${id}`),
+          api.get<TripMember[]>(`/trips/${id}/members`),
+          api.get<Expense[]>(`/expenses/trip/${id}`),
+          api.get<TripBalances>(`/balances/trip/${id}`).catch(() => null),
+          api.get<{ trip_id: string; suggestions: SettlementSuggestion[] }>(
+            `/balances/trip/${id}/suggestions`
+          ).catch(() => ({ trip_id: id, suggestions: [] })),
+          api.get<Settlement[]>(`/settlements/trip/${id}`).catch(() => []),
+        ]);
+        tData = resT;
+        mData = resM;
+        eData = resE;
+        bData = resB;
+        sData = resS?.suggestions || [];
+        stData = resSt;
+
+        // Cache fresh trip details for offline use
+        cacheTripDetails(id, tData, eData, stData, mData).catch(console.error);
+      } catch (networkErr: any) {
+        // Fall back to offline IndexedDB cache
+        const cached = await getCachedTripDetails(id).catch(() => null);
+        if (cached) {
+          tData = cached.trip;
+          mData = cached.members;
+          eData = cached.expenses;
+          stData = cached.settlements;
+        } else {
+          throw networkErr;
+        }
+      }
+
+      // Merge local pending outbox items for this trip
+      try {
+        const outboxItems = await getOutboxItemsForTrip(id);
+        const pendingExpenses: Expense[] = [];
+        const pendingSettlements: Settlement[] = [];
+
+        for (const item of outboxItems) {
+          if (item.type === 'EXPENSE') {
+            const alreadyPresent = eData.some(
+              (e) => (e.client_id && e.client_id === item.client_id) || e.id === item.client_id
+            );
+            if (!alreadyPresent) {
+              const payer = mData.find((m) => m.user_id === item.payload.payer_id);
+              pendingExpenses.push({
+                id: item.client_id,
+                trip_id: item.trip_id,
+                payer_id: item.payload.payer_id,
+                payer_name: payer?.user_name || 'Member',
+                description: item.payload.description,
+                amount_paise: item.payload.amount_paise,
+                currency: item.payload.currency || tData?.currency || 'INR',
+                category: item.payload.category || 'Other',
+                split_method: item.payload.split_method || 'EQUAL',
+                date: item.payload.date || item.created_at,
+                notes: item.payload.notes || null,
+                is_void: false,
+                client_id: item.client_id,
+                is_pending_sync: true,
+                created_by_id: item.payload.payer_id,
+                created_at: item.created_at,
+                splits: (item.payload.splits || []).map((s: any) => ({
+                  id: s.id || item.client_id,
+                  user_id: s.user_id,
+                  user_name:
+                    s.user_name ||
+                    mData.find((m) => m.user_id === s.user_id)?.user_name ||
+                    'Member',
+                  user_email: '',
+                  amount_paise: s.amount_paise || 0,
+                  percentage: s.percentage || null,
+                  shares: s.shares || null,
+                })),
+              });
+            }
+          } else if (item.type === 'SETTLEMENT') {
+            const alreadyPresent = stData.some(
+              (s) => (s.client_id && s.client_id === item.client_id) || s.id === item.client_id
+            );
+            if (!alreadyPresent) {
+              const payer = mData.find((m) => m.user_id === item.payload.payer_id);
+              const payee = mData.find((m) => m.user_id === item.payload.payee_id);
+              pendingSettlements.push({
+                id: item.client_id,
+                trip_id: item.trip_id,
+                payer_id: item.payload.payer_id,
+                payer_name: payer?.user_name || 'Member',
+                payee_id: item.payload.payee_id,
+                payee_name: payee?.user_name || 'Member',
+                amount_paise: item.payload.amount_paise,
+                status: 'PENDING_CONFIRMATION',
+                payment_method: item.payload.payment_method || 'CASH',
+                reference_id: item.payload.reference_id || null,
+                notes: item.payload.notes || null,
+                client_id: item.client_id,
+                is_pending_sync: true,
+                created_by_id: item.payload.payer_id,
+                created_at: item.created_at,
+                updated_at: item.created_at,
+              });
+            }
+          }
+        }
+
+        eData = [...pendingExpenses, ...eData];
+        stData = [...pendingSettlements, ...stData];
+      } catch (outboxErr) {
+        console.error('Error reading outbox items:', outboxErr);
+      }
+
+      if (tData) setTrip(tData);
       setMembers(mData);
       setExpenses(eData);
       setBalances(bData);
-      setSuggestions(sData?.suggestions || []);
+      setSuggestions(sData);
       setSettlements(stData);
+      setError(null);
     } catch (err: any) {
       setError(err.message || 'Failed to load trip information.');
     } finally {
@@ -131,6 +247,24 @@ export const TripDetailPage: React.FC = () => {
 
   useEffect(() => {
     loadAllTripData();
+
+    const handleSynced = (e: any) => {
+      if (!e.detail?.trip_id || e.detail?.trip_id === id) {
+        loadAllTripData();
+      }
+    };
+
+    const handleOnline = () => {
+      loadAllTripData();
+    };
+
+    window.addEventListener('onnago:item-synced', handleSynced);
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+      window.removeEventListener('onnago:item-synced', handleSynced);
+      window.removeEventListener('online', handleOnline);
+    };
   }, [id]);
 
   // Derived user statistics
@@ -871,11 +1005,18 @@ export const TripDetailPage: React.FC = () => {
                     {/* Actions and Status */}
                     {pendingSt ? (
                       <div className="flex items-center gap-2">
-                        <span className="px-2.5 py-1 rounded-lg bg-[#FEF3C7] text-[#B45309] border border-[#FDE68A] text-[11px] font-bold flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          <span>Awaiting confirmation</span>
-                        </span>
-                        {isReceiver && (
+                        {pendingSt.is_pending_sync ? (
+                          <span className="px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-800 dark:text-amber-200 border border-amber-500/30 text-[11px] font-bold flex items-center gap-1 animate-pulse">
+                            <Clock className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                            <span>Waiting to sync</span>
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-1 rounded-lg bg-[#FEF3C7] text-[#B45309] border border-[#FDE68A] text-[11px] font-bold flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            <span>Awaiting confirmation</span>
+                          </span>
+                        )}
+                        {isReceiver && !pendingSt.is_pending_sync && (
                           <button
                             onClick={() => handleConfirmReceipt(pendingSt.id)}
                             disabled={settlingActionId === pendingSt.id}
@@ -1113,11 +1254,18 @@ export const TripDetailPage: React.FC = () => {
                         <span className="text-xs font-bold text-[#171717] truncate">
                           {exp.description}
                         </span>
-                        <span className="text-[10px] font-semibold text-[#737373] bg-[#FAFAF8] border border-[#E8E8E5] px-2 py-0.5 rounded-md">
-                          {exp.split_method === 'EQUAL'
-                            ? `Split Equally (${exp.splits.length})`
-                            : `Split with ${exp.splits.length} member(s)`}
-                        </span>
+                        {exp.is_pending_sync ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 dark:text-amber-200 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-md animate-pulse">
+                            <Clock className="w-2.5 h-2.5 text-amber-600 dark:text-amber-400" />
+                            <span>Waiting to sync</span>
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-semibold text-[#737373] bg-[#FAFAF8] border border-[#E8E8E5] px-2 py-0.5 rounded-md">
+                            {exp.split_method === 'EQUAL'
+                              ? `Split Equally (${exp.splits.length})`
+                              : `Split with ${exp.splits.length} member(s)`}
+                          </span>
+                        )}
                       </div>
                       <p className="text-[11px] text-[#737373] mt-0.5">
                         Paid by <strong className="text-[#171717]">{exp.payer_name}</strong> •{' '}
@@ -1385,17 +1533,24 @@ export const TripDetailPage: React.FC = () => {
                       <span className="font-mono font-bold text-sm text-[#171717] block tabular-nums">
                         {formatPaise(st.amount_paise, trip.currency)}
                       </span>
-                      <span
-                        className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md inline-block mt-1 ${
-                          st.status === 'CONFIRMED'
-                            ? 'bg-[#DDF5E5] text-[#16834A]'
-                            : st.status === 'REJECTED' || st.status === 'CANCELLED'
-                            ? 'bg-[#FFE4E6] text-[#E11D48]'
-                            : 'bg-[#FEF3C7] text-[#B45309]'
-                        }`}
-                      >
-                        {st.status}
-                      </span>
+                      {st.is_pending_sync ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 dark:text-amber-200 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-md mt-1 animate-pulse">
+                          <Clock className="w-2.5 h-2.5 text-amber-600 dark:text-amber-400" />
+                          <span>Waiting to sync</span>
+                        </span>
+                      ) : (
+                        <span
+                          className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md inline-block mt-1 ${
+                            st.status === 'CONFIRMED'
+                              ? 'bg-[#DDF5E5] text-[#16834A]'
+                              : st.status === 'REJECTED' || st.status === 'CANCELLED'
+                              ? 'bg-[#FFE4E6] text-[#E11D48]'
+                              : 'bg-[#FEF3C7] text-[#B45309]'
+                          }`}
+                        >
+                          {st.status}
+                        </span>
+                      )}
                     </div>
                   </div>
                 ))}

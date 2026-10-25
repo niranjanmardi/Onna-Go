@@ -5,6 +5,7 @@ import { TripMember, Settlement } from '@/types';
 import { rupeesToPaise, formatPaise } from '@/lib/currency';
 import { useFeedback } from '@/context/FeedbackContext';
 import { playSound } from '@/lib/sounds';
+import { queueSettlementCreation, isDeviceOnline } from '@/lib/sync-manager';
 
 interface RecordSettlementModalProps {
   isOpen: boolean;
@@ -78,7 +79,7 @@ export const RecordSettlementModal: React.FC<RecordSettlementModalProps> = ({
 
     setLoading(true);
     try {
-      const recorded = await api.post<Settlement>('/settlements/', {
+      const settlementPayload = {
         trip_id: tripId,
         payer_id: payerId,
         payee_id: payeeId,
@@ -86,13 +87,49 @@ export const RecordSettlementModal: React.FC<RecordSettlementModalProps> = ({
         payment_method: paymentMethod,
         reference_id: referenceId || null,
         notes: notes || null,
-      });
+      };
 
-      showConfirmation({
-        title: 'Settlement request created',
-        message: `${payeeMember?.user_name || 'Payee'} will receive a notification to verify and confirm receipt.`,
-        sound: 'settlement_success',
-      });
+      let recorded: Settlement;
+
+      if (!isDeviceOnline()) {
+        recorded = await queueSettlementCreation(
+          tripId,
+          settlementPayload,
+          payerMember?.user_name || 'You',
+          payeeMember?.user_name || 'Member'
+        );
+        showConfirmation({
+          title: 'Saved offline ⏳',
+          message: `Settlement of ${formatPaise(paise, 'INR')} saved on device. Will sync when you are back online.`,
+          sound: 'settlement_success',
+        });
+      } else {
+        try {
+          recorded = await api.post<Settlement>('/settlements/', settlementPayload);
+          showConfirmation({
+            title: 'Settlement request created',
+            message: `${payeeMember?.user_name || 'Payee'} will receive a notification to verify and confirm receipt.`,
+            sound: 'settlement_success',
+          });
+        } catch (apiErr: any) {
+          if (!window.navigator.onLine || apiErr?.message?.includes('fetch') || apiErr?.message?.includes('Network')) {
+            recorded = await queueSettlementCreation(
+              tripId,
+              settlementPayload,
+              payerMember?.user_name || 'You',
+              payeeMember?.user_name || 'Member'
+            );
+            showConfirmation({
+              title: 'Saved offline ⏳',
+              message: `Network unavailable. Settlement saved in outbox.`,
+              sound: 'settlement_success',
+            });
+          } else {
+            throw apiErr;
+          }
+        }
+      }
+
       onSettlementRecorded(recorded);
       onClose();
     } catch (err: any) {

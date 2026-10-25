@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { SplashController } from '../lib/splash-controller';
 
-describe('Phase 1: Splash Screen & Wake-Up Controller', () => {
+describe('Splash Screen & Wake-Up Controller', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     document.body.innerHTML = `
@@ -31,56 +32,149 @@ describe('Phase 1: Splash Screen & Wake-Up Controller', () => {
     expect(ring).not.toBeNull();
   });
 
-  it('smoothly fades out splash when server is healthy and app mounts', () => {
+  it('offline startup mounts the app immediately without wake-up messages', () => {
+    let wakeUpCalled = false;
     let dismissed = false;
-    const dismissSplash = () => {
-      const splash = document.getElementById('splash-screen');
-      if (splash) {
-        splash.style.opacity = '0';
+
+    const controller = new SplashController({
+      isOnline: () => false, // Device is offline at startup
+      fetchFn: vi.fn(),
+      onWakeUp: () => {
+        wakeUpCalled = true;
+      },
+      onDismiss: () => {
         dismissed = true;
-      }
-    };
+      },
+    });
 
-    dismissSplash();
+    controller.start();
+
+    // Health check must be marked complete and splash dismissed immediately
+    expect(controller.healthCheckComplete).toBe(true);
+    expect(wakeUpCalled).toBe(false);
     expect(dismissed).toBe(true);
-    expect(document.getElementById('splash-screen')?.style.opacity).toBe('0');
+
+    // When React mounts, it remains dismissed
+    controller.onReactMounted();
+    expect(dismissed).toBe(true);
+    expect(wakeUpCalled).toBe(false);
+
+    // Advancing timers should never trigger wake-up
+    vi.advanceTimersByTime(5000);
+    expect(wakeUpCalled).toBe(false);
   });
 
-  it('triggers wake-up state and rotating messages when response is slow (>2s)', () => {
-    const friendlyMessages = [
-      "Packing the snacks for the road...",
-      "Warming up the engine...",
-      "Checking tyre pressures & route maps...",
-    ];
+  it('slow online response shows the wake-up state after 2 seconds', async () => {
+    let wakeUpCalled = false;
 
-    const titleEl = document.getElementById('splash-title')!;
-    const subEl = document.getElementById('splash-submessage')!;
+    // Simulate hanging or slow fetch
+    const hangingFetch = () => new Promise<Response>(() => {});
 
-    // Simulate 2s slow threshold trigger
-    titleEl.innerText = "Waking things up...";
-    subEl.innerText = friendlyMessages[0];
+    const controller = new SplashController({
+      isOnline: () => true,
+      fetchFn: hangingFetch as any,
+      slowThreshold: 2000,
+      onWakeUp: () => {
+        wakeUpCalled = true;
+      },
+    });
 
-    expect(titleEl.innerText).toBe("Waking things up...");
-    expect(subEl.innerText).toBe(friendlyMessages[0]);
+    controller.start();
+    expect(wakeUpCalled).toBe(false);
+
+    // Advance 1.5 seconds -> still not slow enough
+    vi.advanceTimersByTime(1500);
+    expect(wakeUpCalled).toBe(false);
+
+    // Advance to 2.1 seconds -> exceeds slowThreshold -> shows wake-up state!
+    vi.advanceTimersByTime(600);
+    expect(wakeUpCalled).toBe(true);
+    expect(controller.wakeUpTriggered).toBe(true);
   });
 
-  it('reveals elapsed hint after 15 seconds', () => {
-    const hintEl = document.getElementById('splash-elapsed-hint')!;
-    hintEl.style.display = 'inline-block';
-    expect(hintEl.style.display).toBe('inline-block');
+  it('instant network error mounts the app without wake-up state', async () => {
+    let wakeUpCalled = false;
+    let dismissed = false;
+
+    // Simulate instant network failure (e.g. connection refused, offline DNS drop)
+    const instantFailFetch = () => Promise.reject(new TypeError('Failed to fetch'));
+
+    const controller = new SplashController({
+      isOnline: () => true,
+      fetchFn: instantFailFetch as any,
+      slowThreshold: 2000,
+      onWakeUp: () => {
+        wakeUpCalled = true;
+      },
+      onDismiss: () => {
+        dismissed = true;
+      },
+    });
+
+    controller.start();
+
+    // Allow promise rejection microtask to execute and dismiss
+    await vi.waitFor(() => {
+      expect(controller.healthCheckComplete).toBe(true);
+      expect(dismissed).toBe(true);
+    });
+
+    // Should treat instant failure as "no connection" and complete health check
+    expect(wakeUpCalled).toBe(false);
+
+    // When React mounts, it remains dismissed
+    controller.onReactMounted();
+    expect(dismissed).toBe(true);
+    expect(wakeUpCalled).toBe(false);
   });
 
-  it('reveals error state and retry button after 90s timeout', () => {
-    const titleEl = document.getElementById('splash-title')!;
-    const errEl = document.getElementById('splash-error-box')!;
-    const ringEl = document.getElementById('splash-loading-ring')!;
+  it('cold start status (502/503/504) triggers wake-up state', async () => {
+    let wakeUpCalled = false;
 
-    titleEl.innerText = "Waking up took longer than expected";
-    ringEl.style.display = 'none';
-    errEl.style.display = 'block';
+    // Simulate Render cold start 503 Service Unavailable
+    const coldStartFetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+    });
 
-    expect(titleEl.innerText).toContain("longer than expected");
-    expect(ringEl.style.display).toBe('none');
-    expect(errEl.style.display).toBe('block');
+    const controller = new SplashController({
+      isOnline: () => true,
+      fetchFn: coldStartFetch as any,
+      onWakeUp: () => {
+        wakeUpCalled = true;
+      },
+    });
+
+    controller.start();
+    await vi.waitFor(() => {
+      expect(wakeUpCalled).toBe(true);
+    });
+
+    expect(controller.healthCheckComplete).toBe(false);
+  });
+
+  it('offline event dismisses waiting splash and mounts the app', () => {
+    let dismissed = false;
+
+    // Hanging fetch while device appears online
+    const hangingFetch = () => new Promise<Response>(() => {});
+
+    const controller = new SplashController({
+      isOnline: () => true,
+      fetchFn: hangingFetch as any,
+      onDismiss: () => {
+        dismissed = true;
+      },
+    });
+
+    controller.start();
+    controller.onReactMounted();
+    expect(dismissed).toBe(false);
+
+    // Browser fires offline event
+    controller.handleOfflineEvent();
+
+    expect(controller.healthCheckComplete).toBe(true);
+    expect(dismissed).toBe(true);
   });
 });

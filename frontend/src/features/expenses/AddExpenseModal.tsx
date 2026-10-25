@@ -25,6 +25,7 @@ import { useAuth } from '@/features/auth/AuthContext';
 import { BlueTick } from '@/components/common/BlueTick';
 import { useFeedback } from '@/context/FeedbackContext';
 import { playSound } from '@/lib/sounds';
+import { queueExpenseCreation, isDeviceOnline } from '@/lib/sync-manager';
 
 interface AddExpenseModalProps {
   isOpen: boolean;
@@ -229,7 +230,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
 
     setLoading(true);
     try {
-      const created = await api.post<Expense>('/expenses/', {
+      const expensePayload = {
         trip_id: tripId,
         activity_id: activityId || null,
         payer_id: payerId,
@@ -242,23 +243,54 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
         notes: notes.trim() || null,
         participant_ids: payloadParticipantIds,
         splits: payloadSplits.length > 0 ? payloadSplits : undefined,
-      });
+      };
 
-      // Optional receipt upload
-      if (receiptFile) {
+      const payerObj = members.find((m) => m.user_id === payerId);
+      let created: Expense;
+
+      if (!isDeviceOnline()) {
+        created = await queueExpenseCreation(tripId, expensePayload, payerObj?.user_name || 'You');
+        setSuccess('Saved offline. Waiting to sync.');
+        showConfirmation({
+          title: 'Saved offline ⏳',
+          message: `${description} (${formatPaise(totalPaise, currency)}) will sync when you are back online.`,
+          sound: 'expense_success',
+        });
+      } else {
         try {
-          await api.uploadFile(`/receipts/upload/${created.id}`, receiptFile);
-        } catch {
-          // Non-fatal
+          created = await api.post<Expense>('/expenses/', expensePayload);
+
+          // Optional receipt upload
+          if (receiptFile) {
+            try {
+              await api.uploadFile(`/receipts/upload/${created.id}`, receiptFile);
+            } catch {
+              // Non-fatal
+            }
+          }
+
+          setSuccess('Expense recorded successfully.');
+          showConfirmation({
+            title: 'Expense recorded successfully',
+            message: `${description} (${formatPaise(totalPaise, currency)}) split with ${participantCount} member(s).`,
+            sound: 'expense_success',
+          });
+        } catch (apiErr: any) {
+          // If offline or network drop occurred during fetch
+          if (!window.navigator.onLine || apiErr?.message?.includes('fetch') || apiErr?.message?.includes('Network')) {
+            created = await queueExpenseCreation(tripId, expensePayload, payerObj?.user_name || 'You');
+            setSuccess('Network unavailable. Saved offline.');
+            showConfirmation({
+              title: 'Saved offline ⏳',
+              message: `${description} (${formatPaise(totalPaise, currency)}) queued in outbox.`,
+              sound: 'expense_success',
+            });
+          } else {
+            throw apiErr;
+          }
         }
       }
 
-      setSuccess('Expense recorded successfully.');
-      showConfirmation({
-        title: 'Expense recorded successfully',
-        message: `${description} (${formatPaise(totalPaise, currency)}) split with ${participantCount} member(s).`,
-        sound: 'expense_success',
-      });
       onExpenseAdded(created);
       setTimeout(() => {
         onClose();

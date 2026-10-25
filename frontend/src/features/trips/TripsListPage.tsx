@@ -21,6 +21,7 @@ import {
   X
 } from 'lucide-react';
 import { api } from '@/lib/api-client';
+import { cacheTripsList, getCachedTripsList } from '@/lib/offline-db';
 import { Trip, TripInvitation } from '@/types';
 import { formatPaise, formatDate } from '@/lib/currency';
 import { CreateTripModal } from './CreateTripModal';
@@ -80,8 +81,18 @@ export const TripsListPage: React.FC = () => {
       ]);
       setTrips(tripsData);
       setPendingInvitations(invData);
+      setError(null);
+      // Cache trips in IndexedDB for offline view
+      cacheTripsList(tripsData).catch(console.error);
     } catch (err: any) {
-      setError(err.message || 'Failed to load trips.');
+      // Offline fallback: try reading cached trips from IndexedDB
+      const cached = await getCachedTripsList().catch(() => []);
+      if (cached && cached.length > 0) {
+        setTrips(cached);
+        setError(null);
+      } else {
+        setError(err.message || 'Failed to load trips.');
+      }
     } finally {
       setLoading(false);
     }
@@ -89,6 +100,15 @@ export const TripsListPage: React.FC = () => {
 
   useEffect(() => {
     fetchTripsAndInvitations();
+
+    const handleOnline = () => {
+      fetchTripsAndInvitations();
+    };
+
+    window.addEventListener('online', handleOnline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+    };
   }, []);
 
   const handleTripCreated = (newTrip: Trip) => {
