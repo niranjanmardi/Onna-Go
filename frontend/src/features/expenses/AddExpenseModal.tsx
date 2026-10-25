@@ -410,22 +410,25 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
-      <div className="bg-white rounded-2xl border border-[#E8E8E5] shadow-2xl max-w-lg w-full p-6 sm:p-7 relative max-h-[92vh] overflow-y-auto selection:bg-[#DDF5E5] selection:text-[#16834A]">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 backdrop-blur-xs">
+      <div className="bg-white dark:bg-[#141414] text-[#171717] dark:text-[#EDEDED] rounded-t-2xl sm:rounded-2xl border-t sm:border border-[#E8E8E5] dark:border-[#262626] shadow-2xl max-w-lg w-full p-5 sm:p-7 relative max-h-[90vh] sm:max-h-[92vh] overflow-y-auto selection:bg-[#DDF5E5] selection:text-[#16834A]">
+        {/* Mobile Drag Handle */}
+        <div className="sm:hidden w-12 h-1 bg-[#E8E8E5] dark:bg-[#333333] rounded-full mx-auto mb-3" />
+
         {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-[#E8E8E5]">
+        <div className="flex items-center justify-between pb-4 border-b border-[#E8E8E5] dark:border-[#262626]">
           <div>
-            <h2 className="text-lg font-bold text-[#171717] font-['Plus_Jakarta_Sans']">
+            <h2 className="text-lg font-bold text-[#171717] dark:text-[#EDEDED] font-['Plus_Jakarta_Sans']">
               {initialExpense ? 'Edit Expense' : 'Record Expense'}
             </h2>
-            <p className="text-xs text-[#737373] mt-0.5">
+            <p className="text-xs text-[#737373] dark:text-[#8E8E93] mt-0.5">
               {initialExpense ? 'Modify expense amount, payer, or split details' : 'Split group costs with automatic debt calculation'}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 text-[#737373] hover:text-[#171717] rounded-lg hover:bg-[#F4F4F2] transition-colors cursor-pointer"
+            className="p-1.5 text-[#737373] dark:text-[#8E8E93] hover:text-[#171717] dark:hover:text-[#EDEDED] rounded-lg hover:bg-[#F4F4F2] dark:hover:bg-[#1C1C1C] transition-colors cursor-pointer"
             aria-label="Close"
           >
             <X className="w-5 h-5" />
@@ -450,12 +453,12 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
 
         <form onSubmit={handleSubmit} className="mt-5 space-y-5">
           {/* 1. VISUAL AMOUNT INPUT */}
-          <div className="bg-[#FAFAF8] border border-[#E8E8E5] rounded-2xl p-5 text-center flex flex-col items-center justify-center">
-            <label htmlFor="expense-amount" className="text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
+          <div className="bg-[#FAFAF8] dark:bg-[#1C1C1C] border border-[#E8E8E5] dark:border-[#2E2E2E] rounded-2xl p-5 text-center flex flex-col items-center justify-center">
+            <label htmlFor="expense-amount" className="text-[11px] font-bold uppercase tracking-wider text-[#737373] dark:text-[#8E8E93] mb-1">
               Expense Amount
             </label>
             <div className="flex items-baseline justify-center">
-              <span className="text-3xl sm:text-4xl font-bold font-mono text-[#737373] mr-2 select-none">
+              <span className="text-3xl sm:text-4xl font-bold font-mono text-[#737373] dark:text-[#8E8E93] mr-2 select-none">
                 {currencySymbol}
               </span>
               <input
@@ -468,17 +471,17 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                 value={amountRupees}
                 onChange={(e) => setAmountRupees(e.target.value)}
                 placeholder="0.00"
-                className="w-44 sm:w-56 text-3xl sm:text-4xl font-bold font-mono text-[#171717] bg-transparent border-none focus:outline-none tabular-nums text-left placeholder-[#D4D4D0]"
+                className="w-44 sm:w-56 text-3xl sm:text-4xl font-bold font-mono text-[#171717] dark:text-[#EDEDED] bg-transparent border-none focus:outline-none tabular-nums text-left placeholder-[#D4D4D0] dark:placeholder-[#404040]"
               />
             </div>
             {totalPaise > 0 && participantCount > 0 && advancedSplitMethod === 'NONE' && (
-              <p className="mt-2 text-xs font-semibold text-[#16834A] bg-[#DDF5E5] border border-[#C6ECCF] px-3 py-1 rounded-full">
+              <p className="mt-2 text-xs font-semibold text-[#16834A] dark:text-[#22C55E] bg-[#DDF5E5] dark:bg-[#22C55E]/15 border border-[#C6ECCF] dark:border-[#22C55E]/30 px-3 py-1 rounded-full">
                 Each participant owes {formatPaise(perPersonPaise, currency)}{' '}
-                <span className="font-normal text-[#16834A]/80">
+                <span className="font-normal text-[#16834A]/80 dark:text-[#22C55E]/80">
                   ({participantCount} {participantCount === 1 ? 'member' : 'members'})
                 </span>
                 {remainderPaise > 0 && (
-                  <span className="ml-1 text-[10px] text-[#136F3F] font-mono">
+                  <span className="ml-1 text-[10px] text-[#136F3F] dark:text-[#22C55E] font-mono">
                     (+1p remainder adjusted)
                   </span>
                 )}
@@ -489,7 +492,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
           {/* 2. EXPENSE TITLE & CATEGORY */}
           <div className="space-y-3">
             <div>
-              <label htmlFor="expense-title" className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1.5">
+              <label htmlFor="expense-title" className="block text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#8E8E93] mb-1.5">
                 Expense Description *
               </label>
               <input
@@ -499,12 +502,12 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="e.g. Dinner at Beach Shack, Petrol refill, Highway toll"
-                className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-3.5 py-2.5 text-sm text-[#171717] placeholder-[#A3A3A3] focus:outline-none focus:border-[#16834A] transition-colors"
+                className="w-full bg-[#FAFAF8] dark:bg-[#1C1C1C] border border-[#E8E8E5] dark:border-[#2E2E2E] rounded-xl px-3.5 py-2.5 text-sm text-[#171717] dark:text-[#EDEDED] placeholder-[#A3A3A3] dark:placeholder-[#555] focus:outline-none focus:border-[#16834A] dark:focus:border-[#22C55E] transition-colors"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1.5">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#8E8E93] mb-1.5">
                 Category
               </label>
               <div className="grid grid-cols-4 sm:grid-cols-8 gap-1.5">
@@ -518,8 +521,8 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                       onClick={() => setCategory(cat.name)}
                       className={`flex flex-col items-center justify-center p-2 rounded-xl border text-[11px] font-medium transition-all cursor-pointer ${
                         isSelected
-                          ? 'bg-[#16834A] text-white border-[#16834A] shadow-xs'
-                          : 'bg-white hover:bg-[#FAFAF8] text-[#737373] border-[#E8E8E5]'
+                          ? 'bg-[#16834A] dark:bg-[#22C55E] text-white dark:text-[#0A0A0A] border-[#16834A] dark:border-[#22C55E] shadow-xs'
+                          : 'bg-white dark:bg-[#1A1A1A] hover:bg-[#FAFAF8] dark:hover:bg-[#222] text-[#737373] dark:text-[#8E8E93] border-[#E8E8E5] dark:border-[#2E2E2E]'
                       }`}
                       title={cat.name}
                     >
@@ -535,17 +538,17 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
           {/* 3. PAID BY & DATE */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label htmlFor="payer-select" className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1.5">
+              <label htmlFor="payer-select" className="block text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#8E8E93] mb-1.5">
                 Paid by *
               </label>
               <select
                 id="payer-select"
                 value={payerId}
                 onChange={(e) => setPayerId(e.target.value)}
-                className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-[#171717] focus:outline-none focus:border-[#16834A] transition-colors"
+                className="w-full bg-[#FAFAF8] dark:bg-[#1C1C1C] border border-[#E8E8E5] dark:border-[#2E2E2E] rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-[#171717] dark:text-[#EDEDED] focus:outline-none focus:border-[#16834A] dark:focus:border-[#22C55E] transition-colors"
               >
                 {members.map((m) => (
-                  <option key={m.user_id} value={m.user_id}>
+                  <option key={m.user_id} value={m.user_id} className="dark:bg-[#1C1C1C]">
                     {m.user_name} {m.user_id === user?.id ? '(You)' : ''}
                   </option>
                 ))}
@@ -553,7 +556,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
             </div>
 
             <div>
-              <label htmlFor="expense-date" className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1.5">
+              <label htmlFor="expense-date" className="block text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#8E8E93] mb-1.5">
                 Expense Date
               </label>
               <div className="relative">
@@ -563,7 +566,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                   type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
-                  className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl pl-9 pr-3 py-2 text-xs sm:text-sm text-[#171717] focus:outline-none focus:border-[#16834A] transition-colors"
+                  className="w-full bg-[#FAFAF8] dark:bg-[#1C1C1C] border border-[#E8E8E5] dark:border-[#2E2E2E] rounded-xl pl-9 pr-3 py-2 text-xs sm:text-sm text-[#171717] dark:text-[#EDEDED] focus:outline-none focus:border-[#16834A] dark:focus:border-[#22C55E] transition-colors"
                 />
               </div>
             </div>
