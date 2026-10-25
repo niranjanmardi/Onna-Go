@@ -7,10 +7,10 @@ interface AuthContextType {
   isLoading: boolean;
   login: (identifier: string, password: string) => Promise<void>;
   register: (
+    username: string,
     fullName: string,
     email: string,
     password: string,
-    username?: string,
     defaultCurrency?: string
   ) => Promise<void>;
   logout: () => Promise<void>;

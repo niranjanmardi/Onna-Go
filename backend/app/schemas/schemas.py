@@ -8,9 +8,31 @@ class UserBase(BaseModel):
     full_name: str
     default_currency: str = "INR"
 
+    @field_validator("email", mode="before")
+    @classmethod
+    def clean_email(cls, v):
+        if isinstance(v, str):
+            return v.strip().lower()
+        return v
+
+    @field_validator("full_name", mode="before")
+    @classmethod
+    def clean_full_name(cls, v):
+        if isinstance(v, str):
+            return v.strip()
+        return v
+
 class UserRegister(UserBase):
     username: Optional[str] = Field(default=None, min_length=3, max_length=20, pattern=r"^[a-zA-Z0-9_]{3,20}$")
     password: str = Field(..., min_length=8, description="Minimum 8 characters")
+
+    @field_validator("username", mode="before")
+    @classmethod
+    def clean_username_input(cls, v):
+        if isinstance(v, str):
+            v_clean = v.strip().lower()
+            return v_clean if v_clean else None
+        return v
 
 class UsernameCheckResponse(BaseModel):
     username: str
@@ -18,7 +40,7 @@ class UsernameCheckResponse(BaseModel):
     message: str
 
 class UserLogin(BaseModel):
-    email: EmailStr
+    email: str = Field(..., description="Email address or username")
     password: str
 
 class UserUpdate(BaseModel):

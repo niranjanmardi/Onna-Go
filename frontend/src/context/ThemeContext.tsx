@@ -95,6 +95,10 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   );
 };
 
+export const useOptionalTheme = () => {
+  return useContext(ThemeContext);
+};
+
 export const useTheme = () => {
   const context = useContext(ThemeContext);
   if (!context) {
@@ -102,3 +106,4 @@ export const useTheme = () => {
   }
   return context;
 };
+
