@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 
 from backend.app.core.config import settings
 from backend.app.core.database import get_db
@@ -34,6 +35,7 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 ALLOWED_AVATAR_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 USERNAME_REGEX = re.compile(r"^[a-zA-Z0-9_]{3,20}$")
+EMAIL_REGEX = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 
 def validate_image_bytes(content: bytes, ext: str) -> bool:
     """
@@ -97,6 +99,34 @@ def check_username(username: str = Query(..., min_length=1, max_length=50), db: 
         message="Username is available!"
     )
 
+@router.get("/check-email")
+def check_email(email: str = Query(..., min_length=3, max_length=255), db: Session = Depends(get_db)):
+    """
+    Real-time email availability check endpoint.
+    Normalizes email (trim + lowercase) and performs case-insensitive uniqueness check.
+    """
+    clean_email = email.strip().lower()
+    if not EMAIL_REGEX.match(clean_email):
+        return {
+            "email": clean_email,
+            "available": False,
+            "message": "Please enter a valid email address."
+        }
+
+    existing = db.query(User).filter(func.lower(User.email) == clean_email).first()
+    if existing:
+        return {
+            "email": clean_email,
+            "available": False,
+            "message": "An account with this email address already exists. Please log in instead."
+        }
+
+    return {
+        "email": clean_email,
+        "available": True,
+        "message": "Email is available!"
+    }
+
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 def register(user_in: UserRegister, response: Response, db: Session = Depends(get_db)):
     # 1. Determine and validate username
@@ -150,19 +180,33 @@ def register(user_in: UserRegister, response: Response, db: Session = Depends(ge
         default_currency=(user_in.default_currency or "INR").upper(),
         auth_provider="email"
     )
-    db.add(user)
-    db.flush()
     
-    # Welcome notification
-    welcome_notif = Notification(
-        user_id=user.id,
-        title="Welcome to ONNA-GO! 🏍️",
-        message="Ride Together. Vibe Together. Split Together. Start by connecting with friends or planning your next trip.",
-        type="GENERAL"
-    )
-    db.add(welcome_notif)
-    db.commit()
-    db.refresh(user)
+    try:
+        db.add(user)
+        db.flush()
+        
+        # Welcome notification
+        welcome_notif = Notification(
+            user_id=user.id,
+            title="Welcome to ONNA-GO! 🏍️",
+            message="Ride Together. Vibe Together. Split Together. Start by connecting with friends or planning your next trip.",
+            type="GENERAL"
+        )
+        db.add(welcome_notif)
+        db.commit()
+        db.refresh(user)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="An account with this email address or username already exists. Please sign in instead."
+        )
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Registration could not be completed due to a temporary storage issue. Please try again."
+        )
     
     token = create_access_token(user.id)
     set_auth_cookie(response, token)
@@ -182,10 +226,15 @@ def login(user_in: UserLogin, response: Response, db: Session = Depends(get_db))
         (func.lower(User.username) == clean_identifier)
     ).first()
     
-    if not user or not verify_password(user_in.password, user.hashed_password):
+    if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username/email or password."
+            detail="No account found with this username or email. Please check your credentials or create an account."
+        )
+    if not verify_password(user_in.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect password. Please try again."
         )
     if not user.is_active:
         raise HTTPException(
@@ -201,6 +250,7 @@ def login(user_in: UserLogin, response: Response, db: Session = Depends(get_db))
         token_type="bearer",
         user=UserResponse.model_validate(user)
     )
+
 
 @router.post("/change-password")
 def change_password(

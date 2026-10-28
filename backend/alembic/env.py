@@ -21,13 +21,14 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from backend.app.core.config import settings
+from backend.app.core.database import normalize_database_url
 from backend.app.models.models import Base
 
 # add your model's MetaData object here
 # for 'autogenerate' support
 target_metadata = Base.metadata
 
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+config.set_main_option("sqlalchemy.url", normalize_database_url(settings.DATABASE_URL))
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:

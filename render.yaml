@@ -1,3 +1,9 @@
+databases:
+  - name: onna-go-postgres
+    databaseName: onnago
+    user: onnago_user
+    plan: free # Note: Render free tier PostgreSQL instances expire after 30 days. For permanent production durability, use Starter plan ($7/mo) or link an external managed PostgreSQL (e.g. Supabase, Neon, or AWS RDS).
+
 services:
   - type: web
     name: onna-go
@@ -13,4 +19,7 @@ services:
       - key: SECURE_COOKIE
         value: true
       - key: DATABASE_URL
-        value: sqlite:///./splitmate.db
+        fromDatabase:
+          name: onna-go-postgres
+          property: connectionString
+

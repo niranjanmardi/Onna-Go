@@ -58,6 +58,29 @@ async def add_security_and_timing_headers(request: Request, call_next):
     response.headers["X-XSS-Protection"] = "1; mode=block"
     return response
 
+# Database connection & temporary unavailability exception handlers
+from sqlalchemy.exc import OperationalError, DatabaseError
+import logging
+
+app_logger = logging.getLogger("onnago.api")
+
+@app.exception_handler(OperationalError)
+async def db_operational_error_handler(request: Request, exc: OperationalError):
+    app_logger.error(f"Database operational connectivity error: {exc}")
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content={"detail": "Database service is temporarily unavailable. Please try again in a few moments."}
+    )
+
+@app.exception_handler(DatabaseError)
+async def db_error_handler(request: Request, exc: DatabaseError):
+    app_logger.error(f"Database execution error: {exc}")
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content={"detail": "Database is temporarily unavailable. Your account and data are preserved. Please retry shortly."}
+    )
+
+
 # Health check (lightweight, zero DB calls, instant response)
 @app.get("/health", tags=["Health"])
 @app.get(f"{settings.API_V1_STR}/health", tags=["Health"])

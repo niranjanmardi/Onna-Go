@@ -101,7 +101,7 @@ export const TripDetailPage: React.FC = () => {
   const { user } = useAuth();
   const { showConfirmation } = useFeedback();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Core Data
   const [trip, setTrip] = useState<Trip | null>(null);
@@ -324,6 +324,34 @@ export const TripDetailPage: React.FC = () => {
       window.removeEventListener('online', handleOnline);
     };
   }, [id]);
+
+  // Listen to app-add-action from bottom bar / sidebar
+  useEffect(() => {
+    const handleAddExpenseEvent = (e: Event) => {
+      e.preventDefault();
+      setEditingExpense(null);
+      setIsAddExpenseOpen(true);
+    };
+    window.addEventListener('app-add-action', handleAddExpenseEvent);
+    return () => window.removeEventListener('app-add-action', handleAddExpenseEvent);
+  }, []);
+
+  const isTripCompleted = trip?.status === 'COMPLETED' || Boolean(trip?.completed_at) || Boolean(trip?.is_archived);
+
+  // Handle action=add-expense in URL query
+  useEffect(() => {
+    if (searchParams.get('action') === 'add-expense' && !isTripCompleted) {
+      setIsAddExpenseOpen(true);
+      setSearchParams(
+        (prev: URLSearchParams) => {
+          const next = new URLSearchParams(prev);
+          next.delete('action');
+          return next;
+        },
+        { replace: true }
+      );
+    }
+  }, [searchParams, isTripCompleted, setSearchParams]);
 
   // Derived user statistics
   const currentMember = useMemo(
@@ -589,8 +617,6 @@ export const TripDetailPage: React.FC = () => {
     );
   }
 
-  const isTripCompleted = trip.status === 'COMPLETED' || Boolean(trip.completed_at);
-
   return (
     <div className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-6 md:py-8">
       {/* --- Top Bar: Back arrow, Trip name, "..." menu --- */}
@@ -616,7 +642,7 @@ export const TripDetailPage: React.FC = () => {
                 setEditingExpense(null);
                 setIsAddExpenseOpen(true);
               }}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#16834A] dark:bg-[#22C55E] hover:bg-[#136F3F] dark:hover:bg-[#16A34A] text-white dark:text-[#0A0A0A] font-medium text-xs rounded-xl shadow-xs transition-all active:scale-[0.98] cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#16834A] dark:bg-[#22C55E] hover:bg-[#136F3F] dark:hover:bg-[#16A34A] text-white dark:text-[#0A0A0A] font-medium text-xs rounded-xl shadow-xs transition-all active:scale-[0.98] cursor-pointer"
             >
               <Plus className="w-4 h-4 stroke-[2.5]" />
               <span>Add expense</span>
@@ -1044,18 +1070,21 @@ export const TripDetailPage: React.FC = () => {
         </section>
       )}
 
-      {/* --- Mobile Floating Action Button (+) --- */}
+      {/* --- Mobile Sticky Bottom Action Button --- */}
       {!isTripCompleted && (
-        <button
-          onClick={() => {
-            setEditingExpense(null);
-            setIsAddExpenseOpen(true);
-          }}
-          className="sm:hidden fixed bottom-20 right-5 w-14 h-14 rounded-full bg-[#16834A] dark:bg-[#22C55E] text-white dark:text-[#0A0A0A] flex items-center justify-center shadow-lg active:scale-95 transition-transform z-30 cursor-pointer"
-          aria-label="Add expense"
-        >
-          <Plus className="w-6 h-6 stroke-[2.5]" />
-        </button>
+        <div className="sm:hidden fixed bottom-20 right-4 z-30">
+          <button
+            onClick={() => {
+              setEditingExpense(null);
+              setIsAddExpenseOpen(true);
+            }}
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-[#16834A] dark:bg-[#22C55E] text-white dark:text-[#0A0A0A] font-semibold text-xs shadow-lg active:scale-95 transition-transform cursor-pointer"
+            aria-label="Add expense"
+          >
+            <Plus className="w-4 h-4 stroke-[2.5]" />
+            <span>Add expense</span>
+          </button>
+        </div>
       )}
 
       {/* --- Expense Action Drawer / Modal (Tap for edit and void) --- */}
