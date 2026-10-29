@@ -529,6 +529,18 @@ export const SettingsPage: React.FC = () => {
             <span className="text-xs font-mono text-[#737373] dark:text-[#8E8E93]">v1.0.0 (Production)</span>
           </div>
 
+          {/* Android App Download */}
+          <div
+            onClick={() => navigate('/download')}
+            className="h-14 flex items-center justify-between cursor-pointer hover:opacity-80 transition-opacity"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">Get Android App</span>
+              <span className="text-[10px] font-semibold bg-[#16834A]/10 text-[#16834A] dark:text-[#22C55E] px-1.5 py-0.5 rounded">APK</span>
+            </div>
+            <ChevronRight className="w-4 h-4 text-[#737373] dark:text-[#8E8E93]" />
+          </div>
+
           {/* Privacy Policy */}
           <div
             onClick={() => setIsPrivacyOpen(true)}

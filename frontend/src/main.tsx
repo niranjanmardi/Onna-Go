@@ -1,19 +1,26 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { Capacitor } from '@capacitor/core'
 import { registerSW } from 'virtual:pwa-register'
 import './index.css'
 import App from './App.tsx'
 import { ErrorBoundary } from './components/common/ErrorBoundary'
+import { initCapacitorMobile } from './lib/capacitor-init'
 
-// Register PWA Service Worker with lifecycle handlers
-export const updateSW = registerSW({
-  onNeedRefresh() {
-    window.dispatchEvent(new CustomEvent('pwa:need-refresh', { detail: { updateSW } }));
-  },
-  onOfflineReady() {
-    window.dispatchEvent(new CustomEvent('pwa:offline-ready'));
-  },
-});
+// Register PWA Service Worker on Web only; native Android app bundles assets locally
+export const updateSW = !Capacitor.isNativePlatform()
+  ? registerSW({
+      onNeedRefresh() {
+        window.dispatchEvent(new CustomEvent('pwa:need-refresh', { detail: { updateSW } }));
+      },
+      onOfflineReady() {
+        window.dispatchEvent(new CustomEvent('pwa:offline-ready'));
+      },
+    })
+  : () => {};
+
+// Initialize native mobile status-bar, splash screen, and back-button listeners
+initCapacitorMobile();
 
 const container = document.getElementById('root');
 if (container) {

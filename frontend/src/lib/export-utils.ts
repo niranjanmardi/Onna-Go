@@ -1,6 +1,4 @@
-import { api, ApiError } from './api-client';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+import { api, ApiError, getApiBaseUrl } from './api-client';
 
 interface DownloadOptions {
   onStart?: () => void;
@@ -35,9 +33,10 @@ export async function downloadFile(
       headers['Authorization'] = `Bearer ${token}`;
     }
 
+    const baseUrl = getApiBaseUrl();
     const url = endpoint.startsWith('http')
       ? endpoint
-      : `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+      : `${baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
     const response = await fetch(url, {
       method: 'GET',

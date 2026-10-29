@@ -4,16 +4,32 @@ const config: CapacitorConfig = {
   appId: 'com.onnago.app',
   appName: 'ONNA-GO',
   webDir: 'dist',
-  bundledWebRuntime: false,
   server: {
-    // In local development, Android emulator can point to http://10.0.2.2:8000
-    // In production, specify HTTPS API URL
     androidScheme: 'https',
     cleartext: false,
   },
   android: {
     allowMixedContent: false,
     captureInput: true,
+  },
+  plugins: {
+    SplashScreen: {
+      launchShowDuration: 1800,
+      launchAutoHide: true,
+      backgroundColor: '#16834A',
+      androidSplashResourceName: 'splash',
+      androidScaleType: 'CENTER_CROP',
+      showSpinner: false,
+    },
+    StatusBar: {
+      overlaysWebView: false,
+      style: 'DARK',
+      backgroundColor: '#16834A',
+    },
+    SystemBars: {
+      insetsHandling: 'disable',
+      style: 'DARK',
+    },
   },
 };
 

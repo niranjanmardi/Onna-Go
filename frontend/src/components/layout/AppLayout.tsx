@@ -257,7 +257,7 @@ export const AppLayout: React.FC = () => {
       </main>
 
       {/* --- Mobile Bottom Tab Bar (Home, Trips, Add, Friends, Profile) --- */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#FFFFFF]/95 dark:bg-[#0B0B0C]/95 backdrop-blur-md border-t border-[#E4E4E7] dark:border-[#2A2A2E] pb-safe flex items-center justify-around h-16 px-1 select-none">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#FFFFFF]/95 dark:bg-[#0B0B0C]/95 backdrop-blur-md border-t border-[#E4E4E7] dark:border-[#2A2A2E] flex items-center justify-around h-16 px-1 select-none">
         {/* Home */}
         <NavLink
           to="/dashboard"

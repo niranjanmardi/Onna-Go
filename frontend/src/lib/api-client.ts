@@ -1,4 +1,21 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+import { Capacitor } from '@capacitor/core';
+
+export const PROD_API_BASE_URL = 'https://onna-go.onrender.com/api/v1';
+
+export const getApiBaseUrl = (): string => {
+  const envUrl = import.meta.env.VITE_API_BASE_URL;
+  if (envUrl && envUrl.trim() !== '' && envUrl !== '/api/v1') {
+    return envUrl;
+  }
+  // On native Android/iOS, relative URLs (/api/v1) fail against https://localhost.
+  // Direct requests to the live production backend over HTTPS.
+  if (Capacitor.isNativePlatform()) {
+    return PROD_API_BASE_URL;
+  }
+  return '/api/v1';
+};
+
+export const API_BASE_URL = getApiBaseUrl();
 
 export class ApiError extends Error {
   status: number;
@@ -26,8 +43,9 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  // Normalize endpoint URL
-  const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+  // Normalize endpoint URL using dynamic platform-aware base URL
+  const baseUrl = getApiBaseUrl();
+  const url = endpoint.startsWith('http') ? endpoint : `${baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
   const response = await fetch(url, {
     ...options,

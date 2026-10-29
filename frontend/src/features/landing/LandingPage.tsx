@@ -4,6 +4,7 @@ import {
   Receipt,
   ArrowRightLeft,
   WifiOff,
+  Smartphone,
 } from 'lucide-react';
 import { Logo } from '@/components/brand/Logo';
 
@@ -19,7 +20,14 @@ export const LandingPage: React.FC = () => {
             <Logo size="sm" showTagline={false} />
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={() => navigate('/download')}
+              className="text-xs sm:text-sm font-medium text-[#16834A] dark:text-[#22C55E] hover:opacity-85 px-2 py-1.5 transition-opacity cursor-pointer flex items-center gap-1.5"
+            >
+              <Smartphone className="w-3.5 h-3.5" />
+              <span>Android App</span>
+            </button>
             <button
               onClick={() => navigate('/login')}
               className="text-sm font-medium text-[#71717A] hover:text-[#121212] dark:text-[#9E9E9E] dark:hover:text-[#EDEDED] px-2 py-1.5 transition-colors cursor-pointer"
@@ -184,6 +192,12 @@ export const LandingPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-5">
+          <button
+            onClick={() => navigate('/download')}
+            className="hover:text-[#121212] dark:hover:text-[#EDEDED] transition-colors cursor-pointer"
+          >
+            Download APK
+          </button>
           <button
             onClick={() => navigate('/login')}
             className="hover:text-[#121212] dark:hover:text-[#EDEDED] transition-colors cursor-pointer"

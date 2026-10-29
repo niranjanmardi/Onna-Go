@@ -37,7 +37,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return null;
     }
   });
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState<boolean>(() => {
+    try {
+      const token = localStorage.getItem('onnago_token') || localStorage.getItem('rupaii_token');
+      return Boolean(token);
+    } catch {
+      return false;
+    }
+  });
 
   const refreshUser = async () => {
     const token = localStorage.getItem('onnago_token') || localStorage.getItem('rupaii_token');
@@ -48,9 +55,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      const me = await api.get<User>('/auth/me');
-      setUser(me);
-      localStorage.setItem('onnago_user', JSON.stringify(me));
+      // Abort controller with 8s timeout to avoid app getting stuck on splash if network hangs
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      try {
+        const me = await api.get<User>('/auth/me', { signal: controller.signal });
+        setUser(me);
+        localStorage.setItem('onnago_user', JSON.stringify(me));
+      } finally {
+        clearTimeout(timeoutId);
+      }
     } catch (err: any) {
       // ONLY log out if the server explicitly returned 401 Unauthorized
       if (err instanceof ApiError && err.status === 401) {
@@ -59,8 +73,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.removeItem('onnago_user');
         localStorage.removeItem('rupaii_token');
         localStorage.removeItem('rupaii_user');
+        await clearAllOfflineData();
+        resetSyncState();
+        if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+          window.location.href = '/login?expired=true';
+        }
       } else {
-        // Network error, offline, or transient server issue:
+        // Network error, offline, timeout, or transient server issue:
         // Do NOT log out. Preserve stored token and restore cached user data.
         try {
           const cached = localStorage.getItem('onnago_user') || localStorage.getItem('rupaii_user');

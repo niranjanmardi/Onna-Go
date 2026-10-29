@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { Download, Share2, PlusSquare, X, Smartphone } from 'lucide-react';
 
 interface BeforeInstallPromptEvent extends Event {
@@ -26,9 +27,10 @@ export const InstallPrompt: React.FC = () => {
   const [isStandalone, setIsStandalone] = useState(false);
 
   useEffect(() => {
-    // 1. Detect if running standalone already
+    // 1. Detect if running standalone or in native app already
     const checkStandalone = () => {
       const isStandaloneMode =
+        Capacitor.isNativePlatform() ||
         window.matchMedia('(display-mode: standalone)').matches ||
         (window.navigator as any).standalone === true ||
         document.referrer.includes('android-app://');
@@ -195,6 +197,12 @@ export const InstallPrompt: React.FC = () => {
                   </>
                 )}
               </button>
+              <a
+                href="/download"
+                className="px-2.5 py-1.5 text-xs font-medium text-[#16834A] dark:text-[#22C55E] hover:underline"
+              >
+                Android APK
+              </a>
               <button
                 type="button"
                 onClick={handleDismiss}

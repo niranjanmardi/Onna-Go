@@ -19,6 +19,7 @@ const TripDetailPage = React.lazy(() => import('./features/trips/TripDetailPage'
 const NotificationsPage = React.lazy(() => import('./features/notifications/NotificationsPage').then(m => ({ default: m.NotificationsPage })));
 const SettingsPage = React.lazy(() => import('./features/settings/SettingsPage').then(m => ({ default: m.SettingsPage })));
 const FriendsPage = React.lazy(() => import('./features/friends/FriendsPage').then(m => ({ default: m.FriendsPage })));
+const DownloadPage = React.lazy(() => import('./features/download/DownloadPage').then(m => ({ default: m.DownloadPage })));
 
 const RouteLoadingFallback: React.FC = () => (
   <div className="min-h-[50vh] flex flex-col items-center justify-center p-8 text-center" aria-live="polite">
@@ -98,8 +99,17 @@ export const App: React.FC = () => {
               <BrowserRouter>
               <Suspense fallback={<RouteLoadingFallback />}>
                 <Routes>
-                  {/* Public landing */}
-                  <Route path="/" element={<LandingPage />} />
+                  {/* Public landing - redirects authenticated users directly to Dashboard; shows branded loading while verifying session */}
+                  <Route
+                    path="/"
+                    element={
+                      <RedirectIfAuth>
+                        <LandingPage />
+                      </RedirectIfAuth>
+                    }
+                  />
+                  <Route path="/download" element={<DownloadPage />} />
+                  <Route path="/android" element={<DownloadPage />} />
 
                   {/* Auth routes */}
                   <Route

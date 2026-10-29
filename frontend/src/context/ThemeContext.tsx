@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { syncNativeStatusBarTheme } from '../lib/capacitor-init';
 
 export type Theme = 'light' | 'dark' | 'system';
 
@@ -58,6 +59,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (metaThemeColor) {
         metaThemeColor.setAttribute('content', effectiveTheme === 'dark' ? '#0A0A0A' : '#16834A');
       }
+
+      // Synchronize native Android status bar if running inside native app
+      syncNativeStatusBarTheme(effectiveTheme === 'dark');
     };
 
     applyTheme();
