@@ -1,30 +1,59 @@
 import uuid
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 from sqlalchemy.exc import OperationalError
 from backend.app.main import app
-from backend.app.core.database import SessionLocal, normalize_database_url
+from backend.app.core.database import Base, get_db, normalize_database_url
 from backend.app.models.models import User
 from backend.scripts.migrate_sqlite_to_postgres import migrate_data, parse_datetime_val
 
+# Isolate test suite database in memory so splitmate.db is never modified
+test_engine = create_engine(
+    "sqlite:///:memory:",
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
+Base.metadata.create_all(bind=test_engine)
+
+def override_get_db():
+    db = TestingSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+app.dependency_overrides[get_db] = override_get_db
 client = TestClient(app)
 
 def test_database_url_normalization():
-    # PostgreSQL with legacy postgres:// should convert to postgresql+psycopg://
+    # PostgreSQL with legacy postgres:// should convert to postgresql+psycopg:// and enforce sslmode
     url1 = "postgres://user:pass@host.render.com:5432/onnago_db"
-    assert normalize_database_url(url1) == "postgresql+psycopg://user:pass@host.render.com:5432/onnago_db"
+    assert normalize_database_url(url1) == "postgresql+psycopg://user:pass@host.render.com:5432/onnago_db?sslmode=require"
     
-    # PostgreSQL with standard postgresql:// should convert to postgresql+psycopg://
+    # PostgreSQL with standard postgresql:// should convert to postgresql+psycopg:// and enforce sslmode
     url2 = "postgresql://user:pass@host.render.com:5432/onnago_db"
-    assert normalize_database_url(url2) == "postgresql+psycopg://user:pass@host.render.com:5432/onnago_db"
+    assert normalize_database_url(url2) == "postgresql+psycopg://user:pass@host.render.com:5432/onnago_db?sslmode=require"
     
-    # Already specified driver should remain untouched
+    # Localhost should not force sslmode
     url3 = "postgresql+psycopg://user:pass@localhost:5432/db"
     assert normalize_database_url(url3) == "postgresql+psycopg://user:pass@localhost:5432/db"
     
+    # Neon URL with pooler and sslmode already specified should preserve it
+    url_neon = "postgresql://neondb_owner:pass@ep-spring-pine-30845281-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require"
+    assert normalize_database_url(url_neon) == "postgresql+psycopg://neondb_owner:pass@ep-spring-pine-30845281-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require"
+
+    # Neon URL without sslmode should automatically receive sslmode=require
+    url_neon_no_ssl = "postgresql://neondb_owner:pass@ep-spring-pine-30845281.us-east-2.aws.neon.tech/neondb"
+    assert normalize_database_url(url_neon_no_ssl) == "postgresql+psycopg://neondb_owner:pass@ep-spring-pine-30845281.us-east-2.aws.neon.tech/neondb?sslmode=require"
+
     # SQLite should remain untouched
     url4 = "sqlite:///./splitmate.db"
     assert normalize_database_url(url4) == "sqlite:///./splitmate.db"
+
 
 def test_check_email_endpoint():
     suffix = uuid.uuid4().hex[:6]
@@ -102,7 +131,7 @@ def test_registration_integrity_and_persistence():
     user_id = reg_res.json()["user"]["id"]
     
     # Verify in DB session directly
-    db = SessionLocal()
+    db = TestingSessionLocal()
     try:
         user_in_db = db.query(User).filter(User.id == user_id).first()
         assert user_in_db is not None
@@ -133,7 +162,7 @@ def test_database_operational_error_handler(monkeypatch):
         assert res.status_code == 503
         assert "temporarily unavailable" in res.json()["detail"].lower()
     finally:
-        app.dependency_overrides.pop(auth.get_db, None)
+        app.dependency_overrides[get_db] = override_get_db
 
 def test_migration_dry_run_and_parser():
     """Verify migration tool dry run functionality and timestamp parsing."""

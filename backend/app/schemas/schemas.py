@@ -333,6 +333,7 @@ class MemberBalanceItem(BaseModel):
     user_id: str
     user_name: str
     user_email: str
+    avatar_url: Optional[str] = None
     net_balance_paise: int
     total_spent_paise: int
     total_share_paise: int
@@ -432,6 +433,9 @@ class DashboardSummary(BaseModel):
     total_spent_paise: int
     total_owed_paise: int        # Amount others owe the user (+ net balance)
     total_owe_paise: int         # Amount user owes to others (- net balance)
+    total_trip_expenses_paise: int = 0  # Total expenses across all active trips
+    total_share_paise: int = 0          # Total user fair share across all active trips
+    net_balance_paise: int = 0          # Net balance across all active trips (+ = get back, - = owe)
     active_trips_count: int
     recent_expenses: List[ExpenseResponse]
     active_trips: List[TripResponse]

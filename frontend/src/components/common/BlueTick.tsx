@@ -31,14 +31,14 @@ export const BlueTick: React.FC<BlueTickProps> = ({
         viewBox={current.viewBox}
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className="w-full h-full overflow-visible drop-shadow-[0_2px_8px_rgba(37,99,235,0.25)]"
+        className="w-full h-full overflow-visible drop-shadow-[0_2px_6px_rgba(34,197,94,0.25)]"
       >
-        {/* Solid Blue Circle */}
+        {/* Solid Brand Green Circle */}
         <circle
           cx={size === 'sm' ? 10 : size === 'md' ? 14 : size === 'lg' ? 20 : 28}
           cy={size === 'sm' ? 10 : size === 'md' ? 14 : size === 'lg' ? 20 : 28}
           r={current.r}
-          className="fill-[#2563EB]"
+          className="fill-[#16834A] dark:fill-[#22C55E]"
         />
 
         {/* Animated Self-Drawing White Checkmark */}

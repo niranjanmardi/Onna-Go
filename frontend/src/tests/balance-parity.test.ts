@@ -68,4 +68,125 @@ describe('Balance Calculation Parity: Client vs Backend Fixtures', () => {
       });
     });
   });
+
+  it('accurately calculates the Chennai ₹2,570 two-member trip example with settlements', () => {
+    const members: TripMember[] = [
+      { id: 'm1', trip_id: 'chennai', user_id: 'member_a', user_name: 'Member A', user_email: 'a@test.com', role: 'OWNER', joined_at: '' },
+      { id: 'm2', trip_id: 'chennai', user_id: 'member_b', user_name: 'Member B', user_email: 'b@test.com', role: 'MEMBER', joined_at: '' },
+    ];
+
+    // Member A paid ₹670 (67,000 paise), split 50/50: 33,500 each
+    const expA: Expense = {
+      id: 'exp-a',
+      trip_id: 'chennai',
+      payer_id: 'member_a',
+      payer_name: 'Member A',
+      description: 'Fuel',
+      amount_paise: 67000,
+      currency: 'INR',
+      category: 'Transport',
+      split_method: 'EQUAL',
+      date: new Date().toISOString(),
+      notes: null,
+      is_void: false,
+      created_by_id: 'member_a',
+      created_at: new Date().toISOString(),
+      splits: [
+        { id: 's1', user_id: 'member_a', user_name: 'Member A', user_email: '', amount_paise: 33500 },
+        { id: 's2', user_id: 'member_b', user_name: 'Member B', user_email: '', amount_paise: 33500 },
+      ],
+    };
+
+    // Member B paid ₹1,900 (190,000 paise), split 50/50: 95,000 each
+    const expB: Expense = {
+      id: 'exp-b',
+      trip_id: 'chennai',
+      payer_id: 'member_b',
+      payer_name: 'Member B',
+      description: 'Hotel',
+      amount_paise: 190000,
+      currency: 'INR',
+      category: 'Accommodation',
+      split_method: 'EQUAL',
+      date: new Date().toISOString(),
+      notes: null,
+      is_void: false,
+      created_by_id: 'member_b',
+      created_at: new Date().toISOString(),
+      splits: [
+        { id: 's3', user_id: 'member_a', user_name: 'Member A', user_email: '', amount_paise: 95000 },
+        { id: 's4', user_id: 'member_b', user_name: 'Member B', user_email: '', amount_paise: 95000 },
+      ],
+    };
+
+    // 1. Pre-settlement state
+    const preResult = calculateLocalBalances('chennai', members, [expA, expB], []);
+
+    // Total expenses: ₹2,570 (257,000 paise)
+    expect(preResult.balances.total_expenses_paise).toBe(257000);
+
+    const balA = preResult.balances.balances.find((b) => b.user_id === 'member_a');
+    const balB = preResult.balances.balances.find((b) => b.user_id === 'member_b');
+
+    // Member A: Paid ₹670, Fair Share ₹1,285 -> Net -₹615 (Owes ₹615)
+    expect(balA?.total_spent_paise).toBe(67000);
+    expect(balA?.total_share_paise).toBe(128500);
+    expect(balA?.net_balance_paise).toBe(-61500);
+    expect(balA?.status).toBe('OWES');
+
+    // Member B: Paid ₹1,900, Fair Share ₹1,285 -> Net +₹615 (Receives ₹615)
+    expect(balB?.total_spent_paise).toBe(190000);
+    expect(balB?.total_share_paise).toBe(128500);
+    expect(balB?.net_balance_paise).toBe(61500);
+    expect(balB?.status).toBe('IS_OWED');
+
+    // Closed-group conservation invariant
+    expect((balA?.net_balance_paise || 0) + (balB?.net_balance_paise || 0)).toBe(0);
+
+    // Suggested debt settlement: Member A pays Member B ₹615 (61,500 paise)
+    expect(preResult.suggestions.length).toBe(1);
+    expect(preResult.suggestions[0].from_user_id).toBe('member_a');
+    expect(preResult.suggestions[0].to_user_id).toBe('member_b');
+    expect(preResult.suggestions[0].amount_paise).toBe(61500);
+
+    // 2. Pending settlement MUST NOT reduce balance
+    const pendingSt: Settlement = {
+      id: 'st-pending',
+      trip_id: 'chennai',
+      payer_id: 'member_a',
+      payer_name: 'Member A',
+      payee_id: 'member_b',
+      payee_name: 'Member B',
+      amount_paise: 61500,
+      status: 'PENDING_CONFIRMATION',
+      payment_method: 'UPI',
+      created_by_id: 'member_a',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    const pendingResult = calculateLocalBalances('chennai', members, [expA, expB], [pendingSt]);
+    const pendingBalA = pendingResult.balances.balances.find((b) => b.user_id === 'member_a');
+    const pendingBalB = pendingResult.balances.balances.find((b) => b.user_id === 'member_b');
+    expect(pendingBalA?.net_balance_paise).toBe(-61500);
+    expect(pendingBalB?.net_balance_paise).toBe(61500);
+
+    // 3. CONFIRMED settlement settles the balance exactly to 0
+    const confirmedSt: Settlement = {
+      ...pendingSt,
+      id: 'st-confirmed',
+      status: 'CONFIRMED',
+      confirmed_at: new Date().toISOString(),
+    };
+
+    const postResult = calculateLocalBalances('chennai', members, [expA, expB], [confirmedSt]);
+    const postBalA = postResult.balances.balances.find((b) => b.user_id === 'member_a');
+    const postBalB = postResult.balances.balances.find((b) => b.user_id === 'member_b');
+
+    expect(postBalA?.net_balance_paise).toBe(0);
+    expect(postBalA?.status).toBe('SETTLED');
+    expect(postBalB?.net_balance_paise).toBe(0);
+    expect(postBalB?.status).toBe('SETTLED');
+    expect(postResult.suggestions.length).toBe(0);
+  });
 });

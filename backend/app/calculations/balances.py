@@ -73,12 +73,24 @@ def calculate_trip_balances(
         member_balances[payer_id] = member_balances.get(payer_id, 0) + total_amount
         total_spent_paise[payer_id] = total_spent_paise.get(payer_id, 0) + total_amount
         
-        # Each participant is debited their share
-        for sp in splits:
-            uid = sp["user_id"]
-            share_amt = sp["amount_paise"]
-            member_balances[uid] = member_balances.get(uid, 0) - share_amt
-            total_share_paise[uid] = total_share_paise.get(uid, 0) + share_amt
+        if not splits:
+            # Fallback: divide equally across all known members if splits not enumerated
+            unique_uids = sorted(list(all_members))
+            n = len(unique_uids)
+            if n > 0:
+                base_share = total_amount // n
+                remainder = total_amount % n
+                for idx, uid in enumerate(unique_uids):
+                    share_amt = base_share + (1 if idx < remainder else 0)
+                    member_balances[uid] = member_balances.get(uid, 0) - share_amt
+                    total_share_paise[uid] = total_share_paise.get(uid, 0) + share_amt
+        else:
+            # Each participant is debited their assigned share
+            for sp in splits:
+                uid = sp["user_id"]
+                share_amt = sp["amount_paise"]
+                member_balances[uid] = member_balances.get(uid, 0) - share_amt
+                total_share_paise[uid] = total_share_paise.get(uid, 0) + share_amt
             
     # Process confirmed settlements
     for st in confirmed_settlements:

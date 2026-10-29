@@ -1,11 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Plus, LogOut } from 'lucide-react';
+import { Plus, LogOut, X } from 'lucide-react';
 import { useAuth } from '@/features/auth/AuthContext';
-import { getAvatarUrl } from '@/lib/api-client';
+import { getAvatarUrl, api } from '@/lib/api-client';
 import { useFeedback } from '@/context/FeedbackContext';
 import { InstallPrompt } from '@/components/pwa/InstallPrompt';
 import { OfflineBanner } from '@/components/offline/OfflineBanner';
+import { Trip } from '@/types';
+import { getCachedTripsList } from '@/lib/offline-db';
+import { determineAddExpenseAction } from '@/lib/add-expense-coordinator';
 
 // Custom filled and outline navigation icons
 const HomeIcon: React.FC<{ filled: boolean; className?: string }> = ({ filled, className = 'w-5 h-5' }) => {
@@ -53,7 +56,7 @@ const FriendsIcon: React.FC<{ filled: boolean; className?: string }> = ({ filled
   }
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2z" />
       <circle cx="9" cy="7" r="4" />
       <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
       <path d="M16 3.13a4 4 0 0 1 0 7.75" />
@@ -83,18 +86,43 @@ export const AppLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const [activeTrips, setActiveTrips] = useState<Trip[]>([]);
+  const [isTripPickerOpen, setIsTripPickerOpen] = useState(false);
+  const [isNoTripsSheetOpen, setIsNoTripsSheetOpen] = useState(false);
+
   const handleLogout = async () => {
     await logout();
     navigate('/login');
   };
 
-  const handleAddAction = () => {
+  const handleAddExpenseClick = async () => {
     playClick();
-    // Dispatch an event in case active page handles quick expense adding
-    const handled = window.dispatchEvent(new CustomEvent('app-add-action', { cancelable: true }));
-    if (handled) {
-      // If not prevented by page, default to creating a new trip
-      navigate('/trips/new');
+    // Dispatch an event so an active TripDetailPage can open directly
+    const event = new CustomEvent('app-add-action', { cancelable: true });
+    const notPrevented = window.dispatchEvent(event);
+    if (!notPrevented) {
+      // Current trip page handled the action
+      return;
+    }
+
+    // Outside of a trip page: fetch or load active trips
+    let tripsList: Trip[] = [];
+    try {
+      tripsList = await api.get<Trip[]>('/trips/?include_archived=true');
+    } catch {
+      tripsList = await getCachedTripsList().catch(() => []);
+    }
+
+    const action = determineAddExpenseAction(location.pathname, tripsList);
+    if (action.type === 'CURRENT_TRIP') {
+      navigate(`/trips/${action.tripId}?action=add-expense`);
+    } else if (action.type === 'NAVIGATE_TO_TRIP') {
+      navigate(action.url);
+    } else if (action.type === 'SHOW_TRIP_PICKER') {
+      setActiveTrips(action.trips);
+      setIsTripPickerOpen(true);
+    } else if (action.type === 'SHOW_CREATE_FIRST_TRIP_SHEET') {
+      setIsNoTripsSheetOpen(true);
     }
   };
 
@@ -104,12 +132,12 @@ export const AppLayout: React.FC = () => {
   const isProfileActive = location.pathname.startsWith('/settings') || location.pathname.startsWith('/profile');
 
   return (
-    <div className="min-h-screen bg-[#FAFAF8] dark:bg-[#0A0A0A] flex flex-col md:flex-row text-[#171717] dark:text-[#EDEDED] transition-colors duration-200">
+    <div className="min-h-screen bg-[#F7F7F8] dark:bg-[#0B0B0C] flex flex-col md:flex-row text-[#18181B] dark:text-[#F5F5F7] transition-colors duration-200">
       {/* PWA Custom Install Prompt Banner */}
       <InstallPrompt />
 
       {/* --- Desktop Slim Left Sidebar --- */}
-      <aside className="hidden md:flex flex-col w-16 h-screen sticky top-0 bg-[#FAFAF8] dark:bg-[#121212] border-r border-[#E8E8E5] dark:border-[#262626] py-5 items-center justify-between select-none z-30">
+      <aside className="hidden md:flex flex-col w-16 h-screen sticky top-0 bg-[#FFFFFF] dark:bg-[#141416] border-r border-[#E4E4E7] dark:border-[#2A2A2E] py-5 items-center justify-between select-none z-30">
         <div className="flex flex-col items-center gap-6 w-full">
           {/* Brand Monogram */}
           <button
@@ -153,8 +181,9 @@ export const AppLayout: React.FC = () => {
 
             {/* Desktop Add Action */}
             <button
-              onClick={handleAddAction}
-              title="Add Expense / Trip"
+              onClick={handleAddExpenseClick}
+              title="Add expense"
+              aria-label="Add expense"
               className="w-10 h-10 my-1 rounded-xl bg-[#16834A] dark:bg-[#22C55E] text-white dark:text-[#0A0A0A] flex items-center justify-center hover:opacity-90 active:scale-95 transition-all shadow-xs cursor-pointer"
             >
               <Plus className="w-5 h-5 stroke-[2.2]" />
@@ -228,7 +257,7 @@ export const AppLayout: React.FC = () => {
       </main>
 
       {/* --- Mobile Bottom Tab Bar (Home, Trips, Add, Friends, Profile) --- */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#FAFAF8]/95 dark:bg-[#121212]/95 backdrop-blur-md border-t border-[#E8E8E5] dark:border-[#262626] pb-safe flex items-center justify-around h-16 px-1 select-none">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#FFFFFF]/95 dark:bg-[#0B0B0C]/95 backdrop-blur-md border-t border-[#E4E4E7] dark:border-[#2A2A2E] pb-safe flex items-center justify-around h-16 px-1 select-none">
         {/* Home */}
         <NavLink
           to="/dashboard"
@@ -257,11 +286,11 @@ export const AppLayout: React.FC = () => {
           <span className="text-[10px] mt-1">Trips</span>
         </NavLink>
 
-        {/* Add Button */}
+        {/* Add Expense Button */}
         <button
-          onClick={handleAddAction}
-          className="flex flex-col items-center justify-center flex-1 py-1 active:scale-95 transition-transform"
-          aria-label="Add"
+          onClick={handleAddExpenseClick}
+          className="flex flex-col items-center justify-center flex-1 py-1 active:scale-95 transition-transform cursor-pointer"
+          aria-label="Add expense"
         >
           <div className="w-10 h-10 rounded-full bg-[#16834A] dark:bg-[#22C55E] text-white dark:text-[#0A0A0A] flex items-center justify-center shadow-md">
             <Plus className="w-5 h-5 stroke-[2.5]" />
@@ -296,6 +325,90 @@ export const AppLayout: React.FC = () => {
           <span className="text-[10px] mt-1">Profile</span>
         </NavLink>
       </nav>
+
+      {/* --- Trip Picker Sheet (when multiple active trips exist and adding expense) --- */}
+      {isTripPickerOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#141414] border border-[#E8E8E5] dark:border-[#262626] rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-xl animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-2 border-b border-[#E8E8E5] dark:border-[#262626]">
+              <h3 className="text-base font-semibold text-[#171717] dark:text-[#EDEDED]">
+                Select trip for expense
+              </h3>
+              <button
+                onClick={() => setIsTripPickerOpen(false)}
+                className="p-1 rounded-lg text-[#737373] dark:text-[#8E8E93] hover:text-[#171717] dark:hover:text-[#EDEDED] cursor-pointer"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="divide-y divide-[#E8E8E5] dark:divide-[#262626] max-h-60 overflow-y-auto">
+              {activeTrips.map((trip) => (
+                <button
+                  key={trip.id}
+                  onClick={() => {
+                    setIsTripPickerOpen(false);
+                    navigate(`/trips/${trip.id}?action=add-expense`);
+                  }}
+                  className="w-full text-left py-3 px-2 flex items-center justify-between hover:bg-[#F4F4F2] dark:hover:bg-[#1F1F1F] rounded-lg transition-colors cursor-pointer"
+                >
+                  <span className="text-sm font-medium text-[#171717] dark:text-[#EDEDED] truncate">
+                    {trip.name}
+                  </span>
+                  <span className="text-xs text-[#737373] dark:text-[#8E8E93] shrink-0 ml-2">
+                    {trip.members_count || 1} {trip.members_count === 1 ? 'person' : 'people'}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- No Active Trips Sheet --- */}
+      {isNoTripsSheetOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#141414] border border-[#E8E8E5] dark:border-[#262626] rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-xl animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-2 border-b border-[#E8E8E5] dark:border-[#262626]">
+              <h3 className="text-base font-semibold text-[#171717] dark:text-[#EDEDED]">
+                Add expense
+              </h3>
+              <button
+                onClick={() => setIsNoTripsSheetOpen(false)}
+                className="p-1 rounded-lg text-[#737373] dark:text-[#8E8E93] hover:text-[#171717] dark:hover:text-[#EDEDED] cursor-pointer"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-sm text-[#737373] dark:text-[#8E8E93] leading-relaxed">
+              Create a trip to start adding expenses.
+            </p>
+
+            <div className="pt-2 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsNoTripsSheetOpen(false)}
+                className="px-3.5 py-2 text-xs font-medium text-[#737373] dark:text-[#8E8E93] hover:text-[#171717] dark:hover:text-[#EDEDED] rounded-xl transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsNoTripsSheetOpen(false);
+                  navigate('/trips/new');
+                }}
+                className="px-4 py-2 bg-[#16834A] dark:bg-[#22C55E] hover:bg-[#136F3F] dark:hover:bg-[#16A34A] text-white dark:text-[#0A0A0A] text-xs font-semibold rounded-xl shadow-xs transition-colors cursor-pointer"
+              >
+                Create trip
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -214,12 +214,12 @@ export const TripCelebrationModal: React.FC<TripCelebrationModalProps> = ({
 
       {/* Main Card */}
       <div
-        className="relative z-20 w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-neutral-100 overflow-hidden text-center p-6 sm:p-8 transform transition-all duration-300 scale-100 animate-in zoom-in-95"
+        className="relative z-20 w-full max-w-lg bg-white dark:bg-[#141416] rounded-3xl shadow-2xl border border-[#E4E4E7] dark:border-[#2A2A2E] overflow-hidden text-center p-6 sm:p-8 transform transition-all duration-300 scale-100 animate-in zoom-in-95"
       >
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-neutral-400"
+          className="absolute top-4 right-4 p-2 text-[#71717A] dark:text-[#A1A1AA] hover:text-[#18181B] dark:hover:text-[#F5F5F7] hover:bg-[#F4F4F5] dark:hover:bg-[#1B1B1E] rounded-full transition-colors focus:outline-none cursor-pointer"
           aria-label="Close celebration"
         >
           <X className="w-5 h-5" />
@@ -228,59 +228,51 @@ export const TripCelebrationModal: React.FC<TripCelebrationModalProps> = ({
         {/* Celebration Header Icon */}
         <div className="flex justify-center mb-5">
           <div className="relative">
-            {/* Glowing Aura Ring */}
-            <div className="absolute -inset-2 bg-gradient-to-tr from-emerald-400 to-blue-500 rounded-full blur-lg opacity-40 animate-pulse" />
-            
-            {/* Success Check Badge */}
-            <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-tr from-emerald-500 to-blue-600 flex items-center justify-center shadow-xl ring-4 ring-white">
-              <Check className="w-10 h-10 sm:w-12 sm:h-12 text-white stroke-[3.2] animate-in zoom-in-50 duration-300" />
-            </div>
-
-            {/* Sparkle badge */}
-            <div className="absolute -top-1 -right-1 bg-amber-400 text-white p-1.5 rounded-full shadow-md animate-bounce">
-              <Sparkles className="w-4 h-4 fill-amber-400" />
+            {/* Subtle Green Circle */}
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-[#DDF5E5] dark:bg-[#16834A]/20 flex items-center justify-center border border-[#BCEAC8] dark:border-[#22C55E]/30">
+              <Check className="w-8 h-8 sm:w-10 sm:h-10 text-[#16834A] dark:text-[#4ADE80] stroke-[2.5]" />
             </div>
           </div>
         </div>
 
         {/* Subtitle / Delight Message */}
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-full border border-emerald-200/60 mb-2">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#DDF5E5] dark:bg-[#16834A]/20 text-[#16834A] dark:text-[#4ADE80] text-xs font-semibold rounded-full border border-[#BCEAC8] dark:border-[#22C55E]/30 mb-2">
           <span>Trip Created Successfully</span>
         </div>
 
         <h2
           id="celebration-title"
-          className="text-2xl sm:text-3xl font-extrabold text-neutral-900 tracking-tight mb-2"
+          className="text-2xl sm:text-3xl font-extrabold text-[#18181B] dark:text-[#F5F5F7] tracking-tight mb-2"
         >
           {trip.name}
         </h2>
 
-        <p id="celebration-subtitle" className="text-sm sm:text-base text-neutral-600 font-medium mb-6">
-          Your next adventure starts here!
+        <p id="celebration-subtitle" className="text-sm text-[#71717A] dark:text-[#A1A1AA] font-normal mb-6">
+          Your journey is ready. Invite members and start tracking expenses.
         </p>
 
         {/* Trip Summary Details Card */}
-        <div className="bg-neutral-50/80 rounded-2xl p-4 mb-6 border border-neutral-100 text-left space-y-2.5">
+        <div className="bg-[#FAFAF8] dark:bg-[#1B1B1E] rounded-2xl p-4 mb-6 border border-[#E4E4E7] dark:border-[#2A2A2E] text-left space-y-2.5">
           {trip.destination && (
-            <div className="flex items-center text-sm text-neutral-700">
-              <MapPin className="w-4 h-4 text-emerald-600 mr-2.5 flex-shrink-0" />
-              <span className="font-medium text-neutral-900">{trip.destination}</span>
+            <div className="flex items-center text-sm text-[#18181B] dark:text-[#F5F5F7]">
+              <MapPin className="w-4 h-4 text-[#16834A] dark:text-[#22C55E] mr-2.5 flex-shrink-0" />
+              <span className="font-medium">{trip.destination}</span>
             </div>
           )}
 
           {datesFormatted && (
-            <div className="flex items-center text-sm text-neutral-700">
-              <Calendar className="w-4 h-4 text-blue-600 mr-2.5 flex-shrink-0" />
+            <div className="flex items-center text-sm text-[#71717A] dark:text-[#A1A1AA]">
+              <Calendar className="w-4 h-4 text-[#71717A] dark:text-[#A1A1AA] mr-2.5 flex-shrink-0" />
               <span>{datesFormatted}</span>
             </div>
           )}
 
-          <div className="flex items-center justify-between text-xs text-neutral-500 pt-2 border-t border-neutral-200/60">
+          <div className="flex items-center justify-between text-xs text-[#71717A] dark:text-[#A1A1AA] pt-2 border-t border-[#E4E4E7] dark:border-[#2A2A2E]">
             <span className="flex items-center gap-1 font-mono">
-              Invite Code: <strong className="text-neutral-800 tracking-wider text-sm">{trip.invite_code}</strong>
+              Invite Code: <strong className="text-[#18181B] dark:text-[#F5F5F7] tracking-wider text-sm">{trip.invite_code}</strong>
             </span>
-            <span className="flex items-center gap-1 text-neutral-600">
-              <Users className="w-3.5 h-3.5 text-neutral-400" />
+            <span className="flex items-center gap-1">
+              <Users className="w-3.5 h-3.5 text-[#71717A] dark:text-[#A1A1AA]" />
               1 Member (Owner)
             </span>
           </div>
@@ -290,7 +282,7 @@ export const TripCelebrationModal: React.FC<TripCelebrationModalProps> = ({
         <div className="flex flex-col sm:flex-row gap-3">
           <button
             onClick={handleView}
-            className="flex-1 bg-neutral-900 hover:bg-neutral-800 text-white font-semibold py-3 px-5 rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all hover:scale-[1.02] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-neutral-900"
+            className="flex-1 bg-[#16834A] dark:bg-[#22C55E] hover:bg-[#136F3F] dark:hover:bg-[#16A34A] text-white dark:text-[#0B0B0C] font-semibold py-3 px-5 rounded-xl flex items-center justify-center gap-2 shadow-xs transition-all active:scale-[0.98] cursor-pointer"
           >
             <span>View Trip</span>
             <ArrowRight className="w-4 h-4" />
@@ -298,9 +290,9 @@ export const TripCelebrationModal: React.FC<TripCelebrationModalProps> = ({
 
           <button
             onClick={handleDashboard}
-            className="flex-1 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-medium py-3 px-5 rounded-xl flex items-center justify-center gap-2 transition-all hover:bg-neutral-200/80 focus:outline-none focus:ring-2 focus:ring-neutral-300"
+            className="flex-1 bg-[#F4F4F5] dark:bg-[#1B1B1E] hover:bg-[#E4E4E7] dark:hover:bg-[#222226] text-[#18181B] dark:text-[#F5F5F7] border border-[#E4E4E7] dark:border-[#2A2A2E] font-medium py-3 px-5 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer"
           >
-            <Home className="w-4 h-4 text-neutral-500" />
+            <Home className="w-4 h-4 text-[#71717A] dark:text-[#A1A1AA]" />
             <span>Dashboard</span>
           </button>
         </div>

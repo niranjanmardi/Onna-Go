@@ -32,6 +32,8 @@ def get_dashboard_summary(
     total_spent_paise = 0
     total_owed_paise = 0    # others owe me (sum of positive net balances across my trips)
     total_owe_paise = 0     # I owe others (sum of negative net balances across my trips)
+    total_trip_expenses_paise = 0
+    total_share_paise = 0
     
     # Calculate exact net position per trip
     for t in active_trips_db:
@@ -63,8 +65,11 @@ def get_dashboard_summary(
         calc = calculate_trip_balances(all_trip_members, exp_dicts, st_dicts)
         user_balance = calc["net_balances"].get(current_user.id, 0)
         user_spent = calc["total_spent_paise"].get(current_user.id, 0)
+        user_share = calc["total_share_paise"].get(current_user.id, 0)
         
         total_spent_paise += user_spent
+        total_share_paise += user_share
+        total_trip_expenses_paise += calc["total_trip_expenses_paise"]
         if user_balance > 0:
             total_owed_paise += user_balance
         elif user_balance < 0:
@@ -168,10 +173,14 @@ def get_dashboard_summary(
         tr.member_contributions = member_contribs
         active_trips_resp.append(tr)
         
+    net_balance_paise = total_owed_paise - total_owe_paise
     return DashboardSummary(
         total_spent_paise=total_spent_paise,
         total_owed_paise=total_owed_paise,
         total_owe_paise=total_owe_paise,
+        total_trip_expenses_paise=total_trip_expenses_paise,
+        total_share_paise=total_share_paise,
+        net_balance_paise=net_balance_paise,
         active_trips_count=len(active_trips_db),
         recent_expenses=recent_expenses,
         active_trips=active_trips_resp,

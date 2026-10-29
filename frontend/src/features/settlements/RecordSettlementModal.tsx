@@ -11,6 +11,7 @@ interface RecordSettlementModalProps {
   isOpen: boolean;
   onClose: () => void;
   tripId: string;
+  tripName?: string;
   members: TripMember[];
   initialPayerId?: string;
   initialPayeeId?: string;
@@ -23,6 +24,7 @@ export const RecordSettlementModal: React.FC<RecordSettlementModalProps> = ({
   isOpen,
   onClose,
   tripId,
+  tripName,
   members,
   initialPayerId,
   initialPayeeId,
@@ -41,6 +43,7 @@ export const RecordSettlementModal: React.FC<RecordSettlementModalProps> = ({
   const [paymentMethod, setPaymentMethod] = useState(initialPaymentMethod);
   const [referenceId, setReferenceId] = useState('');
   const [notes, setNotes] = useState('');
+  const [confirmedByUser, setConfirmedByUser] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -54,6 +57,7 @@ export const RecordSettlementModal: React.FC<RecordSettlementModalProps> = ({
       setError(null);
       setReferenceId('');
       setNotes('');
+      setConfirmedByUser(false);
     }
   }, [isOpen, initialPayerId, initialPayeeId, initialAmountPaise, initialPaymentMethod]);
 
@@ -77,6 +81,11 @@ export const RecordSettlementModal: React.FC<RecordSettlementModalProps> = ({
       return;
     }
 
+    if (!confirmedByUser) {
+      setError('Please confirm that this payment has already occurred outside ONNA-GO.');
+      return;
+    }
+
     setLoading(true);
     try {
       const settlementPayload = {
@@ -85,8 +94,8 @@ export const RecordSettlementModal: React.FC<RecordSettlementModalProps> = ({
         payee_id: payeeId,
         amount_paise: paise,
         payment_method: paymentMethod,
-        reference_id: referenceId || null,
-        notes: notes || null,
+        reference_id: referenceId.trim() || null,
+        notes: notes.trim() || null,
       };
 
       let recorded: Settlement;
@@ -141,30 +150,33 @@ export const RecordSettlementModal: React.FC<RecordSettlementModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/25 backdrop-blur-xs">
-      <div className="bg-white rounded-2xl border border-[#E8E8E5] shadow-xl max-w-md w-full p-6 relative">
-        <div className="flex items-center justify-between pb-4 border-b border-[#E8E8E5]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+      <div className="bg-white dark:bg-[#141416] text-[#18181B] dark:text-[#F5F5F7] rounded-2xl border border-[#E4E4E7] dark:border-[#2A2A2E] shadow-2xl max-w-md w-full p-5 sm:p-6 relative">
+        <div className="flex items-center justify-between pb-4 border-b border-[#E4E4E7] dark:border-[#2A2A2E]">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-[#DDF5E5] text-[#16834A] flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-[#DDF5E5] dark:bg-[#22C55E]/10 text-[#16834A] dark:text-[#22C55E] flex items-center justify-center">
               <HandCoins className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-[#171717] font-['Plus_Jakarta_Sans']">
-                Record Payment / Settlement
+              <h3 className="text-base sm:text-lg font-bold tracking-tight">
+                Record Settlement
               </h3>
-              <p className="text-xs text-[#737373]">Internal payment report requiring recipient confirmation</p>
+              <p className="text-xs text-[#71717A] dark:text-[#A1A1AA]">
+                {tripName ? `Trip: ${tripName}` : 'Record a payment between trip members'}
+              </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-[#737373] hover:text-[#171717] rounded-lg hover:bg-[#F4F4F2] transition-colors"
+            className="p-1.5 text-[#71717A] dark:text-[#A1A1AA] hover:text-[#18181B] dark:hover:text-[#F5F5F7] rounded-lg hover:bg-[#F0F0F2] dark:hover:bg-[#1B1B1E] transition-colors cursor-pointer"
+            aria-label="Close"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {error && (
-          <div className="mt-4 p-3 rounded-xl bg-[#FFE4E6] border border-[#FDA4AF] text-[#E11D48] text-xs flex items-center gap-2">
+          <div className="mt-4 p-3 rounded-xl bg-[#FFE4E6] dark:bg-[#EF4444]/10 border border-[#FDA4AF] dark:border-[#EF4444]/30 text-[#DC2626] dark:text-[#EF4444] text-xs flex items-center gap-2">
             <AlertCircle className="w-4 h-4 flex-shrink-0" />
             <span>{error}</span>
           </div>
@@ -173,13 +185,13 @@ export const RecordSettlementModal: React.FC<RecordSettlementModalProps> = ({
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-[#71717A] dark:text-[#A1A1AA] mb-1">
                 Payer (Who Paid) *
               </label>
               <select
                 value={payerId}
                 onChange={(e) => setPayerId(e.target.value)}
-                className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-3 py-2 text-xs font-medium text-[#171717] focus:outline-none focus:border-[#16834A] transition-colors"
+                className="w-full bg-[#F7F7F8] dark:bg-[#1B1B1E] border border-[#E4E4E7] dark:border-[#2A2A2E] rounded-xl px-3 py-2 text-xs font-medium text-[#18181B] dark:text-[#F5F5F7] focus:outline-none focus:border-[#16834A] dark:focus:border-[#22C55E] transition-colors"
               >
                 {members.map((m) => (
                   <option key={m.user_id} value={m.user_id}>
@@ -190,13 +202,13 @@ export const RecordSettlementModal: React.FC<RecordSettlementModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-[#71717A] dark:text-[#A1A1AA] mb-1">
                 Receiver (Paid To) *
               </label>
               <select
                 value={payeeId}
                 onChange={(e) => setPayeeId(e.target.value)}
-                className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-3 py-2 text-xs font-medium text-[#171717] focus:outline-none focus:border-[#16834A] transition-colors"
+                className="w-full bg-[#F7F7F8] dark:bg-[#1B1B1E] border border-[#E4E4E7] dark:border-[#2A2A2E] rounded-xl px-3 py-2 text-xs font-medium text-[#18181B] dark:text-[#F5F5F7] focus:outline-none focus:border-[#16834A] dark:focus:border-[#22C55E] transition-colors"
               >
                 {members.map((m) => (
                   <option key={m.user_id} value={m.user_id}>
@@ -208,7 +220,7 @@ export const RecordSettlementModal: React.FC<RecordSettlementModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-[#71717A] dark:text-[#A1A1AA] mb-1">
               Amount (₹) *
             </label>
             <input
@@ -219,78 +231,95 @@ export const RecordSettlementModal: React.FC<RecordSettlementModalProps> = ({
               value={amountRupees}
               onChange={(e) => setAmountRupees(e.target.value)}
               placeholder="0.00"
-              className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-4 py-2.5 text-base font-bold font-mono text-[#171717] tabular-nums focus:outline-none focus:border-[#16834A] transition-colors"
+              className="w-full bg-[#F7F7F8] dark:bg-[#1B1B1E] border border-[#E4E4E7] dark:border-[#2A2A2E] rounded-xl px-4 py-2.5 text-base font-bold font-mono text-[#18181B] dark:text-[#F5F5F7] tabular-nums focus:outline-none focus:border-[#16834A] dark:focus:border-[#22C55E] transition-colors"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-[#71717A] dark:text-[#A1A1AA] mb-1">
                 Payment Method *
               </label>
               <select
                 value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value)}
-                className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-3 py-2 text-xs font-medium text-[#171717] focus:outline-none focus:border-[#16834A] transition-colors"
+                className="w-full bg-[#F7F7F8] dark:bg-[#1B1B1E] border border-[#E4E4E7] dark:border-[#2A2A2E] rounded-xl px-3 py-2 text-xs font-medium text-[#18181B] dark:text-[#F5F5F7] focus:outline-none focus:border-[#16834A] dark:focus:border-[#22C55E] transition-colors"
               >
-                <option value="CASH">Cash (Given in hand)</option>
-                <option value="UPI">UPI paid outside ONNA-GO</option>
-                <option value="BANK_TRANSFER">Bank transfer (IMPS / NEFT)</option>
+                <option value="CASH">Cash (Given in person)</option>
+                <option value="UPI">UPI (Paid outside ONNA-GO)</option>
+                <option value="BANK_TRANSFER">Bank Transfer (IMPS / NEFT)</option>
                 <option value="OTHER">Other</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-[#71717A] dark:text-[#A1A1AA] mb-1">
                 Reference / Note
               </label>
               <input
                 type="text"
                 value={referenceId}
                 onChange={(e) => setReferenceId(e.target.value)}
-                placeholder={paymentMethod === 'CASH' ? 'e.g. In-person handoff' : 'e.g. UTR / Ref No'}
-                className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-3 py-2 text-xs text-[#171717] focus:outline-none focus:border-[#16834A] font-mono transition-colors"
-              />
+                placeholder={paymentMethod === 'CASH' ? 'e.g. Handed over at tea shop' : 'e.g. UTR / Ref No'}
+                className="w-full bg-[#F7F7F8] dark:bg-[#1B1B1E] border border-[#E4E4E7] dark:border-[#2A2A2E] rounded-xl px-3 py-2 text-xs text-[#18181B] dark:text-[#F5F5F7] focus:outline-none focus:border-[#16834A] dark:focus:border-[#22C55E] font-mono transition-colors"
+              >
+              </input>
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] mb-1">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-[#71717A] dark:text-[#A1A1AA] mb-1">
               Optional Note
             </label>
             <input
               type="text"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="e.g. Settled for dinner and petrol..."
-              className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl px-4 py-2 text-xs text-[#171717] focus:outline-none focus:border-[#16834A] transition-colors"
+              placeholder="e.g. Settled for fuel and hotel"
+              className="w-full bg-[#F7F7F8] dark:bg-[#1B1B1E] border border-[#E4E4E7] dark:border-[#2A2A2E] rounded-xl px-4 py-2 text-xs text-[#18181B] dark:text-[#F5F5F7] focus:outline-none focus:border-[#16834A] dark:focus:border-[#22C55E] transition-colors"
             />
           </div>
 
-          <div className="p-3 rounded-xl bg-[#FAFAF8] border border-[#E8E8E5] text-[#737373] text-[11px] space-y-1.5">
-            <div className="flex items-center gap-1.5 font-semibold text-[#171717]">
-              <ShieldCheck className="w-3.5 h-3.5 text-[#16834A]" />
-              <span>In-App Settlement Policy</span>
+          <div className="p-3.5 rounded-xl bg-[#F7F7F8] dark:bg-[#1B1B1E] border border-[#E4E4E7] dark:border-[#2A2A2E] text-[#71717A] dark:text-[#A1A1AA] text-xs space-y-1.5">
+            <div className="flex items-center gap-1.5 font-semibold text-[#18181B] dark:text-[#F5F5F7]">
+              <ShieldCheck className="w-3.5 h-3.5 text-[#16834A] dark:text-[#22C55E]" />
+              <span>Record-Keeping Notice</span>
             </div>
             <p className="leading-relaxed">
-              ONNA-GO records this settlement and does not independently verify an external bank or UPI transfer. The payment will remain in <strong>Pending Confirmation</strong> until the receiver ({payeeMember?.user_name || 'recipient'}) explicitly confirms receipt.
+              Recording this settlement updates group balances. It does not transfer money through your bank account or UPI. The settlement will remain in <strong>Pending Confirmation</strong> until {payeeMember?.user_name || 'the recipient'} verifies receipt.
             </p>
           </div>
 
-          <div className="pt-3 flex items-center justify-end gap-3 border-t border-[#E8E8E5]">
+          {/* Explicit User Confirmation */}
+          <div className="pt-1">
+            <label className="flex items-start gap-2.5 text-xs text-[#18181B] dark:text-[#F5F5F7] cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={confirmedByUser}
+                onChange={(e) => setConfirmedByUser(e.target.checked)}
+                className="mt-0.5 rounded border-[#E4E4E7] dark:border-[#2A2A2E] text-[#16834A] dark:text-[#22C55E] focus:ring-[#16834A]"
+              />
+              <span className="leading-tight">
+                I confirm that this payment of {amountRupees ? `₹${amountRupees}` : 'the specified amount'} was completed outside ONNA-GO.
+              </span>
+            </label>
+          </div>
+
+          <div className="pt-3 flex items-center justify-end gap-3 border-t border-[#E4E4E7] dark:border-[#2A2A2E]">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-medium text-[#737373] hover:text-[#171717] rounded-xl hover:bg-[#F4F4F2] transition-colors"
+              disabled={loading}
+              className="px-4 py-2 text-xs font-medium text-[#71717A] dark:text-[#A1A1AA] hover:text-[#18181B] dark:hover:text-[#F5F5F7] rounded-xl hover:bg-[#F0F0F2] dark:hover:bg-[#1B1B1E] transition-colors cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={loading}
-              className="inline-flex items-center gap-1.5 bg-[#16834A] hover:bg-[#136F3F] text-white font-semibold text-xs py-2 px-5 rounded-xl shadow-xs transition-all active:scale-[0.98] disabled:opacity-50"
+              disabled={loading || !confirmedByUser}
+              className="inline-flex items-center gap-1.5 bg-[#16834A] dark:bg-[#22C55E] hover:bg-[#136F3F] dark:hover:bg-[#16A34A] text-white dark:text-[#0A0A0A] font-semibold text-xs py-2 px-5 rounded-xl shadow-xs transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
             >
-              <span>{loading ? 'Submitting...' : paymentMethod === 'CASH' ? 'I Gave Cash' : 'I Paid / Submit'}</span>
+              <span>{loading ? 'Recording...' : 'Confirm & Record Settlement'}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>

@@ -30,9 +30,17 @@ yarn-error.log*
 
 # Environment and OS
 .env
+.env.*
 .env.local
+*.env
+*.env.local
 *.local
+!.env.example
+!**/.env.example
 .DS_Store
 Thumbs.db
 .idea/
 .vscode/
+
+# Generated frontend build files
+/frontend/dist/

@@ -367,6 +367,7 @@ export const TripDetailPage: React.FC = () => {
 
   const netBalancePaise = userBalanceItem?.net_balance_paise ?? trip?.user_net_balance_paise ?? 0;
   const userSharePaise = userBalanceItem?.total_share_paise ?? trip?.user_share_paise ?? 0;
+  const userContributionPaise = userBalanceItem?.total_spent_paise ?? trip?.user_contribution_paise ?? 0;
   const totalTripExpensesPaise = balances?.total_expenses_paise ?? trip?.total_expenses_paise ?? 0;
 
   // Pending settlements
@@ -575,10 +576,11 @@ export const TripDetailPage: React.FC = () => {
         </div>
 
         {/* Summary line skeleton */}
-        <div className="py-4 border-b border-[#E8E8E5] dark:border-[#262626] flex gap-12">
-          <div className="w-24 h-10 rounded bg-[#E8E8E5] dark:bg-[#262626] animate-pulse" />
-          <div className="w-24 h-10 rounded bg-[#E8E8E5] dark:bg-[#262626] animate-pulse" />
-          <div className="w-24 h-10 rounded bg-[#E8E8E5] dark:bg-[#262626] animate-pulse" />
+        <div className="py-4 border-b border-[#E8E8E5] dark:border-[#2A2A2E] grid grid-cols-2 gap-4 sm:grid-cols-4 sm:gap-6">
+          <div className="w-24 h-10 rounded bg-[#E8E8E5] dark:bg-[#1B1B1E] animate-pulse" />
+          <div className="w-24 h-10 rounded bg-[#E8E8E5] dark:bg-[#1B1B1E] animate-pulse" />
+          <div className="w-24 h-10 rounded bg-[#E8E8E5] dark:bg-[#1B1B1E] animate-pulse" />
+          <div className="w-24 h-10 rounded bg-[#E8E8E5] dark:bg-[#1B1B1E] animate-pulse" />
         </div>
 
         {/* Tabs skeleton */}
@@ -746,43 +748,61 @@ export const TripDetailPage: React.FC = () => {
         </div>
       </header>
 
-      {/* --- Summary Line: Total spent, Your share, Your balance as plain numbers --- */}
-      <section className="py-4 border-b border-[#E8E8E5] dark:border-[#262626] flex items-center justify-between sm:justify-start sm:gap-12">
+      {/* --- Summary Line: 4 Distinct Financial Metrics (Clean Apple/Financial Dashboard, Tabular) --- */}
+      <section className="py-4 border-b border-[#E8E8E5] dark:border-[#2A2A2E] grid grid-cols-2 gap-4 sm:grid-cols-4 sm:gap-6">
         <div>
-          <span className="text-xs text-[#737373] dark:text-[#8E8E93] block mb-0.5 font-medium">
-            Total spent
+          <span className="text-xs text-[#71717A] dark:text-[#A1A1AA] block mb-0.5 font-medium">
+            Total Expenses
           </span>
-          <span className="text-lg sm:text-xl font-semibold tabular-nums tracking-tight text-[#171717] dark:text-[#EDEDED]">
+          <span className="text-lg sm:text-xl font-semibold tabular-nums font-mono tracking-tight text-[#18181B] dark:text-[#F5F5F7]">
             {formatPaise(totalTripExpensesPaise, trip.currency)}
           </span>
         </div>
         <div>
-          <span className="text-xs text-[#737373] dark:text-[#8E8E93] block mb-0.5 font-medium">
-            Your share
+          <span className="text-xs text-[#71717A] dark:text-[#A1A1AA] block mb-0.5 font-medium">
+            Your Fair Share
           </span>
-          <span className="text-lg sm:text-xl font-semibold tabular-nums tracking-tight text-[#171717] dark:text-[#EDEDED]">
+          <span className="text-lg sm:text-xl font-semibold tabular-nums font-mono tracking-tight text-[#18181B] dark:text-[#F5F5F7]">
             {formatPaise(userSharePaise, trip.currency)}
           </span>
         </div>
         <div>
-          <span className="text-xs text-[#737373] dark:text-[#8E8E93] block mb-0.5 font-medium">
-            Your balance
+          <span className="text-xs text-[#71717A] dark:text-[#A1A1AA] block mb-0.5 font-medium">
+            You Paid
           </span>
-          <span
-            className={`text-lg sm:text-xl font-semibold tabular-nums tracking-tight ${
-              netBalancePaise > 0
-                ? 'text-[#16834A] dark:text-[#22C55E]'
-                : netBalancePaise < 0
-                ? 'text-[#DC2626] dark:text-[#EF4444]'
-                : 'text-[#737373] dark:text-[#8E8E93]'
-            }`}
-          >
-            {netBalancePaise > 0
-              ? `+${formatPaise(netBalancePaise, trip.currency)}`
-              : netBalancePaise < 0
-              ? `-${formatPaise(Math.abs(netBalancePaise), trip.currency)}`
-              : formatPaise(0, trip.currency)}
+          <span className="text-lg sm:text-xl font-semibold tabular-nums font-mono tracking-tight text-[#18181B] dark:text-[#F5F5F7]">
+            {formatPaise(userContributionPaise, trip.currency)}
           </span>
+        </div>
+        <div>
+          {netBalancePaise < 0 ? (
+            <>
+              <span className="text-xs text-[#DC2626] dark:text-[#EF4444] block mb-0.5 font-medium">
+                You Owe
+              </span>
+              <span className="text-lg sm:text-xl font-semibold tabular-nums font-mono tracking-tight text-[#DC2626] dark:text-[#EF4444]">
+                {formatPaise(Math.abs(netBalancePaise), trip.currency)}
+              </span>
+            </>
+          ) : netBalancePaise > 0 ? (
+            <>
+              <span className="text-xs text-[#16834A] dark:text-[#22C55E] block mb-0.5 font-medium">
+                You Get Back
+              </span>
+              <span className="text-lg sm:text-xl font-semibold tabular-nums font-mono tracking-tight text-[#16834A] dark:text-[#22C55E]">
+                {formatPaise(netBalancePaise, trip.currency)}
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="text-xs text-[#71717A] dark:text-[#A1A1AA] block mb-0.5 font-medium">
+                Net Balance
+              </span>
+              <span className="text-lg sm:text-xl font-semibold tracking-tight text-[#71717A] dark:text-[#A1A1AA]">
+                Settled Up
+              </span>
+            </>
+          )}
         </div>
       </section>
 
@@ -954,51 +974,64 @@ export const TripDetailPage: React.FC = () => {
             </div>
           )}
 
-          {/* "Who owes whom" Plain Rows */}
+          {/* --- Section A: Who Owes Whom (Settlement Suggestions) --- */}
           <div>
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#8E8E93] mb-2">
-              Who owes whom
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-[#71717A] dark:text-[#A1A1AA] mb-2">
+              Debt Settlements (Who Owes Whom)
             </h3>
 
             {suggestions.length === 0 ? (
-              <div className="py-8 text-center border-b border-[#E8E8E5] dark:border-[#262626]">
-                <p className="text-sm text-[#737373] dark:text-[#8E8E93]">All debts are settled.</p>
+              <div className="py-8 text-center border-b border-[#E8E8E5] dark:border-[#2A2A2E]">
+                <p className="text-sm text-[#71717A] dark:text-[#A1A1AA]">All debts are settled.</p>
               </div>
             ) : (
-              <div className="divide-y divide-[#E8E8E5] dark:divide-[#262626]">
+              <div className="divide-y divide-[#E8E8E5] dark:divide-[#2A2A2E]">
                 {suggestions.map((sug, idx) => {
                   const isDebtor = sug.from_user_id === user?.id;
                   const isReceiver = sug.to_user_id === user?.id;
-                  const initial = sug.from_user_name ? sug.from_user_name.charAt(0).toUpperCase() : 'U';
-
-                  let rowText = `${sug.from_user_name} pays ${sug.to_user_name}`;
-                  if (isReceiver) {
-                    rowText = `${sug.from_user_name} pays you`;
-                  } else if (isDebtor) {
-                    rowText = `You pay ${sug.to_user_name}`;
-                  }
+                  const otherUserName = isDebtor ? sug.to_user_name : isReceiver ? sug.from_user_name : sug.to_user_name;
+                  const initial = otherUserName ? otherUserName.charAt(0).toUpperCase() : 'M';
 
                   return (
                     <div
                       key={`${sug.from_user_id}-${sug.to_user_id}-${idx}`}
                       className="py-3.5 flex items-center justify-between"
                     >
-                      {/* Avatar & "Priya pays you" */}
+                      {/* Avatar & Directional Wording */}
                       <div className="flex items-center gap-3 min-w-0 flex-1 pr-3">
-                        <div className="w-8 h-8 rounded-full bg-[#E8E8E5] dark:bg-[#262626] text-[#171717] dark:text-[#EDEDED] font-semibold text-xs flex items-center justify-center shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-[#F0F0F2] dark:bg-[#1B1B1E] text-[#18181B] dark:text-[#F5F5F7] font-semibold text-xs flex items-center justify-center shrink-0 border border-[#E4E4E7] dark:border-[#2A2A2E]">
                           {initial}
                         </div>
-                        <span className="text-sm font-medium text-[#171717] dark:text-[#EDEDED] truncate">
-                          {rowText}
-                        </span>
+                        <div className="min-w-0 truncate">
+                          {isDebtor ? (
+                            <p className="text-sm font-medium text-[#18181B] dark:text-[#F5F5F7] truncate">
+                              You owe <span className="font-semibold">{sug.to_user_name}</span>{' '}
+                              <span className="font-mono font-semibold tabular-nums text-[#DC2626] dark:text-[#EF4444]">
+                                {formatPaise(sug.amount_paise, trip.currency)}
+                              </span>
+                            </p>
+                          ) : isReceiver ? (
+                            <p className="text-sm font-medium text-[#18181B] dark:text-[#F5F5F7] truncate">
+                              <span className="font-semibold">{sug.from_user_name}</span> owes you{' '}
+                              <span className="font-mono font-semibold tabular-nums text-[#16834A] dark:text-[#22C55E]">
+                                {formatPaise(sug.amount_paise, trip.currency)}
+                              </span>
+                            </p>
+                          ) : (
+                            <p className="text-sm font-medium text-[#18181B] dark:text-[#F5F5F7] truncate">
+                              <span className="font-semibold">{sug.from_user_name}</span> owes{' '}
+                              <span className="font-semibold">{sug.to_user_name}</span>{' '}
+                              <span className="font-mono font-semibold tabular-nums text-[#18181B] dark:text-[#F5F5F7]">
+                                {formatPaise(sug.amount_paise, trip.currency)}
+                              </span>
+                            </p>
+                          )}
+                        </div>
                       </div>
 
-                      {/* Amount & "Settle up" text button */}
-                      <div className="flex items-center gap-4 shrink-0">
-                        <span className="text-sm font-semibold font-mono tabular-nums text-[#171717] dark:text-[#EDEDED]">
-                          {formatPaise(sug.amount_paise, trip.currency)}
-                        </span>
-                        {!isTripCompleted && (
+                      {/* Action: Clear Settle Up Button */}
+                      <div className="flex items-center gap-3 shrink-0">
+                        {!isTripCompleted && (isDebtor || isOwnerOrAdmin) && (
                           <button
                             onClick={() => {
                               setSettlePayer(sug.from_user_id);
@@ -1006,10 +1039,15 @@ export const TripDetailPage: React.FC = () => {
                               setSettleAmount(sug.amount_paise);
                               setIsRecordSettlementOpen(true);
                             }}
-                            className="text-xs font-semibold text-[#16834A] dark:text-[#22C55E] hover:underline cursor-pointer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#16834A] dark:bg-[#22C55E] hover:bg-[#136F3F] dark:hover:bg-[#16A34A] text-white dark:text-[#0A0A0A] font-semibold text-xs rounded-xl shadow-xs transition-all active:scale-[0.98] cursor-pointer"
                           >
-                            Settle up
+                            <span>Settle Up</span>
                           </button>
+                        )}
+                        {!isTripCompleted && isReceiver && !isOwnerOrAdmin && (
+                          <span className="text-[11px] font-medium text-[#16834A] dark:text-[#22C55E] bg-[#DDF5E5] dark:bg-[#22C55E]/10 px-2.5 py-1 rounded-lg border border-[#16834A]/20 dark:border-[#22C55E]/30">
+                            Awaiting payment
+                          </span>
                         )}
                       </div>
                     </div>
@@ -1017,6 +1055,88 @@ export const TripDetailPage: React.FC = () => {
                 })}
               </div>
             )}
+          </div>
+
+          {/* --- Section B: Member Balances Breakdown --- */}
+          <div className="pt-4 border-t border-[#E8E8E5] dark:border-[#2A2A2E]">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-[#71717A] dark:text-[#A1A1AA] mb-2">
+              Member Balances
+            </h3>
+
+            <div className="divide-y divide-[#E8E8E5] dark:divide-[#2A2A2E]">
+              {(balances?.balances || []).map((mb) => {
+                const isCurrentUser = mb.user_id === user?.id;
+                const initial = mb.user_name ? mb.user_name.charAt(0).toUpperCase() : 'M';
+                const isCreditor = mb.net_balance_paise > 0;
+                const isDebtor = mb.net_balance_paise < 0;
+
+                return (
+                  <div key={mb.user_id} className="py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    {/* Left: Avatar & Name */}
+                    <div className="flex items-center gap-3 min-w-0">
+                      {mb.avatar_url ? (
+                        <img
+                          src={getAvatarUrl(mb.avatar_url)}
+                          alt={mb.user_name}
+                          className="w-9 h-9 rounded-full object-cover border border-[#E8E8E5] dark:border-[#2A2A2E] shrink-0"
+                        />
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-[#F0F0F2] dark:bg-[#1B1B1E] text-[#18181B] dark:text-[#F5F5F7] font-semibold text-xs flex items-center justify-center shrink-0 border border-[#E8E8E5] dark:border-[#2A2A2E]">
+                          {initial}
+                        </div>
+                      )}
+                      <div className="min-w-0 truncate">
+                        <div className="flex items-center gap-1.5 truncate">
+                          <span className="text-sm font-medium text-[#18181B] dark:text-[#F5F5F7] truncate">
+                            {mb.user_name}
+                          </span>
+                          {isCurrentUser && (
+                            <span className="text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded bg-[#F0F0F2] dark:bg-[#1B1B1E] text-[#71717A] dark:text-[#A1A1AA] border border-[#E8E8E5] dark:border-[#2A2A2E]">
+                              You
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-[#71717A] dark:text-[#A1A1AA] flex items-center gap-3 mt-0.5">
+                          <span>Paid: <strong className="font-mono tabular-nums text-[#18181B] dark:text-[#F5F5F7]">{formatPaise(mb.total_spent_paise, trip.currency)}</strong></span>
+                          <span>•</span>
+                          <span>Share: <strong className="font-mono tabular-nums text-[#18181B] dark:text-[#F5F5F7]">{formatPaise(mb.total_share_paise, trip.currency)}</strong></span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right: Net Balance & Status Badge */}
+                    <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 ml-12 sm:ml-0">
+                      <span
+                        className={`text-sm font-semibold font-mono tabular-nums ${
+                          isCreditor
+                            ? 'text-[#16834A] dark:text-[#22C55E]'
+                            : isDebtor
+                            ? 'text-[#DC2626] dark:text-[#EF4444]'
+                            : 'text-[#71717A] dark:text-[#A1A1AA]'
+                        }`}
+                      >
+                        {isCreditor
+                          ? `+${formatPaise(mb.net_balance_paise, trip.currency)}`
+                          : isDebtor
+                          ? `-${formatPaise(Math.abs(mb.net_balance_paise), trip.currency)}`
+                          : formatPaise(0, trip.currency)}
+                      </span>
+                      <span
+                        className={`text-[11px] font-medium px-2 py-0.5 rounded-md border ${
+                          isCreditor
+                            ? 'bg-[#DDF5E5] dark:bg-[#22C55E]/10 text-[#16834A] dark:text-[#22C55E] border-[#16834A]/20 dark:border-[#22C55E]/30'
+                            : isDebtor
+                            ? 'bg-[#FFE4E6] dark:bg-[#EF4444]/10 text-[#DC2626] dark:text-[#EF4444] border-[#DC2626]/20 dark:border-[#EF4444]/30'
+                            : 'bg-[#F0F0F2] dark:bg-[#1B1B1E] text-[#71717A] dark:text-[#A1A1AA] border-[#E8E8E5] dark:border-[#2A2A2E]'
+                        }`}
+                      >
+                        {isCreditor ? 'Gets back' : isDebtor ? 'Owes' : 'Settled up'}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </section>
       )}
@@ -1180,6 +1300,7 @@ export const TripDetailPage: React.FC = () => {
         isOpen={isRecordSettlementOpen}
         onClose={() => setIsRecordSettlementOpen(false)}
         tripId={trip.id}
+        tripName={trip.name}
         members={members}
         initialPayerId={settlePayer}
         initialPayeeId={settlePayee}

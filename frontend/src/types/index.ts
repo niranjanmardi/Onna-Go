@@ -51,7 +51,7 @@ export interface Trip {
   created_at: string;
   updated_at: string;
   user_role?: 'OWNER' | 'ADMIN' | 'MEMBER';
-  status?: 'ACTIVE' | 'COMPLETED';
+  status?: 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
   user_contribution_paise?: number;
   user_share_paise?: number;
   user_net_balance_paise?: number;
@@ -121,6 +121,7 @@ export interface MemberBalance {
   user_id: string;
   user_name: string;
   user_email: string;
+  avatar_url?: string | null;
   net_balance_paise: number;
   total_spent_paise: number;
   total_share_paise: number;
@@ -193,6 +194,9 @@ export interface DashboardSummary {
   total_spent_paise: number;
   total_owed_paise: number;
   total_owe_paise: number;
+  total_trip_expenses_paise?: number;
+  total_share_paise?: number;
+  net_balance_paise?: number;
   active_trips_count: number;
   recent_expenses: Expense[];
   active_trips: Trip[];

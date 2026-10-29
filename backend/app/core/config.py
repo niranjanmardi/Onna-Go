@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./splitmate.db"
     
     # CORS
-    BACKEND_CORS_ORIGINS: List[str] = [
+    BACKEND_CORS_ORIGINS: Union[List[str], str] = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "http://localhost:3000",
@@ -53,7 +53,7 @@ class Settings(BaseSettings):
     MAX_UPLOAD_SIZE_BYTES: int = 5 * 1024 * 1024  # 5 MB
     
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(".env.local", ".env"),
         env_file_encoding="utf-8",
         case_sensitive=True,
         extra="ignore"

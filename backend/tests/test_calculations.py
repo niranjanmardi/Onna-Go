@@ -250,3 +250,98 @@ def test_duplicate_participants_rejected():
     with pytest.raises(ValueError, match="Duplicate participants"):
         calculate_equal_split(10000, ["u1", "u2", "u1"])
 
+def test_chennai_2570_trip_settlement_and_lifecycle():
+    """
+    Direct test of Part 1 specification:
+    Trip: Chennai
+    Members: 2 (Member A and Member B)
+    Total expenses: ₹2,570 (257,000 paise)
+    Member A paid: ₹670 (67,000 paise)
+    Member B paid: ₹1,900 (190,000 paise)
+    Fair share each: ₹1,285 (128,500 paise)
+    Member A net: 670 - 1285 = -₹615 (owes ₹615)
+    Member B net: 1900 - 1285 = +₹615 (receives ₹615)
+       Suggested settlement: Member A pays Member B ₹615
+    Completed settlement: updates balances to 0 paise
+    Pending/rejected/cancelled settlements: do not reduce outstanding balances
+    """
+    members = ["member_a", "member_b"]
+
+    # 1. Equal split calculation for ₹2,570 (257,000 paise)
+    equal_splits = calculate_equal_split(257000, members)
+    assert len(equal_splits) == 2
+    assert equal_splits[0]["amount_paise"] == 128500  # ₹1,285
+    assert equal_splits[1]["amount_paise"] == 128500  # ₹1,285
+    assert sum(s["amount_paise"] for s in equal_splits) == 257000
+
+    # 2. Member A paid ₹670 (split 50/50: 335 each), Member B paid ₹1,900 (split 50/50: 950 each)
+    exp_a_splits = calculate_equal_split(67000, members)
+    assert exp_a_splits[0]["amount_paise"] == 33500
+    assert exp_a_splits[1]["amount_paise"] == 33500
+
+    exp_b_splits = calculate_equal_split(190000, members)
+    assert exp_b_splits[0]["amount_paise"] == 95000
+    assert exp_b_splits[1]["amount_paise"] == 95000
+
+    expenses = [
+        {
+            "id": "exp_a",
+            "payer_id": "member_a",
+            "amount_paise": 67000,
+            "is_void": False,
+            "splits": exp_a_splits
+        },
+        {
+            "id": "exp_b",
+            "payer_id": "member_b",
+            "amount_paise": 190000,
+            "is_void": False,
+            "splits": exp_b_splits
+        }
+    ]
+
+    # Calculate balances with NO settlements
+    res = calculate_trip_balances(members, expenses, [])
+    assert res["total_trip_expenses_paise"] == 257000
+    assert res["total_spent_paise"]["member_a"] == 67000
+    assert res["total_spent_paise"]["member_b"] == 190000
+    assert res["total_share_paise"]["member_a"] == 128500
+    assert res["total_share_paise"]["member_b"] == 128500
+
+    # Net balances:
+    # Member A: 67,000 - 128,500 = -61,500 (-₹615) -> Owes ₹615
+    # Member B: 190,000 - 128,500 = +61,500 (+₹615) -> Receives ₹615
+    assert res["net_balances"]["member_a"] == -61500
+    assert res["net_balances"]["member_b"] == 61500
+    assert sum(res["net_balances"].values()) == 0  # Reconciles to exactly 0
+
+    # Settlement optimization
+    suggestions = optimize_settlements(res["net_balances"])
+    assert len(suggestions) == 1
+    assert suggestions[0]["from_user_id"] == "member_a"
+    assert suggestions[0]["to_user_id"] == "member_b"
+    assert suggestions[0]["amount_paise"] == 61500  # Exactly ₹615
+
+    # 3. Test that PENDING, INITIATED, REJECTED, and CANCELLED settlements do NOT change balances
+    pending_settlements = [
+        {"id": "s_pend", "payer_id": "member_a", "payee_id": "member_b", "amount_paise": 61500, "status": "PENDING_CONFIRMATION"},
+        {"id": "s_init", "payer_id": "member_a", "payee_id": "member_b", "amount_paise": 61500, "status": "INITIATED"},
+        {"id": "s_rej", "payer_id": "member_a", "payee_id": "member_b", "amount_paise": 61500, "status": "REJECTED"},
+        {"id": "s_canc", "payer_id": "member_a", "payee_id": "member_b", "amount_paise": 61500, "status": "CANCELLED"},
+    ]
+    res_pending = calculate_trip_balances(members, expenses, pending_settlements)
+    assert res_pending["net_balances"]["member_a"] == -61500
+    assert res_pending["net_balances"]["member_b"] == 61500
+    assert sum(res_pending["net_balances"].values()) == 0
+
+    # 4. Test that CONFIRMED settlement updates balances to 0 exactly once
+    confirmed_settlements = [
+        {"id": "s_conf", "payer_id": "member_a", "payee_id": "member_b", "amount_paise": 61500, "status": "CONFIRMED"}
+    ]
+    res_confirmed = calculate_trip_balances(members, expenses, confirmed_settlements)
+    assert res_confirmed["net_balances"]["member_a"] == 0  # Settled Up
+    assert res_confirmed["net_balances"]["member_b"] == 0  # Settled Up
+    assert sum(res_confirmed["net_balances"].values()) == 0
+
+    sug_after_confirm = optimize_settlements(res_confirmed["net_balances"])
+    assert len(sug_after_confirm) == 0  # All debts settled

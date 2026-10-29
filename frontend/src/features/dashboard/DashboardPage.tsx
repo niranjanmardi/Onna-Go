@@ -33,6 +33,9 @@ export const DashboardPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [totalOwePaise, setTotalOwePaise] = useState(0);
   const [totalOwedPaise, setTotalOwedPaise] = useState(0);
+  const [totalSpentPaise, setTotalSpentPaise] = useState(0);
+  const [totalExpensesPaise, setTotalExpensesPaise] = useState(0);
+  const [totalSharePaise, setTotalSharePaise] = useState(0);
   const [trips, setTrips] = useState<Trip[]>([]);
   const [recentExpenses, setRecentExpenses] = useState<Expense[]>([]);
   const [isTripPickerOpen, setIsTripPickerOpen] = useState(false);
@@ -42,12 +45,20 @@ export const DashboardPage: React.FC = () => {
       const res = await api.get<DashboardSummary>('/dashboard/summary');
       setTotalOwePaise(res.total_owe_paise || 0);
       setTotalOwedPaise(res.total_owed_paise || 0);
-      setTrips(res.active_trips || []);
+      setTotalSpentPaise(res.total_spent_paise || 0);
+
+      const activeTripsList = res.active_trips || [];
+      const computedExpenses = res.total_trip_expenses_paise ?? activeTripsList.reduce((sum, t) => sum + (t.total_expenses_paise || 0), 0);
+      const computedShare = res.total_share_paise ?? activeTripsList.reduce((sum, t) => sum + (t.user_share_paise || 0), 0);
+      setTotalExpensesPaise(computedExpenses);
+      setTotalSharePaise(computedShare);
+
+      setTrips(activeTripsList);
       setRecentExpenses(res.recent_expenses || []);
 
       // Cache trips for offline use
-      if (res.active_trips && res.active_trips.length > 0) {
-        cacheTripsList(res.active_trips).catch(() => {});
+      if (activeTripsList.length > 0) {
+        cacheTripsList(activeTripsList).catch(() => {});
       }
     } catch {
       // Fallback to offline cached data
@@ -57,8 +68,14 @@ export const DashboardPage: React.FC = () => {
           setTrips(cached);
           const owe = cached.reduce((sum, t) => sum + (t.user_owes_paise || 0), 0);
           const owed = cached.reduce((sum, t) => sum + (t.user_receives_paise || 0), 0);
+          const spent = cached.reduce((sum, t) => sum + (t.user_contribution_paise || 0), 0);
+          const expenses = cached.reduce((sum, t) => sum + (t.total_expenses_paise || 0), 0);
+          const share = cached.reduce((sum, t) => sum + (t.user_share_paise || 0), 0);
           setTotalOwePaise(owe);
           setTotalOwedPaise(owed);
+          setTotalSpentPaise(spent);
+          setTotalExpensesPaise(expenses);
+          setTotalSharePaise(share);
         }
       } catch {
         // Ignore offline read failure
@@ -108,40 +125,50 @@ export const DashboardPage: React.FC = () => {
           Dashboard
         </h1>
 
-        {/* Profile Avatar */}
-        <button
-          onClick={() => navigate('/profile')}
-          className="cursor-pointer active:scale-95 transition-transform rounded-full focus:outline-hidden"
-          title={user?.full_name || 'Profile'}
-          aria-label="Profile"
-        >
-          {user?.avatar_url ? (
-            <img
-              src={getAvatarUrl(user.avatar_url)}
-              alt={user.full_name}
-              className="w-9 h-9 rounded-full object-cover border border-[#E8E8E5] dark:border-[#262626]"
-            />
-          ) : (
-            <div className="w-9 h-9 rounded-full bg-[#E8E8E5] dark:bg-[#262626] text-[#171717] dark:text-[#EDEDED] flex items-center justify-center font-semibold text-xs">
-              {userInitial}
-            </div>
+        <div className="flex items-center gap-2.5">
+          {trips.length > 0 && (
+            <button
+              onClick={handleOpenAddExpense}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-[#16834A] dark:bg-[#22C55E] dark:text-[#0A0A0A] rounded-xl hover:bg-[#157340] dark:hover:bg-[#1ea951] transition-colors cursor-pointer shadow-xs"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add expense</span>
+            </button>
           )}
-        </button>
+
+          {/* Profile Avatar */}
+          <button
+            onClick={() => navigate('/profile')}
+            className="cursor-pointer active:scale-95 transition-transform rounded-full focus:outline-hidden"
+            title={user?.full_name || 'Profile'}
+            aria-label="Profile"
+          >
+            {user?.avatar_url ? (
+              <img
+                src={getAvatarUrl(user.avatar_url)}
+                alt={user.full_name}
+                className="w-9 h-9 rounded-full object-cover border border-[#E8E8E5] dark:border-[#262626]"
+              />
+            ) : (
+              <div className="w-9 h-9 rounded-full bg-[#E8E8E5] dark:bg-[#262626] text-[#171717] dark:text-[#EDEDED] flex items-center justify-center font-semibold text-xs">
+                {userInitial}
+              </div>
+            )}
+          </button>
+        </div>
       </header>
 
       {/* --- Loading State: Skeleton Loaders (No spinners) --- */}
       {loading ? (
         <div className="space-y-8 mt-2" aria-busy="true" aria-label="Loading dashboard">
           {/* Summary Block Skeleton */}
-          <div className="py-5 border-b border-[#E8E8E5] dark:border-[#262626] grid grid-cols-2 gap-6 sm:flex sm:gap-16">
-            <div>
-              <div className="w-16 h-3.5 bg-[#E8E8E5] dark:bg-[#262626] rounded animate-pulse mb-2" />
-              <div className="w-28 h-8 bg-[#E8E8E5] dark:bg-[#262626] rounded animate-pulse" />
-            </div>
-            <div>
-              <div className="w-20 h-3.5 bg-[#E8E8E5] dark:bg-[#262626] rounded animate-pulse mb-2" />
-              <div className="w-28 h-8 bg-[#E8E8E5] dark:bg-[#262626] rounded animate-pulse" />
-            </div>
+          <div className="py-5 border-b border-[#E8E8E5] dark:border-[#2A2A2E] grid grid-cols-2 gap-4 sm:grid-cols-4 sm:gap-6">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i}>
+                <div className="w-18 h-3.5 bg-[#E8E8E5] dark:bg-[#1B1B1E] rounded animate-pulse mb-2" />
+                <div className="w-24 h-7 bg-[#E8E8E5] dark:bg-[#1B1B1E] rounded animate-pulse" />
+              </div>
+            ))}
           </div>
 
           {/* Trips Feed Skeleton */}
@@ -181,41 +208,90 @@ export const DashboardPage: React.FC = () => {
         </div>
       ) : (
         <>
-          {/* --- Summary Block: Two Plain Numbers (Red & Green, Tabular) --- */}
-          <section className="py-5 border-b border-[#E8E8E5] dark:border-[#262626] grid grid-cols-2 gap-6 sm:flex sm:gap-16">
+          {/* --- Summary Block: 4 Clear Financial Metrics (Apple/Minimalist, Tabular) --- */}
+          <section className="py-5 border-b border-[#E8E8E5] dark:border-[#2A2A2E] grid grid-cols-2 gap-4 sm:grid-cols-4 sm:gap-6">
             <div>
-              <span className="text-xs font-medium text-[#737373] dark:text-[#8E8E93] block mb-1">
-                You owe
+              <span className="text-xs font-medium text-[#71717A] dark:text-[#A1A1AA] block mb-1">
+                Total Expenses
               </span>
-              <span className="text-2xl sm:text-3xl font-semibold tabular-nums tracking-tight text-[#DC2626] dark:text-[#EF4444]">
-                {formatPaise(totalOwePaise)}
+              <span className="text-xl sm:text-2xl font-semibold tabular-nums font-mono tracking-tight text-[#18181B] dark:text-[#F5F5F7]">
+                {formatPaise(totalExpensesPaise)}
               </span>
             </div>
             <div>
-              <span className="text-xs font-medium text-[#737373] dark:text-[#8E8E93] block mb-1">
-                You're owed
+              <span className="text-xs font-medium text-[#71717A] dark:text-[#A1A1AA] block mb-1">
+                Your Fair Share
               </span>
-              <span className="text-2xl sm:text-3xl font-semibold tabular-nums tracking-tight text-[#16834A] dark:text-[#22C55E]">
-                {formatPaise(totalOwedPaise)}
+              <span className="text-xl sm:text-2xl font-semibold tabular-nums font-mono tracking-tight text-[#18181B] dark:text-[#F5F5F7]">
+                {formatPaise(totalSharePaise)}
               </span>
+            </div>
+            <div>
+              <span className="text-xs font-medium text-[#71717A] dark:text-[#A1A1AA] block mb-1">
+                You Paid
+              </span>
+              <span className="text-xl sm:text-2xl font-semibold tabular-nums font-mono tracking-tight text-[#18181B] dark:text-[#F5F5F7]">
+                {formatPaise(totalSpentPaise)}
+              </span>
+            </div>
+            <div>
+              {totalOwePaise > totalOwedPaise ? (
+                <>
+                  <span className="text-xs font-medium text-[#DC2626] dark:text-[#EF4444] block mb-1">
+                    You Owe
+                  </span>
+                  <span className="text-xl sm:text-2xl font-semibold tabular-nums font-mono tracking-tight text-[#DC2626] dark:text-[#EF4444]">
+                    {formatPaise(totalOwePaise - totalOwedPaise)}
+                  </span>
+                </>
+              ) : totalOwedPaise > totalOwePaise ? (
+                <>
+                  <span className="text-xs font-medium text-[#16834A] dark:text-[#22C55E] block mb-1">
+                    You Get Back
+                  </span>
+                  <span className="text-xl sm:text-2xl font-semibold tabular-nums font-mono tracking-tight text-[#16834A] dark:text-[#22C55E]">
+                    {formatPaise(totalOwedPaise - totalOwePaise)}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="text-xs font-medium text-[#71717A] dark:text-[#A1A1AA] block mb-1">
+                    Net Balance
+                  </span>
+                  <span className="text-xl sm:text-2xl font-semibold tracking-tight text-[#71717A] dark:text-[#A1A1AA]">
+                    Settled Up
+                  </span>
+                </>
+              )}
             </div>
           </section>
 
           {/* --- Trips List (Feed Rows) --- */}
           <section className="mt-8">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#8E8E93] mb-2">
+            <h2 className="text-xs font-medium text-[#737373] dark:text-[#8E8E93] mb-2">
               Trips
             </h2>
 
             {trips.length === 0 ? (
-              <div className="py-8 text-center border-b border-[#E8E8E5] dark:border-[#262626]">
-                <p className="text-sm text-[#737373] dark:text-[#8E8E93] mb-3">No trips yet.</p>
-                <button
-                  onClick={() => navigate('/trips/new')}
-                  className="px-4 py-2 text-xs font-semibold text-[#171717] dark:text-[#EDEDED] bg-white dark:bg-[#1A1A1A] border border-[#E8E8E5] dark:border-[#262626] rounded-xl hover:bg-[#F4F4F2] dark:hover:bg-[#222222] transition-colors cursor-pointer"
-                >
-                  Create a trip
-                </button>
+              <div className="py-10 px-4 text-center border border-[#E8E8E5] dark:border-[#262626] rounded-2xl bg-[#FAFAF8] dark:bg-[#141414] my-3">
+                <p className="text-sm font-medium text-[#171717] dark:text-[#EDEDED] mb-1">No trips yet</p>
+                <p className="text-xs text-[#737373] dark:text-[#8E8E93] mb-5 max-w-xs mx-auto">
+                  Create a trip to start sharing and splitting expenses with friends.
+                </p>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5">
+                  <button
+                    onClick={() => navigate('/trips/new')}
+                    className="w-full sm:w-auto px-4 py-2 text-xs sm:text-sm font-medium text-white bg-[#16834A] dark:bg-[#22C55E] dark:text-[#0A0A0A] rounded-xl hover:bg-[#157340] dark:hover:bg-[#1ea951] transition-colors cursor-pointer shadow-xs"
+                  >
+                    Create your first trip
+                  </button>
+                  <button
+                    onClick={() => navigate('/trips/join')}
+                    className="w-full sm:w-auto px-4 py-2 text-xs sm:text-sm font-medium text-[#171717] dark:text-[#EDEDED] bg-white dark:bg-[#1A1A1A] border border-[#E8E8E5] dark:border-[#262626] rounded-xl hover:bg-[#F4F4F2] dark:hover:bg-[#222222] transition-colors cursor-pointer"
+                  >
+                    Join with code
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="divide-y divide-[#E8E8E5] dark:divide-[#262626]">
@@ -290,7 +366,7 @@ export const DashboardPage: React.FC = () => {
 
           {/* --- Recent Activity List (Feed Rows) --- */}
           <section className="mt-8 mb-24 sm:mb-12">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#8E8E93] mb-2">
+            <h2 className="text-xs font-medium text-[#737373] dark:text-[#8E8E93] mb-2">
               Recent activity
             </h2>
 
@@ -341,14 +417,7 @@ export const DashboardPage: React.FC = () => {
         </>
       )}
 
-      {/* --- Mobile Floating Action Button (+) --- */}
-      <button
-        onClick={handleOpenAddExpense}
-        className="sm:hidden fixed bottom-20 right-5 w-14 h-14 rounded-full bg-[#16834A] dark:bg-[#22C55E] text-white dark:text-[#0A0A0A] flex items-center justify-center shadow-lg active:scale-95 transition-transform z-30 cursor-pointer"
-        aria-label="Add expense"
-      >
-        <Plus className="w-6 h-6 stroke-[2.5]" />
-      </button>
+
 
       {/* --- Trip Picker Modal (if multiple trips exist when adding expense) --- */}
       {isTripPickerOpen && (

@@ -64,10 +64,9 @@ export function calculateLocalBalances(
     }
   });
 
-  // 2. Process confirmed settlements (or pending sync settlements)
+  // 2. Process confirmed settlements (only CONFIRMED settlements reduce balances)
   settlements.forEach((st) => {
-    // Include confirmed settlements and local pending sync settlements
-    if (st.status === 'CONFIRMED' || st.is_pending_sync) {
+    if (st.status === 'CONFIRMED') {
       const payerId = st.payer_id;
       const payeeId = st.payee_id;
       const amount = st.amount_paise || 0;
@@ -90,6 +89,7 @@ export function calculateLocalBalances(
       user_id: m.user_id,
       user_name: m.user_name,
       user_email: m.user_email,
+      avatar_url: (m as any).avatar_url || (m as any).user_avatar || null,
       net_balance_paise: net,
       total_spent_paise: totalSpent[m.user_id] || 0,
       total_share_paise: totalShare[m.user_id] || 0,

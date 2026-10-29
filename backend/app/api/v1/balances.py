@@ -77,6 +77,7 @@ def get_trip_balances(
                 user_id=uid,
                 user_name=user.full_name if user else "Member",
                 user_email=user.email if user else "",
+                avatar_url=user.avatar_url if user else None,
                 net_balance_paise=bal,
                 total_spent_paise=total_spent.get(uid, 0),
                 total_share_paise=total_share.get(uid, 0),
