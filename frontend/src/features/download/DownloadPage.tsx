@@ -82,11 +82,11 @@ export const DownloadPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F7F7F8] dark:bg-[#0B0B0C] text-[#18181B] dark:text-[#F5F5F7] selection:bg-[#16834A]/20 selection:text-[#16834A] dark:selection:text-[#22C55E] flex flex-col justify-between transition-colors duration-200">
+    <div className="min-h-screen bg-transparent text-white selection:bg-[#16834A]/20 selection:text-emerald-300 flex flex-col justify-between transition-colors duration-200 relative z-10">
       {/* ========================================================================= */}
       {/* --- TOP NAVIGATION BAR --- */}
       {/* ========================================================================= */}
-      <header className="sticky top-0 z-40 bg-[#FFFFFF]/85 dark:bg-[#141416]/85 backdrop-blur-md border-b border-[#E4E4E7] dark:border-[#2A2A2E]">
+      <header className="sticky top-0 z-40 bg-black/40 backdrop-blur-xl border-b border-white/15">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <div
             onClick={() => navigate('/')}

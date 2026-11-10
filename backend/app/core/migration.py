@@ -189,6 +189,196 @@ def run_migrations():
                 ON settlements(trip_id, client_id) WHERE client_id IS NOT NULL
             """))
 
+        # 7. Dialect-aware type helpers for extension tables
+        ts_default = "TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP" if dialect != "sqlite" else "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+        ts_bare = "TIMESTAMP WITH TIME ZONE" if dialect != "sqlite" else "TIMESTAMP"
+        bool_default_false = "BOOLEAN DEFAULT FALSE" if dialect != "sqlite" else "BOOLEAN DEFAULT 0"
+
+        # 8. Create 'user_themes' table if not exists
+        conn.execute(text(f"""
+            CREATE TABLE IF NOT EXISTS user_themes (
+                id VARCHAR(36) PRIMARY KEY,
+                user_id VARCHAR(36) NOT NULL,
+                theme_id VARCHAR(64) DEFAULT 'default' NOT NULL,
+                overlay_opacity FLOAT DEFAULT 0.75,
+                overlay_style VARCHAR(20) DEFAULT 'dark',
+                blur_level INTEGER DEFAULT 0,
+                created_at {ts_default},
+                updated_at {ts_default},
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        """))
+        conn.execute(text("""
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_user_themes_user_unique 
+            ON user_themes(user_id)
+        """))
+
+        # 9. Create 'social_posts' table if not exists
+        conn.execute(text(f"""
+            CREATE TABLE IF NOT EXISTS social_posts (
+                id VARCHAR(36) PRIMARY KEY,
+                user_id VARCHAR(36) NOT NULL,
+                trip_id VARCHAR(36),
+                caption TEXT,
+                location_name VARCHAR(255),
+                trip_dates_label VARCHAR(100),
+                privacy VARCHAR(20) DEFAULT 'FRIENDS',
+                expense_summary_json TEXT,
+                likes_count INTEGER DEFAULT 0,
+                comments_count INTEGER DEFAULT 0,
+                created_at {ts_default},
+                updated_at {ts_default},
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY(trip_id) REFERENCES trips(id) ON DELETE SET NULL
+            )
+        """))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS idx_social_posts_user ON social_posts(user_id)"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS idx_social_posts_trip ON social_posts(trip_id)"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS idx_social_posts_created ON social_posts(created_at)"))
+
+        # 10. Create 'post_media' table if not exists
+        conn.execute(text(f"""
+            CREATE TABLE IF NOT EXISTS post_media (
+                id VARCHAR(36) PRIMARY KEY,
+                post_id VARCHAR(36) NOT NULL,
+                media_type VARCHAR(20) DEFAULT 'IMAGE',
+                media_url VARCHAR(500) NOT NULL,
+                thumbnail_url VARCHAR(500),
+                display_order INTEGER DEFAULT 0,
+                created_at {ts_default},
+                FOREIGN KEY(post_id) REFERENCES social_posts(id) ON DELETE CASCADE
+            )
+        """))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS idx_post_media_post ON post_media(post_id)"))
+
+        # 11. Create 'post_likes' table if not exists
+        conn.execute(text(f"""
+            CREATE TABLE IF NOT EXISTS post_likes (
+                id VARCHAR(36) PRIMARY KEY,
+                post_id VARCHAR(36) NOT NULL,
+                user_id VARCHAR(36) NOT NULL,
+                created_at {ts_default},
+                FOREIGN KEY(post_id) REFERENCES social_posts(id) ON DELETE CASCADE,
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        """))
+        conn.execute(text("""
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_post_likes_post_user 
+            ON post_likes(post_id, user_id)
+        """))
+
+        # 12. Create 'post_comments' table if not exists
+        conn.execute(text(f"""
+            CREATE TABLE IF NOT EXISTS post_comments (
+                id VARCHAR(36) PRIMARY KEY,
+                post_id VARCHAR(36) NOT NULL,
+                user_id VARCHAR(36) NOT NULL,
+                parent_comment_id VARCHAR(36),
+                comment_text TEXT NOT NULL,
+                created_at {ts_default},
+                updated_at {ts_default},
+                FOREIGN KEY(post_id) REFERENCES social_posts(id) ON DELETE CASCADE,
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY(parent_comment_id) REFERENCES post_comments(id) ON DELETE CASCADE
+            )
+        """))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS idx_post_comments_post ON post_comments(post_id)"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS idx_post_comments_user ON post_comments(user_id)"))
+
+        # 13. Create 'conversations' table if not exists
+        conn.execute(text(f"""
+            CREATE TABLE IF NOT EXISTS conversations (
+                id VARCHAR(36) PRIMARY KEY,
+                type VARCHAR(20) DEFAULT 'DIRECT',
+                trip_id VARCHAR(36),
+                title VARCHAR(255),
+                last_message_preview TEXT,
+                last_message_at {ts_default},
+                created_at {ts_default},
+                updated_at {ts_default},
+                FOREIGN KEY(trip_id) REFERENCES trips(id) ON DELETE CASCADE
+            )
+        """))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS idx_conversations_trip ON conversations(trip_id)"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS idx_conversations_last_msg ON conversations(last_message_at)"))
+
+        # 14. Create 'conversation_members' table if not exists
+        conn.execute(text(f"""
+            CREATE TABLE IF NOT EXISTS conversation_members (
+                id VARCHAR(36) PRIMARY KEY,
+                conversation_id VARCHAR(36) NOT NULL,
+                user_id VARCHAR(36) NOT NULL,
+                last_read_message_id VARCHAR(36),
+                last_read_at {ts_bare},
+                is_muted {bool_default_false},
+                role VARCHAR(20) DEFAULT 'MEMBER',
+                joined_at {ts_default},
+                FOREIGN KEY(conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        """))
+        conn.execute(text("""
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_conversation_members_unique 
+            ON conversation_members(conversation_id, user_id)
+        """))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS idx_conversation_members_user ON conversation_members(user_id)"))
+
+        # 15. Create 'chat_messages' table if not exists
+        conn.execute(text(f"""
+            CREATE TABLE IF NOT EXISTS chat_messages (
+                id VARCHAR(36) PRIMARY KEY,
+                conversation_id VARCHAR(36) NOT NULL,
+                sender_id VARCHAR(36) NOT NULL,
+                message_type VARCHAR(20) DEFAULT 'TEXT',
+                content TEXT,
+                media_url VARCHAR(500),
+                media_duration_seconds INTEGER,
+                reply_to_id VARCHAR(36),
+                is_deleted {bool_default_false},
+                created_at {ts_default},
+                updated_at {ts_default},
+                FOREIGN KEY(conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
+                FOREIGN KEY(sender_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY(reply_to_id) REFERENCES chat_messages(id) ON DELETE SET NULL
+            )
+        """))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS idx_chat_messages_conv ON chat_messages(conversation_id, created_at)"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS idx_chat_messages_sender ON chat_messages(sender_id)"))
+
+        # 16. Create 'message_reactions' table if not exists
+        conn.execute(text(f"""
+            CREATE TABLE IF NOT EXISTS message_reactions (
+                id VARCHAR(36) PRIMARY KEY,
+                message_id VARCHAR(36) NOT NULL,
+                user_id VARCHAR(36) NOT NULL,
+                emoji VARCHAR(32) NOT NULL,
+                created_at {ts_default},
+                FOREIGN KEY(message_id) REFERENCES chat_messages(id) ON DELETE CASCADE,
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        """))
+        conn.execute(text("""
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_message_reactions_unique 
+            ON message_reactions(message_id, user_id, emoji)
+        """))
+
+        # 17. Create 'user_blocks' table if not exists
+        conn.execute(text(f"""
+            CREATE TABLE IF NOT EXISTS user_blocks (
+                id VARCHAR(36) PRIMARY KEY,
+                blocker_id VARCHAR(36) NOT NULL,
+                blocked_id VARCHAR(36) NOT NULL,
+                reason TEXT,
+                created_at {ts_default},
+                FOREIGN KEY(blocker_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY(blocked_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        """))
+        conn.execute(text("""
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_user_blocks_unique 
+            ON user_blocks(blocker_id, blocked_id)
+        """))
+
     logger.info("Schema migrations successfully verified.")
 
 if __name__ == "__main__":

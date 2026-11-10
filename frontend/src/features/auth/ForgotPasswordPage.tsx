@@ -55,32 +55,35 @@ export const ForgotPasswordPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#FFFFFF] dark:bg-[#0A0A0A] flex flex-col justify-center px-4 sm:px-6 py-12 text-[#121212] dark:text-[#EDEDED] transition-colors">
-      <div className="w-full max-w-[400px] mx-auto">
-        <div className="mb-6">
+    <div className="min-h-screen bg-transparent flex flex-col justify-center items-center px-4 sm:px-6 py-10 relative z-10">
+      <div className="w-full max-w-[400px] glass-panel p-7 sm:p-8 space-y-6 border border-white/25 shadow-2xl animate-fadeIn">
+        <div>
           <div className="inline-block cursor-pointer" onClick={() => navigate('/')}>
             <Logo size="sm" showTagline={false} />
           </div>
-          <h1 className="mt-4 text-2xl font-semibold tracking-tight text-[#121212] dark:text-[#EDEDED]">
+          <h1 className="mt-4 text-2xl font-bold tracking-tight text-white glass-text-glow">
             Reset password
           </h1>
+          <p className="mt-1 text-xs text-zinc-300">
+            Enter your account email to receive your password reset token.
+          </p>
         </div>
 
         {error && (
           <div
             role="alert"
-            className="p-3 rounded-[10px] bg-[#FEF2F2] dark:bg-[#450A0A]/40 border border-[#FCA5A5] dark:border-[#991B1B]/40 text-[#DC2626] dark:text-[#EF4444] text-xs mb-4 animate-fadeIn"
+            className="p-3.5 rounded-xl bg-red-500/20 border border-red-400/35 text-red-200 text-xs animate-fadeIn flex items-start gap-2.5"
           >
-            {error}
+            <span className="font-medium leading-relaxed">{error}</span>
           </div>
         )}
 
         {success && (
           <div
             role="status"
-            className="p-3 rounded-[10px] bg-[#F0FDF4] dark:bg-[#052E16]/40 border border-[#BBF7D0] dark:border-[#166534]/40 text-[#16834A] dark:text-[#22C55E] text-xs mb-4 animate-fadeIn"
+            className="p-3.5 rounded-xl bg-emerald-500/20 border border-emerald-400/35 text-emerald-200 text-xs animate-fadeIn flex items-start gap-2.5"
           >
-            {success}
+            <span className="font-medium leading-relaxed">{success}</span>
           </div>
         )}
 
@@ -89,7 +92,7 @@ export const ForgotPasswordPage: React.FC = () => {
             <div>
               <label
                 htmlFor="reset-email"
-                className="block text-xs font-medium text-[#71717A] dark:text-[#9E9E9E] mb-1.5"
+                className="block text-xs font-semibold text-zinc-200 mb-1.5"
               >
                 Email address
               </label>
@@ -100,7 +103,7 @@ export const ForgotPasswordPage: React.FC = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@example.com"
-                className="w-full h-12 bg-[#FAFAF9] dark:bg-[#121212] border border-[#E4E4E7] dark:border-[#222222] rounded-[10px] px-3.5 text-sm text-[#121212] dark:text-[#EDEDED] placeholder-[#A1A1AA] focus:outline-none focus:border-[#16834A] dark:focus:border-[#22C55E] focus:ring-1 focus:ring-[#16834A] dark:focus:ring-[#22C55E] transition-colors"
+                className="glass-input w-full px-3.5 text-sm"
               />
             </div>
 
@@ -108,7 +111,7 @@ export const ForgotPasswordPage: React.FC = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full h-12 rounded-[10px] bg-[#16834A] dark:bg-[#22C55E] text-white dark:text-[#0A0A0A] font-medium text-sm hover:opacity-95 active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-none"
+                className="w-full h-12 rounded-[10px] bg-[#16834A] hover:bg-[#15803D] active:scale-[0.99] text-white font-bold text-sm shadow-lg shadow-emerald-950/40 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading && <Loader2 className="w-4 h-4 animate-spin shrink-0" />}
                 <span>Request password reset</span>
@@ -120,7 +123,7 @@ export const ForgotPasswordPage: React.FC = () => {
             <div>
               <label
                 htmlFor="new-password"
-                className="block text-xs font-medium text-[#71717A] dark:text-[#9E9E9E] mb-1.5"
+                className="block text-xs font-semibold text-zinc-200 mb-1.5"
               >
                 New password
               </label>
@@ -132,7 +135,7 @@ export const ForgotPasswordPage: React.FC = () => {
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="At least 8 characters"
-                className="w-full h-12 bg-[#FAFAF9] dark:bg-[#121212] border border-[#E4E4E7] dark:border-[#222222] rounded-[10px] px-3.5 text-sm text-[#121212] dark:text-[#EDEDED] placeholder-[#A1A1AA] focus:outline-none focus:border-[#16834A] dark:focus:border-[#22C55E] focus:ring-1 focus:ring-[#16834A] dark:focus:ring-[#22C55E] transition-colors"
+                className="glass-input w-full px-3.5 text-sm"
               />
             </div>
 
@@ -140,7 +143,7 @@ export const ForgotPasswordPage: React.FC = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full h-12 rounded-[10px] bg-[#16834A] dark:bg-[#22C55E] text-white dark:text-[#0A0A0A] font-medium text-sm hover:opacity-95 active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-none"
+                className="w-full h-12 rounded-[10px] bg-[#16834A] hover:bg-[#15803D] active:scale-[0.99] text-white font-bold text-sm shadow-lg shadow-emerald-950/40 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading && <Loader2 className="w-4 h-4 animate-spin shrink-0" />}
                 <span>Set new password</span>
@@ -149,10 +152,10 @@ export const ForgotPasswordPage: React.FC = () => {
           </form>
         )}
 
-        <div className="text-center mt-6 text-sm text-[#71717A] dark:text-[#9E9E9E]">
+        <div className="text-center pt-2 text-sm text-zinc-300">
           <Link
             to="/login"
-            className="font-medium text-[#16834A] dark:text-[#22C55E] hover:underline transition-colors"
+            className="font-semibold text-emerald-400 hover:text-emerald-300 hover:underline transition-colors"
           >
             Back to sign in
           </Link>

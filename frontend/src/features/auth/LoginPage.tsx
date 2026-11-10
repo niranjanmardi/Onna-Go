@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from './AuthContext';
+import { useTheme } from '@/context/ThemeContext';
 import { Logo } from '@/components/brand/Logo';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Sparkles, AlertCircle } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
   const { login } = useAuth();
+  const { activeTheme } = useTheme();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -16,6 +18,7 @@ export const LoginPage: React.FC = () => {
     searchParams.get('expired') ? 'Your session expired. Please sign in again.' : null
   );
   const [loading, setLoading] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,38 +39,78 @@ export const LoginPage: React.FC = () => {
       await login(trimmedIdent, password);
       navigate('/dashboard');
     } catch (err: any) {
-      setError(err.message || 'Incorrect username/email or password. Please try again.');
+      const msg = err.message || '';
+      if (msg.includes('fetch') || msg.includes('Failed to fetch') || msg.includes('Network') || msg.includes('504') || msg.includes('500') || msg.includes('502')) {
+        setError('Cannot connect to backend API server. Please ensure the FastAPI backend is running on http://127.0.0.1:8000.');
+      } else {
+        setError(msg || 'Incorrect username/email or password. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
+  const handleQuickDemoLogin = async () => {
+    setError(null);
+    setDemoLoading(true);
+    try {
+      // Instant sign-in with verified active demo user
+      await login('alice_rider@rupaii.app', 'Password123!');
+      navigate('/dashboard');
+    } catch (err: any) {
+      const msg = err.message || '';
+      if (msg.includes('fetch') || msg.includes('Failed to fetch') || msg.includes('Network') || msg.includes('504') || msg.includes('500') || msg.includes('502')) {
+        setError('Cannot connect to backend API server. Please ensure the FastAPI backend is running on http://127.0.0.1:8000.');
+      } else {
+        setError('Demo login failed: ' + (msg || 'Unable to authenticate.'));
+      }
+    } finally {
+      setDemoLoading(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-[#FFFFFF] dark:bg-[#0A0A0A] flex flex-col justify-center px-4 sm:px-6 py-12 text-[#121212] dark:text-[#EDEDED] transition-colors">
-      <div className="w-full max-w-[400px] mx-auto">
-        <div className="mb-6">
+    <div className="min-h-screen bg-transparent flex flex-col justify-center items-center px-4 sm:px-6 py-10 relative z-10">
+      <div className="w-full max-w-[400px] glass-panel p-7 sm:p-8 space-y-6 border border-white/25 shadow-2xl animate-fadeIn">
+        {/* Header & Logo */}
+        <div>
           <div className="inline-block cursor-pointer" onClick={() => navigate('/')}>
             <Logo size="sm" showTagline={false} />
           </div>
-          <h1 className="mt-4 text-2xl font-semibold tracking-tight text-[#121212] dark:text-[#EDEDED]">
+          <h1 className="mt-4 text-2xl font-bold tracking-tight text-white glass-text-glow">
             Sign in
           </h1>
+          <p className="mt-1 text-xs text-zinc-300">
+            Sign in to coordinate trips, split expenses, and manage settlements.
+          </p>
+
+          {/* Active Wallpaper Indicator Badge */}
+          {activeTheme && (
+            <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold text-emerald-300 bg-emerald-500/15 border border-emerald-400/25">
+              <Sparkles className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span className="truncate">{activeTheme.name}</span>
+            </div>
+          )}
         </div>
 
+        {/* Error Alert */}
         {error && (
           <div
             role="alert"
-            className="p-3 rounded-[10px] bg-[#FEF2F2] dark:bg-[#450A0A]/40 border border-[#FCA5A5] dark:border-[#991B1B]/40 text-[#DC2626] dark:text-[#EF4444] text-xs mb-4 animate-fadeIn"
+            className="p-3.5 rounded-xl bg-red-500/20 border border-red-400/35 text-red-200 text-xs animate-fadeIn flex items-start gap-2.5"
           >
-            {error}
+            <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+            <span className="font-medium leading-relaxed">{error}</span>
           </div>
         )}
 
+        {/* Login Form */}
         <form className="space-y-4" onSubmit={handleSubmit} noValidate>
+          {/* Username or Email */}
           <div>
             <label
               htmlFor="identifier"
-              className="block text-xs font-medium text-[#71717A] dark:text-[#9E9E9E] mb-1.5"
+              className="block text-xs font-semibold text-zinc-200 mb-1.5"
             >
               Username or email
             </label>
@@ -80,14 +123,15 @@ export const LoginPage: React.FC = () => {
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
               placeholder="Username or email"
-              className="w-full h-12 bg-[#FAFAF9] dark:bg-[#121212] border border-[#E4E4E7] dark:border-[#222222] rounded-[10px] px-3.5 text-sm text-[#121212] dark:text-[#EDEDED] placeholder-[#A1A1AA] focus:outline-none focus:border-[#16834A] dark:focus:border-[#22C55E] focus:ring-1 focus:ring-[#16834A] dark:focus:ring-[#22C55E] transition-colors"
+              className="glass-input w-full px-3.5 text-sm"
             />
           </div>
 
+          {/* Password */}
           <div>
             <label
               htmlFor="password"
-              className="block text-xs font-medium text-[#71717A] dark:text-[#9E9E9E] mb-1.5"
+              className="block text-xs font-semibold text-zinc-200 mb-1.5"
             >
               Password
             </label>
@@ -101,12 +145,12 @@ export const LoginPage: React.FC = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Password"
-                className="w-full h-12 bg-[#FAFAF9] dark:bg-[#121212] border border-[#E4E4E7] dark:border-[#222222] rounded-[10px] pl-3.5 pr-11 text-sm text-[#121212] dark:text-[#EDEDED] placeholder-[#A1A1AA] focus:outline-none focus:border-[#16834A] dark:focus:border-[#22C55E] focus:ring-1 focus:ring-[#16834A] dark:focus:ring-[#22C55E] transition-colors"
+                className="glass-input w-full pl-3.5 pr-11 text-sm"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#A1A1AA] hover:text-[#121212] dark:hover:text-[#EDEDED] transition-colors cursor-pointer"
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white transition-colors cursor-pointer"
                 aria-label="Toggle password visibility"
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -115,18 +159,19 @@ export const LoginPage: React.FC = () => {
             <div className="flex justify-end pt-1.5">
               <Link
                 to="/forgot-password"
-                className="text-xs text-[#71717A] dark:text-[#9E9E9E] hover:text-[#121212] dark:hover:text-[#EDEDED] hover:underline"
+                className="text-xs text-zinc-300 hover:text-white hover:underline transition-colors"
               >
                 Forgot password?
               </Link>
             </div>
           </div>
 
-          <div className="pt-2">
+          {/* Submit Button */}
+          <div className="pt-1">
             <button
               type="submit"
-              disabled={loading}
-              className="w-full h-12 rounded-[10px] bg-[#16834A] dark:bg-[#22C55E] text-white dark:text-[#0A0A0A] font-medium text-sm hover:opacity-95 active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-none"
+              disabled={loading || demoLoading}
+              className="w-full h-12 rounded-[10px] bg-[#16834A] hover:bg-[#15803D] active:scale-[0.99] text-white font-bold text-sm shadow-lg shadow-emerald-950/40 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin shrink-0" />}
               <span>Sign in</span>
@@ -134,11 +179,32 @@ export const LoginPage: React.FC = () => {
           </div>
         </form>
 
-        <div className="text-center mt-6 text-sm text-[#71717A] dark:text-[#9E9E9E]">
+        {/* Quick Demo Access Button */}
+        <div className="pt-1 border-t border-white/10 space-y-3">
+          <p className="text-[11px] text-center text-zinc-400 font-medium">
+            Testing the app? Use instant 1-click access:
+          </p>
+          <button
+            type="button"
+            onClick={handleQuickDemoLogin}
+            disabled={loading || demoLoading}
+            className="w-full h-11 rounded-[10px] glass-interactive border border-emerald-400/30 hover:border-emerald-400/60 text-emerald-300 hover:text-white font-semibold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+          >
+            {demoLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin text-emerald-400 shrink-0" />
+            ) : (
+              <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+            )}
+            <span>{demoLoading ? 'Signing in...' : 'Quick Demo Sign In (Alice)'}</span>
+          </button>
+        </div>
+
+        {/* Register Footer */}
+        <div className="text-center pt-2 text-sm text-zinc-300">
           New here?{' '}
           <Link
             to="/register"
-            className="font-medium text-[#16834A] dark:text-[#22C55E] hover:underline transition-colors"
+            className="font-semibold text-emerald-400 hover:text-emerald-300 hover:underline transition-colors"
           >
             Create account
           </Link>

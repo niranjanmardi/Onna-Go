@@ -7,6 +7,7 @@ import { FeedbackProvider } from './context/FeedbackContext';
 import { Logo } from './components/brand/Logo';
 import { OfflineProvider } from './context/OfflineContext';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { GlobalWallpaper } from './components/themes/GlobalWallpaper';
 
 // Lazy-loaded route components for high performance and fast initial load
 const LandingPage = React.lazy(() => import('./features/landing/LandingPage').then(m => ({ default: m.LandingPage })));
@@ -18,6 +19,7 @@ const TripsListPage = React.lazy(() => import('./features/trips/TripsListPage').
 const TripDetailPage = React.lazy(() => import('./features/trips/TripDetailPage').then(m => ({ default: m.TripDetailPage })));
 const NotificationsPage = React.lazy(() => import('./features/notifications/NotificationsPage').then(m => ({ default: m.NotificationsPage })));
 const SettingsPage = React.lazy(() => import('./features/settings/SettingsPage').then(m => ({ default: m.SettingsPage })));
+const ThemesPage = React.lazy(() => import('./features/themes/ThemesPage').then(m => ({ default: m.ThemesPage })));
 const FriendsPage = React.lazy(() => import('./features/friends/FriendsPage').then(m => ({ default: m.FriendsPage })));
 const DownloadPage = React.lazy(() => import('./features/download/DownloadPage').then(m => ({ default: m.DownloadPage })));
 
@@ -97,7 +99,8 @@ export const App: React.FC = () => {
           <OfflineProvider>
             <FeedbackProvider>
               <BrowserRouter>
-              <Suspense fallback={<RouteLoadingFallback />}>
+                <GlobalWallpaper />
+                <Suspense fallback={<RouteLoadingFallback />}>
                 <Routes>
                   {/* Public landing - redirects authenticated users directly to Dashboard; shows branded loading while verifying session */}
                   <Route
@@ -148,6 +151,8 @@ export const App: React.FC = () => {
                     <Route path="/friends" element={<FriendsPage />} />
                     <Route path="/settings" element={<SettingsPage />} />
                     <Route path="/profile" element={<SettingsPage />} />
+                    <Route path="/themes" element={<ThemesPage />} />
+                    <Route path="/appearance" element={<ThemesPage />} />
                   </Route>
 
                   {/* Catch-all 404 */}

@@ -29,6 +29,7 @@ import {
 } from '@/types';
 import { formatPaise, formatDate } from '@/lib/currency';
 import { useAuth } from '@/features/auth/AuthContext';
+import { useTheme } from '@/context/ThemeContext';
 import { AddExpenseModal } from '@/features/expenses/AddExpenseModal';
 import { RecordSettlementModal } from '@/features/settlements/RecordSettlementModal';
 import { TripSummaryModal } from '@/features/trips/TripSummaryModal';
@@ -99,7 +100,10 @@ function groupExpensesByDate(expensesList: Expense[]) {
 export const TripDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
-  const { showConfirmation } = useFeedback();
+  const { activeThemeId } = useTheme();
+  const hasCustomWallpaper = activeThemeId !== 'default';
+  const showFeedback = useFeedback();
+  const { showConfirmation } = showFeedback;
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -748,8 +752,8 @@ export const TripDetailPage: React.FC = () => {
         </div>
       </header>
 
-      {/* --- Summary Line: 4 Distinct Financial Metrics (Clean Apple/Financial Dashboard, Tabular) --- */}
-      <section className="py-4 border-b border-[#E8E8E5] dark:border-[#2A2A2E] grid grid-cols-2 gap-4 sm:grid-cols-4 sm:gap-6">
+      {/* --- Summary Line: 4 Distinct Financial Metrics (iPhone Frosted Solid Glass) --- */}
+      <section className="glass-solid p-5 sm:p-6 shadow-xl border border-white/50 dark:border-white/10 rounded-3xl grid grid-cols-2 gap-4 sm:grid-cols-4 sm:gap-6">
         <div>
           <span className="text-xs text-[#71717A] dark:text-[#A1A1AA] block mb-0.5 font-medium">
             Total Expenses
@@ -871,12 +875,12 @@ export const TripDetailPage: React.FC = () => {
             groupedExpenses.map((group) => (
               <div key={group.dateLabel} className="space-y-1">
                 {/* Small Section Header */}
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#8E8E93] pt-2 pb-1">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 pt-2 pb-1 px-1">
                   {group.dateLabel}
                 </h3>
 
                 {/* Feed Rows for this date */}
-                <div className="divide-y divide-[#E8E8E5] dark:divide-[#262626]">
+                <div className="glass-card rounded-3xl p-3 sm:p-4 border border-white/40 dark:border-white/10 shadow-sm divide-y divide-black/5 dark:divide-white/10">
                   {group.items.map((exp) => {
                     const initial = exp.category ? exp.category.charAt(0).toUpperCase() : 'E';
 
@@ -884,36 +888,36 @@ export const TripDetailPage: React.FC = () => {
                       <div
                         key={exp.id}
                         onClick={() => setSelectedExpenseForAction(exp)}
-                        className="py-3 px-2 -mx-2 hover:bg-[#F4F4F2]/70 dark:hover:bg-[#1A1A1A]/70 rounded-xl transition-colors cursor-pointer flex items-center justify-between"
+                        className="py-3 px-3 rounded-2xl hover:bg-black/5 dark:hover:bg-white/5 transition-all cursor-pointer flex items-center justify-between group"
                       >
                         {/* Left + Middle */}
                         <div className="flex items-center gap-3 min-w-0 flex-1 pr-3">
                           {/* Category initial avatar */}
-                          <div className="w-9 h-9 rounded-lg bg-[#F4F4F2] dark:bg-[#1C1C1C] text-[#171717] dark:text-[#EDEDED] font-semibold text-xs flex items-center justify-center shrink-0 border border-[#E8E8E5] dark:border-[#262626]">
+                          <div className="w-9 h-9 rounded-xl bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-white font-bold text-xs flex items-center justify-center shrink-0 border border-white/40 dark:border-white/10 shadow-xs">
                             {initial}
                           </div>
 
                           {/* Title & Subtitle */}
                           <div className="min-w-0 flex-1 truncate">
                             <div className="flex items-center gap-1.5 truncate">
-                              <span className="text-sm font-medium text-[#171717] dark:text-[#EDEDED] truncate">
+                              <span className="text-sm font-semibold text-zinc-900 dark:text-white truncate">
                                 {exp.description}
                               </span>
                               {exp.is_pending_sync && (
                                 <span title="Waiting to sync">
-                                  <Clock className="w-3.5 h-3.5 text-[#B45309] dark:text-[#FBBF24] shrink-0" />
+                                  <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                                 </span>
                               )}
                             </div>
-                            <p className="text-xs text-[#737373] dark:text-[#8E8E93] mt-0.5 truncate">
-                              Paid by {exp.payer_name || 'Member'} - {formatRelativeTime(exp.created_at || exp.date)}
+                            <p className="text-xs text-zinc-400 mt-0.5 truncate font-medium">
+                              Paid by {exp.payer_name || 'Member'} &bull; {formatRelativeTime(exp.created_at || exp.date)}
                             </p>
                           </div>
                         </div>
 
                         {/* Right: Amount */}
                         <div className="text-right shrink-0 ml-3">
-                          <span className="text-sm font-semibold font-mono tabular-nums text-[#171717] dark:text-[#EDEDED]">
+                          <span className="text-sm font-bold font-mono tabular-nums text-zinc-900 dark:text-white">
                             {formatPaise(exp.amount_paise, exp.currency)}
                           </span>
                         </div>
@@ -938,7 +942,7 @@ export const TripDetailPage: React.FC = () => {
               <h3 className="text-xs font-semibold uppercase tracking-wider text-[#B45309] dark:text-[#FBBF24] mb-2">
                 Awaiting your confirmation
               </h3>
-              <div className="divide-y divide-[#E8E8E5] dark:divide-[#262626]">
+              <div className={hasCustomWallpaper ? 'glass-card rounded-3xl p-3 sm:p-4 border border-white/40 dark:border-white/10 shadow-sm divide-y divide-black/5 dark:divide-white/10' : 'divide-y divide-[#E8E8E5] dark:divide-[#262626]'}>
                 {pendingForMeAsReceiver.map((st) => (
                   <div key={st.id} className="py-3 flex items-center justify-between">
                     <div className="min-w-0 flex-1 pr-3">
@@ -985,7 +989,7 @@ export const TripDetailPage: React.FC = () => {
                 <p className="text-sm text-[#71717A] dark:text-[#A1A1AA]">All debts are settled.</p>
               </div>
             ) : (
-              <div className="divide-y divide-[#E8E8E5] dark:divide-[#2A2A2E]">
+              <div className={hasCustomWallpaper ? 'glass-card rounded-3xl p-3 sm:p-4 border border-white/40 dark:border-white/10 shadow-sm divide-y divide-black/5 dark:divide-white/10' : 'divide-y divide-[#E8E8E5] dark:divide-[#2A2A2E]'}>
                 {suggestions.map((sug, idx) => {
                   const isDebtor = sug.from_user_id === user?.id;
                   const isReceiver = sug.to_user_id === user?.id;
@@ -1063,7 +1067,7 @@ export const TripDetailPage: React.FC = () => {
               Member Balances
             </h3>
 
-            <div className="divide-y divide-[#E8E8E5] dark:divide-[#2A2A2E]">
+            <div className={hasCustomWallpaper ? 'glass-card rounded-3xl p-3 sm:p-4 border border-white/40 dark:border-white/10 shadow-sm divide-y divide-black/5 dark:divide-white/10' : 'divide-y divide-[#E8E8E5] dark:divide-[#2A2A2E]'}>
               {(balances?.balances || []).map((mb) => {
                 const isCurrentUser = mb.user_id === user?.id;
                 const initial = mb.user_name ? mb.user_name.charAt(0).toUpperCase() : 'M';
@@ -1158,7 +1162,7 @@ export const TripDetailPage: React.FC = () => {
             </button>
           </div>
 
-          <div className="divide-y divide-[#E8E8E5] dark:divide-[#262626]">
+          <div className={hasCustomWallpaper ? 'glass-card rounded-3xl p-3 sm:p-4 border border-white/40 dark:border-white/10 shadow-sm divide-y divide-black/5 dark:divide-white/10' : 'divide-y divide-[#E8E8E5] dark:divide-[#262626]'}>
             {members.map((m) => {
               const isCurrentUser = m.user_id === user?.id;
               const initial = m.user_name ? m.user_name.charAt(0).toUpperCase() : 'M';

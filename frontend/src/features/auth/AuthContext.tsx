@@ -163,6 +163,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('onnago_user', JSON.stringify(data.user));
       setUser(data.user);
       resumeSyncQueue();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('onnago:auth-changed'));
+      }
     } finally {
       setIsLoading(false);
     }
@@ -193,6 +196,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('onnago_user', JSON.stringify(data.user));
       setUser(data.user);
       resumeSyncQueue();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('onnago:auth-changed'));
+      }
     } finally {
       setIsLoading(false);
     }
@@ -212,6 +218,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.removeItem('rupaii_token');
       localStorage.removeItem('rupaii_user');
       setUser(null);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('onnago:auth-changed'));
+      }
     }
   };
 

@@ -18,6 +18,7 @@ from backend.app.api.v1.reports import router as reports_router
 from backend.app.api.v1.notifications import router as notifications_router
 from backend.app.api.v1.receipts import router as receipts_router
 from backend.app.api.v1.dashboard import router as dashboard_router
+from backend.app.api.v1.themes import router as themes_router
 
 # Ensure tables and migrations exist
 Base.metadata.create_all(bind=engine)
@@ -108,6 +109,7 @@ app.include_router(reports_router, prefix=api_v1_prefix)
 app.include_router(notifications_router, prefix=api_v1_prefix)
 app.include_router(receipts_router, prefix=api_v1_prefix)
 app.include_router(dashboard_router, prefix=api_v1_prefix)
+app.include_router(themes_router, prefix=api_v1_prefix)
 
 # Serve Frontend SPA (when built in production)
 import os

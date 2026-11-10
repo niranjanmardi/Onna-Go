@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Plus, LogOut, X } from 'lucide-react';
 import { useAuth } from '@/features/auth/AuthContext';
+import { useTheme } from '@/context/ThemeContext';
 import { getAvatarUrl, api } from '@/lib/api-client';
 import { useFeedback } from '@/context/FeedbackContext';
 import { InstallPrompt } from '@/components/pwa/InstallPrompt';
@@ -83,6 +84,7 @@ const ProfileIcon: React.FC<{ filled: boolean; className?: string }> = ({ filled
 export const AppLayout: React.FC = () => {
   const { user, logout } = useAuth();
   const { playClick } = useFeedback();
+  const { activeThemeId, activeTheme, overlayOpacity, overlayStyle, blurLevel, resolvedTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -131,13 +133,16 @@ export const AppLayout: React.FC = () => {
   const isFriendsActive = location.pathname.startsWith('/friends');
   const isProfileActive = location.pathname.startsWith('/settings') || location.pathname.startsWith('/profile');
 
+  const hasCustomWallpaper = Boolean(activeTheme?.full_url);
+
   return (
-    <div className="min-h-screen bg-[#F7F7F8] dark:bg-[#0B0B0C] flex flex-col md:flex-row text-[#18181B] dark:text-[#F5F5F7] transition-colors duration-200">
+    <div className="min-h-screen bg-transparent flex flex-col md:flex-row text-white relative">
+
       {/* PWA Custom Install Prompt Banner */}
       <InstallPrompt />
 
-      {/* --- Desktop Slim Left Sidebar --- */}
-      <aside className="hidden md:flex flex-col w-16 h-screen sticky top-0 bg-[#FFFFFF] dark:bg-[#141416] border-r border-[#E4E4E7] dark:border-[#2A2A2E] py-5 items-center justify-between select-none z-30">
+      {/* --- Desktop Slim Left Sidebar (Apple Glass Floating Navigation) --- */}
+      <aside className="hidden md:flex flex-col w-20 h-screen sticky top-0 glass-nav border-r border-white/25 py-6 items-center justify-between select-none z-30 transition-all">
         <div className="flex flex-col items-center gap-6 w-full">
           {/* Brand Monogram */}
           <button
@@ -145,22 +150,22 @@ export const AppLayout: React.FC = () => {
               playClick();
               navigate('/dashboard');
             }}
-            className="w-10 h-10 rounded-xl bg-[#16834A] dark:bg-[#22C55E] text-white dark:text-[#0A0A0A] flex items-center justify-center font-bold text-base hover:opacity-95 active:scale-95 transition-transform cursor-pointer"
+            className="w-11 h-11 rounded-2xl bg-[#16834A] dark:bg-[#22C55E] text-white dark:text-[#0A0A0A] flex items-center justify-center font-bold text-base hover:opacity-95 active:scale-95 transition-all shadow-md cursor-pointer"
             title="Onna-Go Home"
           >
             O
           </button>
 
           {/* Navigation Items (Slim desktop) */}
-          <nav className="flex flex-col items-center gap-2 w-full px-2">
+          <nav className="flex flex-col items-center gap-2.5 w-full px-2.5">
             <NavLink
               to="/dashboard"
               onClick={playClick}
               title="Home"
-              className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all ${
+              className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
                 isHomeActive
-                  ? 'text-[#171717] dark:text-[#EDEDED] bg-white dark:bg-[#1C1C1C] border border-[#E8E8E5] dark:border-[#2E2E2E]'
-                  : 'text-[#737373] dark:text-[#8E8E93] hover:text-[#171717] dark:hover:text-[#EDEDED] hover:bg-[#F4F4F2] dark:hover:bg-[#1A1A1A]'
+                  ? 'text-[#16834A] dark:text-[#22C55E] bg-white/95 dark:bg-white/15 border border-white/50 dark:border-white/20 shadow-md scale-105'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-white/10'
               }`}
             >
               <HomeIcon filled={isHomeActive} />
@@ -170,10 +175,10 @@ export const AppLayout: React.FC = () => {
               to="/trips"
               onClick={playClick}
               title="Trips"
-              className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all ${
+              className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
                 isTripsActive
-                  ? 'text-[#171717] dark:text-[#EDEDED] bg-white dark:bg-[#1C1C1C] border border-[#E8E8E5] dark:border-[#2E2E2E]'
-                  : 'text-[#737373] dark:text-[#8E8E93] hover:text-[#171717] dark:hover:text-[#EDEDED] hover:bg-[#F4F4F2] dark:hover:bg-[#1A1A1A]'
+                  ? 'text-[#16834A] dark:text-[#22C55E] bg-white/95 dark:bg-white/15 border border-white/50 dark:border-white/20 shadow-md scale-105'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-white/10'
               }`}
             >
               <TripsIcon filled={isTripsActive} />
@@ -184,19 +189,19 @@ export const AppLayout: React.FC = () => {
               onClick={handleAddExpenseClick}
               title="Add expense"
               aria-label="Add expense"
-              className="w-10 h-10 my-1 rounded-xl bg-[#16834A] dark:bg-[#22C55E] text-white dark:text-[#0A0A0A] flex items-center justify-center hover:opacity-90 active:scale-95 transition-all shadow-xs cursor-pointer"
+              className="w-11 h-11 my-1.5 rounded-2xl bg-[#16834A] dark:bg-[#22C55E] text-white dark:text-[#0A0A0A] flex items-center justify-center hover:opacity-95 active:scale-95 transition-all shadow-md cursor-pointer"
             >
-              <Plus className="w-5 h-5 stroke-[2.2]" />
+              <Plus className="w-5 h-5 stroke-[2.5]" />
             </button>
 
             <NavLink
               to="/friends"
               onClick={playClick}
               title="Friends"
-              className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all ${
+              className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
                 isFriendsActive
-                  ? 'text-[#171717] dark:text-[#EDEDED] bg-white dark:bg-[#1C1C1C] border border-[#E8E8E5] dark:border-[#2E2E2E]'
-                  : 'text-[#737373] dark:text-[#8E8E93] hover:text-[#171717] dark:hover:text-[#EDEDED] hover:bg-[#F4F4F2] dark:hover:bg-[#1A1A1A]'
+                  ? 'text-[#16834A] dark:text-[#22C55E] bg-white/95 dark:bg-white/15 border border-white/50 dark:border-white/20 shadow-md scale-105'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-white/10'
               }`}
             >
               <FriendsIcon filled={isFriendsActive} />
@@ -206,10 +211,10 @@ export const AppLayout: React.FC = () => {
               to="/profile"
               onClick={playClick}
               title="Profile"
-              className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all ${
+              className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
                 isProfileActive
-                  ? 'text-[#171717] dark:text-[#EDEDED] bg-white dark:bg-[#1C1C1C] border border-[#E8E8E5] dark:border-[#2E2E2E]'
-                  : 'text-[#737373] dark:text-[#8E8E93] hover:text-[#171717] dark:hover:text-[#EDEDED] hover:bg-[#F4F4F2] dark:hover:bg-[#1A1A1A]'
+                  ? 'text-[#16834A] dark:text-[#22C55E] bg-white/95 dark:bg-white/15 border border-white/50 dark:border-white/20 shadow-md scale-105'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-white/10'
               }`}
             >
               <ProfileIcon filled={isProfileActive} />
@@ -251,39 +256,39 @@ export const AppLayout: React.FC = () => {
       </aside>
 
       {/* --- Main Content Area --- */}
-      <main className="flex-1 flex flex-col min-w-0 pb-20 md:pb-0 overflow-y-auto">
+      <main className="relative z-10 flex-1 flex flex-col min-w-0 pb-20 md:pb-0 overflow-y-auto">
         <OfflineBanner />
         <Outlet />
       </main>
 
-      {/* --- Mobile Bottom Tab Bar (Home, Trips, Add, Friends, Profile) --- */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#FFFFFF]/95 dark:bg-[#0B0B0C]/95 backdrop-blur-md border-t border-[#E4E4E7] dark:border-[#2A2A2E] flex items-center justify-around h-16 px-1 select-none">
+      {/* --- Mobile Bottom Tab Bar (Apple Glass Navigation) --- */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 glass-nav border-t border-white/25 flex items-center justify-around h-16 px-1 select-none pb-safe">
         {/* Home */}
         <NavLink
           to="/dashboard"
           onClick={playClick}
-          className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
+          className={`flex flex-col items-center justify-center flex-1 py-1 transition-all ${
             isHomeActive
-              ? 'text-[#171717] dark:text-[#EDEDED] font-semibold'
-              : 'text-[#737373] dark:text-[#8E8E93]'
+              ? 'text-[#16834A] dark:text-[#22C55E] font-bold scale-105'
+              : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-medium'
           }`}
         >
           <HomeIcon filled={isHomeActive} />
-          <span className="text-[10px] mt-1">Home</span>
+          <span className="text-[10px] mt-1 font-semibold">Home</span>
         </NavLink>
 
         {/* Trips */}
         <NavLink
           to="/trips"
           onClick={playClick}
-          className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
+          className={`flex flex-col items-center justify-center flex-1 py-1 transition-all ${
             isTripsActive
-              ? 'text-[#171717] dark:text-[#EDEDED] font-semibold'
-              : 'text-[#737373] dark:text-[#8E8E93]'
+              ? 'text-[#16834A] dark:text-[#22C55E] font-bold scale-105'
+              : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-medium'
           }`}
         >
           <TripsIcon filled={isTripsActive} />
-          <span className="text-[10px] mt-1">Trips</span>
+          <span className="text-[10px] mt-1 font-semibold">Trips</span>
         </NavLink>
 
         {/* Add Expense Button */}
@@ -292,7 +297,7 @@ export const AppLayout: React.FC = () => {
           className="flex flex-col items-center justify-center flex-1 py-1 active:scale-95 transition-transform cursor-pointer"
           aria-label="Add expense"
         >
-          <div className="w-10 h-10 rounded-full bg-[#16834A] dark:bg-[#22C55E] text-white dark:text-[#0A0A0A] flex items-center justify-center shadow-md">
+          <div className="w-10 h-10 rounded-full bg-[#16834A] dark:bg-[#22C55E] text-white dark:text-[#0A0A0A] flex items-center justify-center shadow-lg hover:brightness-105 transition-all">
             <Plus className="w-5 h-5 stroke-[2.5]" />
           </div>
         </button>
@@ -301,49 +306,49 @@ export const AppLayout: React.FC = () => {
         <NavLink
           to="/friends"
           onClick={playClick}
-          className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
+          className={`flex flex-col items-center justify-center flex-1 py-1 transition-all ${
             isFriendsActive
-              ? 'text-[#171717] dark:text-[#EDEDED] font-semibold'
-              : 'text-[#737373] dark:text-[#8E8E93]'
+              ? 'text-[#16834A] dark:text-[#22C55E] font-bold scale-105'
+              : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-medium'
           }`}
         >
           <FriendsIcon filled={isFriendsActive} />
-          <span className="text-[10px] mt-1">Friends</span>
+          <span className="text-[10px] mt-1 font-semibold">Friends</span>
         </NavLink>
 
         {/* Profile */}
         <NavLink
           to="/profile"
           onClick={playClick}
-          className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
+          className={`flex flex-col items-center justify-center flex-1 py-1 transition-all ${
             isProfileActive
-              ? 'text-[#171717] dark:text-[#EDEDED] font-semibold'
-              : 'text-[#737373] dark:text-[#8E8E93]'
+              ? 'text-[#16834A] dark:text-[#22C55E] font-bold scale-105'
+              : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-medium'
           }`}
         >
           <ProfileIcon filled={isProfileActive} />
-          <span className="text-[10px] mt-1">Profile</span>
+          <span className="text-[10px] mt-1 font-semibold">Profile</span>
         </NavLink>
       </nav>
 
-      {/* --- Trip Picker Sheet (when multiple active trips exist and adding expense) --- */}
+      {/* --- Trip Picker Sheet (Apple Liquid Glass Modal) --- */}
       {isTripPickerOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#141414] border border-[#E8E8E5] dark:border-[#262626] rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-xl animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between pb-2 border-b border-[#E8E8E5] dark:border-[#262626]">
-              <h3 className="text-base font-semibold text-[#171717] dark:text-[#EDEDED]">
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="glass-modal w-full max-w-sm p-5 space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-2 border-b border-white/20">
+              <h3 className="text-base font-semibold text-white">
                 Select trip for expense
               </h3>
               <button
                 onClick={() => setIsTripPickerOpen(false)}
-                className="p-1 rounded-lg text-[#737373] dark:text-[#8E8E93] hover:text-[#171717] dark:hover:text-[#EDEDED] cursor-pointer"
+                className="p-1 rounded-lg text-white/70 hover:text-white cursor-pointer"
                 aria-label="Close"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="divide-y divide-[#E8E8E5] dark:divide-[#262626] max-h-60 overflow-y-auto">
+            <div className="divide-y divide-white/10 max-h-60 overflow-y-auto">
               {activeTrips.map((trip) => (
                 <button
                   key={trip.id}

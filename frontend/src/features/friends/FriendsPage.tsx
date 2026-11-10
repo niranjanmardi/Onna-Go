@@ -304,51 +304,51 @@ export const FriendsPage: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-[#171717] font-['Plus_Jakarta_Sans']">
+          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-white drop-shadow-sm">
             Friends &amp; Connections
           </h1>
-          <p className="text-sm text-[#737373] mt-1">
+          <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 font-medium mt-1">
             Build your permanent travel circle and invite trusted friends to trips.
           </p>
         </div>
 
         <button
           onClick={() => setActiveTab('find')}
-          className="inline-flex items-center justify-center gap-2 bg-[#16834A] hover:bg-[#136F3F] text-white font-semibold py-2.5 px-4 rounded-xl text-xs sm:text-sm shadow-xs transition-colors self-start sm:self-auto"
+          className="inline-flex items-center justify-center gap-2 bg-[#16834A] hover:bg-[#136F3F] dark:bg-[#22C55E] dark:hover:bg-[#1ea951] text-white dark:text-zinc-950 font-bold py-2.5 px-4 rounded-xl text-xs sm:text-sm shadow-md transition-all self-start sm:self-auto cursor-pointer active:scale-95"
         >
-          <UserPlus className="w-4 h-4" />
+          <UserPlus className="w-4 h-4 stroke-[2.5]" />
           <span>Find Friends</span>
         </button>
       </div>
 
       {/* Inline Feedback Alerts */}
       {actionSuccess && (
-        <div className="p-3.5 rounded-xl bg-[#DDF5E5] border border-[#C6ECCF] text-[#16834A] text-xs font-medium flex items-center gap-2.5 animate-fadeIn">
-          <Check className="w-4 h-4 text-[#16834A]" />
+        <div className="p-3.5 rounded-2xl bg-[#16834A]/15 border border-[#16834A]/30 text-[#16834A] dark:text-[#22C55E] text-xs font-bold flex items-center gap-2.5 animate-fadeIn">
+          <Check className="w-4 h-4 stroke-[3]" />
           <span>{actionSuccess}</span>
         </div>
       )}
       {actionError && (
-        <div className="p-3.5 rounded-xl bg-[#FFE4E6] border border-[#FDA4AF] text-[#E11D48] text-xs font-medium flex items-center gap-2.5 animate-fadeIn">
-          <AlertCircle className="w-4 h-4 text-[#E11D48]" />
+        <div className="p-3.5 rounded-2xl bg-red-500/15 border border-red-500/30 text-red-600 dark:text-red-400 text-xs font-bold flex items-center gap-2.5 animate-fadeIn">
+          <AlertCircle className="w-4 h-4" />
           <span>{actionError}</span>
         </div>
       )}
 
       {/* Tabs */}
-      <div className="border-b border-[#E8E8E5] flex gap-2">
+      <div className="glass-card rounded-2xl p-1.5 border border-white/40 dark:border-white/10 flex gap-1.5 shadow-sm">
         <button
           onClick={() => setActiveTab('friends')}
-          className={`flex items-center gap-2 py-3 px-4 text-sm font-semibold border-b-2 transition-colors -mb-px cursor-pointer ${
+          className={`flex items-center gap-2 py-2 px-3.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
             activeTab === 'friends'
-              ? 'border-[#16834A] text-[#16834A]'
-              : 'border-transparent text-[#737373] hover:text-[#171717]'
+              ? 'bg-white dark:bg-white/15 text-zinc-900 dark:text-white shadow-sm'
+              : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
           }`}
         >
           <Users className="w-4 h-4" />
           <span>My Friends</span>
           {friends.length > 0 && (
-            <span className="px-2 py-0.5 rounded-full text-xs bg-[#FAFAF8] border border-[#E8E8E5] text-[#171717]">
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#16834A]/15 text-[#16834A] dark:text-[#22C55E]">
               {friends.length}
             </span>
           )}
@@ -356,10 +356,10 @@ export const FriendsPage: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('find')}
-          className={`flex items-center gap-2 py-3 px-4 text-sm font-semibold border-b-2 transition-colors -mb-px cursor-pointer ${
+          className={`flex items-center gap-2 py-2 px-3.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
             activeTab === 'find'
-              ? 'border-[#16834A] text-[#16834A]'
-              : 'border-transparent text-[#737373] hover:text-[#171717]'
+              ? 'bg-white dark:bg-white/15 text-zinc-900 dark:text-white shadow-sm'
+              : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
           }`}
         >
           <Search className="w-4 h-4" />
@@ -368,16 +368,16 @@ export const FriendsPage: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('requests')}
-          className={`flex items-center gap-2 py-3 px-4 text-sm font-semibold border-b-2 transition-colors -mb-px cursor-pointer ${
+          className={`flex items-center gap-2 py-2 px-3.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
             activeTab === 'requests'
-              ? 'border-[#16834A] text-[#16834A]'
-              : 'border-transparent text-[#737373] hover:text-[#171717]'
+              ? 'bg-white dark:bg-white/15 text-zinc-900 dark:text-white shadow-sm'
+              : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
           }`}
         >
           <Clock className="w-4 h-4" />
           <span>Requests</span>
           {requests.incoming.length > 0 && (
-            <span className="px-2 py-0.5 rounded-full text-xs bg-[#16834A] text-white font-bold">
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#16834A] text-white">
               {requests.incoming.length}
             </span>
           )}

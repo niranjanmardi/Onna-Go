@@ -143,23 +143,27 @@ export const RegisterPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#FFFFFF] dark:bg-[#0A0A0A] flex flex-col justify-center px-4 sm:px-6 py-12 text-[#121212] dark:text-[#EDEDED] transition-colors">
-      <div className="w-full max-w-[400px] mx-auto">
-        <div className="mb-6">
+    <div className="min-h-screen bg-transparent flex flex-col justify-center items-center px-4 sm:px-6 py-10 relative z-10">
+      <div className="w-full max-w-[400px] glass-panel p-7 sm:p-8 space-y-5 border border-white/25 shadow-2xl animate-fadeIn">
+        <div>
           <div className="inline-block cursor-pointer" onClick={() => navigate('/')}>
             <Logo size="sm" showTagline={false} />
           </div>
-          <h1 className="mt-4 text-2xl font-semibold tracking-tight text-[#121212] dark:text-[#EDEDED]">
+          <h1 className="mt-4 text-2xl font-bold tracking-tight text-white glass-text-glow">
             Create account
           </h1>
+          <p className="mt-1 text-xs text-zinc-300">
+            Join ONNA-GO to split expenses with friends on every trip.
+          </p>
         </div>
 
         {error && (
           <div
             role="alert"
-            className="p-3 rounded-[10px] bg-[#FEF2F2] dark:bg-[#450A0A]/40 border border-[#FCA5A5] dark:border-[#991B1B]/40 text-[#DC2626] dark:text-[#EF4444] text-xs mb-4 animate-fadeIn"
+            className="p-3.5 rounded-xl bg-red-500/20 border border-red-400/35 text-red-200 text-xs animate-fadeIn flex items-start gap-2.5"
           >
-            {error}
+            <XCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+            <span className="font-medium leading-relaxed">{error}</span>
           </div>
         )}
 
@@ -168,7 +172,7 @@ export const RegisterPage: React.FC = () => {
           <div>
             <label
               htmlFor="fullName"
-              className="block text-xs font-medium text-[#71717A] dark:text-[#9E9E9E] mb-1.5"
+              className="block text-xs font-semibold text-zinc-200 mb-1.5"
             >
               Name
             </label>
@@ -181,7 +185,7 @@ export const RegisterPage: React.FC = () => {
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               placeholder="Your name"
-              className="w-full h-12 bg-[#FAFAF9] dark:bg-[#121212] border border-[#E4E4E7] dark:border-[#222222] rounded-[10px] px-3.5 text-sm text-[#121212] dark:text-[#EDEDED] placeholder-[#A1A1AA] focus:outline-none focus:border-[#16834A] dark:focus:border-[#22C55E] focus:ring-1 focus:ring-[#16834A] dark:focus:ring-[#22C55E] transition-colors"
+              className="glass-input w-full px-3.5 text-sm"
             />
           </div>
 
@@ -189,7 +193,7 @@ export const RegisterPage: React.FC = () => {
           <div>
             <label
               htmlFor="username"
-              className="block text-xs font-medium text-[#71717A] dark:text-[#9E9E9E] mb-1.5"
+              className="block text-xs font-semibold text-zinc-200 mb-1.5"
             >
               Username
             </label>
@@ -205,34 +209,34 @@ export const RegisterPage: React.FC = () => {
                 value={username}
                 onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
                 placeholder="Username"
-                className={`w-full h-12 bg-[#FAFAF9] dark:bg-[#121212] border rounded-[10px] pl-3.5 pr-11 text-sm text-[#121212] dark:text-[#EDEDED] placeholder-[#A1A1AA] focus:outline-none transition-colors ${
+                className={`glass-input w-full pl-3.5 pr-11 text-sm ${
                   usernameStatus.available === true
-                    ? 'border-[#16834A] dark:border-[#22C55E] focus:ring-1 focus:ring-[#16834A] dark:focus:ring-[#22C55E]'
+                    ? 'border-emerald-400 focus:ring-emerald-400/30'
                     : usernameStatus.available === false
-                    ? 'border-[#DC2626] dark:border-[#EF4444] focus:ring-1 focus:ring-[#DC2626] dark:focus:ring-[#EF4444]'
-                    : 'border-[#E4E4E7] dark:border-[#222222] focus:border-[#16834A] dark:focus:border-[#22C55E] focus:ring-1 focus:ring-[#16834A] dark:focus:ring-[#22C55E]'
+                    ? 'border-red-400 focus:ring-red-400/30'
+                    : ''
                 }`}
               />
               <div className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center pointer-events-none">
                 {usernameStatus.checking && (
-                  <Loader2 className="w-4 h-4 text-[#71717A] animate-spin" />
+                  <Loader2 className="w-4 h-4 text-zinc-400 animate-spin" />
                 )}
                 {!usernameStatus.checking && usernameStatus.available === true && (
-                  <CheckCircle2 className="w-4 h-4 text-[#16834A] dark:text-[#22C55E]" />
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                 )}
                 {!usernameStatus.checking && usernameStatus.available === false && (
-                  <XCircle className="w-4 h-4 text-[#DC2626] dark:text-[#EF4444]" />
+                  <XCircle className="w-4 h-4 text-red-400" />
                 )}
               </div>
             </div>
             {usernameStatus.message && (
               <p
-                className={`text-xs mt-1.5 ${
+                className={`text-xs mt-1.5 font-medium ${
                   usernameStatus.available === true
-                    ? 'text-[#16834A] dark:text-[#22C55E]'
+                    ? 'text-emerald-300'
                     : usernameStatus.available === false
-                    ? 'text-[#DC2626] dark:text-[#EF4444]'
-                    : 'text-[#71717A] dark:text-[#9E9E9E]'
+                    ? 'text-red-300'
+                    : 'text-zinc-300'
                 }`}
               >
                 {usernameStatus.message}
@@ -244,7 +248,7 @@ export const RegisterPage: React.FC = () => {
           <div>
             <label
               htmlFor="email"
-              className="block text-xs font-medium text-[#71717A] dark:text-[#9E9E9E] mb-1.5"
+              className="block text-xs font-semibold text-zinc-200 mb-1.5"
             >
               Email
             </label>
@@ -257,7 +261,7 @@ export const RegisterPage: React.FC = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Email address"
-              className="w-full h-12 bg-[#FAFAF9] dark:bg-[#121212] border border-[#E4E4E7] dark:border-[#222222] rounded-[10px] px-3.5 text-sm text-[#121212] dark:text-[#EDEDED] placeholder-[#A1A1AA] focus:outline-none focus:border-[#16834A] dark:focus:border-[#22C55E] focus:ring-1 focus:ring-[#16834A] dark:focus:ring-[#22C55E] transition-colors"
+              className="glass-input w-full px-3.5 text-sm"
             />
           </div>
 
@@ -265,7 +269,7 @@ export const RegisterPage: React.FC = () => {
           <div>
             <label
               htmlFor="password"
-              className="block text-xs font-medium text-[#71717A] dark:text-[#9E9E9E] mb-1.5"
+              className="block text-xs font-semibold text-zinc-200 mb-1.5"
             >
               Password
             </label>
@@ -278,13 +282,13 @@ export const RegisterPage: React.FC = () => {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password"
-                className="w-full h-12 bg-[#FAFAF9] dark:bg-[#121212] border border-[#E4E4E7] dark:border-[#222222] rounded-[10px] pl-3.5 pr-11 text-sm text-[#121212] dark:text-[#EDEDED] placeholder-[#A1A1AA] focus:outline-none focus:border-[#16834A] dark:focus:border-[#22C55E] focus:ring-1 focus:ring-[#16834A] dark:focus:ring-[#22C55E] transition-colors"
+                placeholder="Password (8+ chars)"
+                className="glass-input w-full pl-3.5 pr-11 text-sm"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#A1A1AA] hover:text-[#121212] dark:hover:text-[#EDEDED] transition-colors cursor-pointer"
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white transition-colors cursor-pointer"
                 aria-label="Toggle password visibility"
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -293,10 +297,10 @@ export const RegisterPage: React.FC = () => {
             {/* Password rules shown ONLY while typing */}
             {password.length > 0 && (
               <p
-                className={`text-xs mt-1.5 ${
+                className={`text-xs mt-1.5 font-medium ${
                   password.length >= 8
-                    ? 'text-[#16834A] dark:text-[#22C55E]'
-                    : 'text-[#DC2626] dark:text-[#EF4444]'
+                    ? 'text-emerald-300'
+                    : 'text-red-300'
                 }`}
               >
                 {password.length >= 8 ? 'At least 8 characters' : 'Must be at least 8 characters'}
@@ -308,7 +312,7 @@ export const RegisterPage: React.FC = () => {
             <button
               type="submit"
               disabled={loading || usernameStatus.available === false}
-              className="w-full h-12 rounded-[10px] bg-[#16834A] dark:bg-[#22C55E] text-white dark:text-[#0A0A0A] font-medium text-sm hover:opacity-95 active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-none"
+              className="w-full h-12 rounded-[10px] bg-[#16834A] hover:bg-[#15803D] active:scale-[0.99] text-white font-bold text-sm shadow-lg shadow-emerald-950/40 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin shrink-0" />}
               <span>Create account</span>
@@ -316,11 +320,11 @@ export const RegisterPage: React.FC = () => {
           </div>
         </form>
 
-        <div className="text-center mt-6 text-sm text-[#71717A] dark:text-[#9E9E9E]">
+        <div className="text-center pt-2 text-sm text-zinc-300">
           Have an account?{' '}
           <Link
             to="/login"
-            className="font-medium text-[#16834A] dark:text-[#22C55E] hover:underline transition-colors"
+            className="font-semibold text-emerald-400 hover:text-emerald-300 hover:underline transition-colors"
           >
             Sign in
           </Link>

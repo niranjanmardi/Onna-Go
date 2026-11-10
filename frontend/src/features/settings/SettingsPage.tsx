@@ -6,37 +6,39 @@ import {
   Camera,
   Eye,
   EyeOff,
-  Loader2,
-  X,
   AlertTriangle,
-  Download,
+  Loader2,
   Trash2,
+  Download,
+  Palette,
+  X,
+  Sparkles,
+  ShieldCheck,
+  Check,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useOffline } from '@/context/OfflineContext';
-import { useFeedback } from '@/context/FeedbackContext';
-import { clearAllOfflineData } from '@/lib/offline-db';
+import { getAvatarUrl, api } from '@/lib/api-client';
 import { downloadHistoryCsv } from '@/lib/export-utils';
-import { getAvatarUrl } from '@/lib/api-client';
+import { ThemeGalleryModal } from '@/components/themes/ThemeGalleryModal';
 
 export const SettingsPage: React.FC = () => {
-  const { user, isLoading, logout, updateProfile, changePassword, uploadAvatar, deleteAccount } = useAuth();
-  const { theme, setTheme } = useTheme();
-  const { pendingCount, lastSyncedAt, isSyncing, syncNow } = useOffline();
-  const { soundsEnabled, setSoundsEnabled } = useFeedback();
+  const { user, logout, updateProfile, changePassword, deleteAccount, uploadAvatar } = useAuth();
+  const { theme, setTheme, activeThemeId, activeTheme } = useTheme();
+  const { syncNow, isSyncing, pendingCount, lastSyncedAt } = useOffline();
   const navigate = useNavigate();
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Modal / Sheet States
+  // Modals state
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isClearDataOpen, setIsClearDataOpen] = useState(false);
   const [isDeleteAccountOpen, setIsDeleteAccountOpen] = useState(false);
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
   const [isTermsOpen, setIsTermsOpen] = useState(false);
+  const [isThemesGalleryOpen, setIsThemesGalleryOpen] = useState(false);
 
-  // Edit Profile Form State
+  // Edit profile form state
   const [editName, setEditName] = useState('');
   const [editUsername, setEditUsername] = useState('');
   const [editCurrency, setEditCurrency] = useState('INR');
@@ -44,11 +46,9 @@ export const SettingsPage: React.FC = () => {
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
-
-  // Avatar Upload State
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
-  // Change Password Form State
+  // Change password form state
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -58,23 +58,31 @@ export const SettingsPage: React.FC = () => {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
 
-  // Clear Offline Data State
+  // Clear data state
   const [clearingData, setClearingData] = useState(false);
   const [clearDataSuccess, setClearDataSuccess] = useState<string | null>(null);
 
-  // Delete Account State
+  // Delete account state
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  // Export State
+  // Sound effects state
+  const [soundsEnabled, setSoundsEnabled] = useState(() => {
+    return localStorage.getItem('rupaii_sounds_enabled') !== 'false';
+  });
+
+  // Export state
   const [exportingData, setExportingData] = useState(false);
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const openEditProfile = () => {
-    setEditName(user?.full_name || '');
-    setEditUsername(user?.username || '');
-    setEditCurrency(user?.default_currency || 'INR');
-    setEditUpi(user?.upi_id || '');
+    if (!user) return;
+    setEditName(user.full_name || '');
+    setEditUsername(user.username || '');
+    setEditCurrency(user.default_currency || 'INR');
+    setEditUpi(user.upi_id || '');
     setProfileError(null);
     setProfileSuccess(null);
     setIsEditProfileOpen(true);
@@ -82,16 +90,19 @@ export const SettingsPage: React.FC = () => {
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    setProfileError(null);
+    setProfileSuccess(null);
+
     if (!editName.trim()) {
-      setProfileError('Name is required.');
+      setProfileError('Name cannot be empty.');
       return;
     }
+
     setSavingProfile(true);
-    setProfileError(null);
     try {
       await updateProfile({
         full_name: editName.trim(),
-        username: editUsername.trim() || undefined,
+        username: editUsername.trim() || null,
         default_currency: editCurrency,
         upi_id: editUpi.trim() || null,
       });
@@ -159,28 +170,30 @@ export const SettingsPage: React.FC = () => {
   const handleClearOfflineData = async () => {
     setClearingData(true);
     try {
-      await clearAllOfflineData();
-      setClearDataSuccess('Offline data cleared.');
+      const dbs = await window.indexedDB.databases?.() || [];
+      for (const db of dbs) {
+        if (db.name && (db.name.includes('rupaii') || db.name.includes('onnago'))) {
+          window.indexedDB.deleteDatabase(db.name);
+        }
+      }
+      setClearDataSuccess('Local offline cache cleared.');
       setTimeout(() => {
         setIsClearDataOpen(false);
         setClearDataSuccess(null);
-      }, 1200);
-    } catch (err: any) {
-      alert(err.message || 'Failed to clear offline data');
+      }, 1500);
+    } catch {
+      alert('Failed to clear some local storage.');
     } finally {
       setClearingData(false);
     }
   };
 
   const handleDeleteAccount = async () => {
-    if (deleteConfirmText !== 'DELETE') {
-      setDeleteError('Type DELETE to confirm.');
-      return;
-    }
+    if (deleteConfirmText !== 'DELETE') return;
     setDeletingAccount(true);
     setDeleteError(null);
     try {
-      await deleteAccount('DELETE');
+      await deleteAccount(deleteConfirmText);
       navigate('/login');
     } catch (err: any) {
       setDeleteError(err.message || 'Failed to delete account.');
@@ -189,40 +202,29 @@ export const SettingsPage: React.FC = () => {
   };
 
   const handleExportData = async () => {
-    if (exportingData) return;
     setExportingData(true);
     try {
       await downloadHistoryCsv();
     } catch (err: any) {
-      alert(err.message || 'Failed to export data');
+      alert('Failed to export data: ' + (err.message || 'Unknown error'));
     } finally {
       setExportingData(false);
     }
   };
 
-  const formatLastSync = (date: Date | null) => {
-    if (!date) return 'Never';
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const formatLastSync = (ts: Date | number | null) => {
+    if (!ts) return 'Never';
+    const timestamp = ts instanceof Date ? ts.getTime() : ts;
+    const diff = Math.floor((Date.now() - timestamp) / 1000);
+    if (diff < 60) return 'Just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    return `${Math.floor(diff / 3600)}h ago`;
   };
 
-  // --- SKELETON LOADER ---
-  if (isLoading || !user) {
+  if (!user) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-6 sm:py-8 space-y-8 animate-pulse">
-        <div className="h-6 w-28 bg-[#E8E8E5] dark:bg-[#262626] rounded-md" />
-        {[1, 2, 3, 4, 5].map((sec) => (
-          <div key={sec} className="space-y-3">
-            <div className="h-3 w-20 bg-[#E8E8E5] dark:bg-[#262626] rounded-sm" />
-            <div className="space-y-0 divide-y divide-[#E8E8E5] dark:divide-[#262626]">
-              {[1, 2, 3].map((row) => (
-                <div key={row} className="h-14 flex items-center justify-between">
-                  <div className="h-4 w-28 bg-[#E8E8E5] dark:bg-[#262626] rounded-md" />
-                  <div className="h-4 w-20 bg-[#E8E8E5] dark:bg-[#262626] rounded-md" />
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <Loader2 className="w-6 h-6 animate-spin text-[#16834A] dark:text-[#22C55E]" />
       </div>
     );
   }
@@ -230,365 +232,414 @@ export const SettingsPage: React.FC = () => {
   const avatarInitial = user.full_name ? user.full_name.charAt(0).toUpperCase() : 'U';
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6 sm:py-8 space-y-9 text-[#171717] dark:text-[#EDEDED] font-['Inter',sans-serif]">
-      {/* Page Title */}
-      <div>
-        <h1 className="text-xl font-bold tracking-tight">Settings</h1>
+    <div className="max-w-2xl mx-auto px-4 py-6 sm:py-9 space-y-6 font-['Inter',sans-serif]">
+      {/* Top Header */}
+      <div className="px-1 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-white drop-shadow-sm">
+            Settings
+          </h1>
+          <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 font-medium mt-0.5">
+            Account credentials, visual appearance &amp; offline storage
+          </p>
+        </div>
       </div>
 
       {/* ========================================================================= */}
-      {/* --- SECTION 1: ACCOUNT --- */}
+      {/* --- MASTER IPHONE-INSPIRED FROSTED GLASS PANEL --- */}
       {/* ========================================================================= */}
-      <section className="space-y-1">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#8E8E93] pb-1">
-          Account
-        </h2>
+      <div className="glass-panel p-4 sm:p-7 space-y-7 rounded-3xl">
+        {/* ========================================================================= */}
+        {/* --- SECTION 1: ACCOUNT --- */}
+        {/* ========================================================================= */}
+        <section className="space-y-2.5">
+          <div className="flex items-center justify-between px-1">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
+              Account Information
+            </h2>
+            <span className="text-[11px] font-semibold text-[#16834A] dark:text-[#22C55E] flex items-center gap-1">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              Verified User
+            </span>
+          </div>
 
-        <div className="divide-y divide-[#E8E8E5] dark:divide-[#262626]">
-          {/* Avatar & Profile Row */}
-          <div
-            onClick={openEditProfile}
-            className="h-14 flex items-center justify-between cursor-pointer hover:opacity-80 transition-opacity"
-          >
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-9 h-9 rounded-full bg-[#16834A] text-white flex items-center justify-center font-bold text-sm shrink-0 overflow-hidden">
-                {user.avatar_url ? (
-                  <img src={getAvatarUrl(user.avatar_url)} alt="Avatar" className="w-full h-full object-cover" />
+          <div className="glass-card rounded-2xl p-4 sm:p-5 border border-white/40 dark:border-white/10 shadow-sm space-y-1 divide-y divide-black/5 dark:divide-white/10">
+            {/* Avatar & Profile Hero Row */}
+            <div
+              onClick={openEditProfile}
+              className="py-3 flex items-center justify-between cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 rounded-xl px-2.5 -mx-2.5 transition-colors group"
+            >
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div className="relative w-12 h-12 rounded-2xl bg-[#16834A] text-white flex items-center justify-center font-bold text-base shrink-0 overflow-hidden shadow-md ring-2 ring-white/50 dark:ring-white/15">
+                  {user.avatar_url ? (
+                    <img src={getAvatarUrl(user.avatar_url)} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    avatarInitial
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-base font-bold text-zinc-900 dark:text-white truncate">
+                    {user.full_name}
+                  </p>
+                  <p className="text-xs text-zinc-600 dark:text-zinc-300 font-medium truncate">
+                    {user.email}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs font-bold text-[#16834A] dark:text-[#22C55E] px-3 py-1.5 rounded-xl bg-[#16834A]/10 dark:bg-[#22C55E]/15 group-hover:scale-105 transition-all">
+                <span>Edit</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </div>
+            </div>
+
+            {/* Name */}
+            <div
+              onClick={openEditProfile}
+              className="py-3.5 flex items-center justify-between cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 rounded-xl px-2.5 -mx-2.5 transition-colors"
+            >
+              <span className="text-xs sm:text-sm font-semibold text-zinc-600 dark:text-zinc-300">Full Name</span>
+              <div className="flex items-center gap-2 text-xs sm:text-sm font-bold text-zinc-900 dark:text-white">
+                <span className="truncate max-w-[180px]">{user.full_name}</span>
+                <ChevronRight className="w-4 h-4 text-zinc-400 dark:text-zinc-500" />
+              </div>
+            </div>
+
+            {/* Email */}
+            <div className="py-3.5 flex items-center justify-between px-2.5 -mx-2.5">
+              <span className="text-xs sm:text-sm font-semibold text-zinc-600 dark:text-zinc-300">Email Address</span>
+              <span className="text-xs sm:text-sm font-medium text-zinc-900 dark:text-white truncate max-w-[210px] font-mono">
+                {user.email}
+              </span>
+            </div>
+
+            {/* Username */}
+            <div
+              onClick={openEditProfile}
+              className="py-3.5 flex items-center justify-between cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 rounded-xl px-2.5 -mx-2.5 transition-colors"
+            >
+              <span className="text-xs sm:text-sm font-semibold text-zinc-600 dark:text-zinc-300">Username Handle</span>
+              <div className="flex items-center gap-2 text-xs sm:text-sm font-bold text-zinc-900 dark:text-white">
+                <span className="px-2 py-0.5 rounded-md bg-black/5 dark:bg-white/10 font-mono text-xs">
+                  {user.username ? `@${user.username}` : 'Not set'}
+                </span>
+                <ChevronRight className="w-4 h-4 text-zinc-400 dark:text-zinc-500" />
+              </div>
+            </div>
+
+            {/* Default Currency */}
+            <div
+              onClick={openEditProfile}
+              className="py-3.5 flex items-center justify-between cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 rounded-xl px-2.5 -mx-2.5 transition-colors"
+            >
+              <span className="text-xs sm:text-sm font-semibold text-zinc-600 dark:text-zinc-300">Default Currency</span>
+              <div className="flex items-center gap-2 text-xs sm:text-sm font-bold text-zinc-900 dark:text-white">
+                <span className="font-mono px-2 py-0.5 rounded-md bg-[#16834A]/10 text-[#16834A] dark:text-[#22C55E]">
+                  {user.default_currency || 'INR'} (₹)
+                </span>
+                <ChevronRight className="w-4 h-4 text-zinc-400 dark:text-zinc-500" />
+              </div>
+            </div>
+
+            {/* Change Password */}
+            <div
+              onClick={() => {
+                setCurrentPassword('');
+                setNewPassword('');
+                setConfirmPassword('');
+                setPasswordError(null);
+                setPasswordSuccess(null);
+                setIsChangePasswordOpen(true);
+              }}
+              className="py-3.5 flex items-center justify-between cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 rounded-xl px-2.5 -mx-2.5 transition-colors"
+            >
+              <span className="text-xs sm:text-sm font-semibold text-zinc-600 dark:text-zinc-300">Change Password</span>
+              <ChevronRight className="w-4 h-4 text-zinc-400 dark:text-zinc-500" />
+            </div>
+
+            {/* Sign Out */}
+            <div
+              onClick={logout}
+              className="py-3.5 flex items-center justify-between cursor-pointer hover:bg-red-500/10 rounded-xl px-2.5 -mx-2.5 transition-colors text-red-600 dark:text-red-400"
+            >
+              <span className="text-xs sm:text-sm font-bold">Sign Out of Account</span>
+              <LogOut className="w-4 h-4" />
+            </div>
+          </div>
+        </section>
+
+        {/* ========================================================================= */}
+        {/* --- SECTION 2: APP APPEARANCE & ARTISTIC THEMES --- */}
+        {/* ========================================================================= */}
+        <section className="space-y-2.5">
+          <div className="flex items-center justify-between px-1">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
+              App Appearance
+            </h2>
+            <span className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400">
+              13 Impressionist Travel Artworks
+            </span>
+          </div>
+
+          <div className="glass-card rounded-2xl p-4 sm:p-5 border border-white/40 dark:border-white/10 shadow-sm space-y-4">
+            {/* Unified iPhone Frosted Glass System */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-black/5 dark:border-white/10">
+              <div>
+                <span className="text-sm font-bold text-zinc-900 dark:text-white">Design Language</span>
+                <p className="text-xs text-zinc-600 dark:text-zinc-300">Apple iOS Frosted Glass &amp; Static Travel Artworks</p>
+              </div>
+              <div className="px-3.5 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-400/30 text-xs font-bold text-emerald-400 shadow-xs flex items-center gap-1.5 self-start sm:self-auto">
+                <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Full Glass</span>
+              </div>
+            </div>
+
+            {/* Active Wallpaper Preview & Gallery Trigger */}
+            <div
+              onClick={() => setIsThemesGalleryOpen(true)}
+              className="p-3.5 rounded-2xl bg-white/50 dark:bg-black/20 border border-white/40 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 cursor-pointer hover:bg-white/70 dark:hover:bg-white/5 transition-all shadow-xs group"
+            >
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div className="w-14 h-14 rounded-2xl overflow-hidden bg-zinc-200 dark:bg-zinc-800 border border-black/10 dark:border-white/10 shrink-0 shadow-md group-hover:scale-105 transition-transform">
+                  {activeTheme?.thumbnail_url ? (
+                    <img
+                      src={activeTheme.thumbnail_url}
+                      alt={activeTheme.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <Palette className="w-6 h-6 text-[#16834A] dark:text-[#22C55E] m-auto" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white truncate">
+                      {activeTheme?.name || 'Howrah Bridge — Golden Sunset'}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#16834A] text-white flex items-center gap-1 shadow-xs">
+                      <Check className="w-3 h-3 stroke-[3]" />
+                      Active
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-600 dark:text-zinc-300 font-medium truncate mt-0.5">
+                    {activeTheme?.category_label ? `${activeTheme.category_label} • Impressionist Oil Artwork` : '13 impressionist travel wallpapers available'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                <button
+                  type="button"
+                  className="px-4 py-2 rounded-xl bg-[#16834A] hover:bg-[#136F3F] dark:bg-[#22C55E] dark:hover:bg-[#1ea951] text-white dark:text-zinc-950 font-bold text-xs shadow-md transition-all flex items-center gap-1.5"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Browse Themes
+                </button>
+                <ChevronRight className="w-4 h-4 text-zinc-400 group-hover:translate-x-0.5 transition-transform" />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ========================================================================= */}
+        {/* --- SECTION 3: NOTIFICATIONS & SOUNDS --- */}
+        {/* ========================================================================= */}
+        <section className="space-y-2.5">
+          <div className="px-1">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
+              Preferences &amp; Sounds
+            </h2>
+          </div>
+
+          <div className="glass-card rounded-2xl p-4 sm:p-5 border border-white/40 dark:border-white/10 shadow-sm space-y-1 divide-y divide-black/5 dark:divide-white/10">
+            {/* Trip Activity */}
+            <div className="py-3.5 flex items-center justify-between px-2.5 -mx-2.5">
+              <div>
+                <p className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white">Trip Activity Alerts</p>
+                <p className="text-xs text-zinc-600 dark:text-zinc-300 font-medium">Instant alerts on new splits and settlements</p>
+              </div>
+              <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 px-2.5 py-1 rounded-lg bg-black/5 dark:bg-white/10">
+                Included
+              </span>
+            </div>
+
+            {/* In-app sound effects */}
+            <div className="py-3.5 flex items-center justify-between px-2.5 -mx-2.5">
+              <div>
+                <p className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white">Audio Feedback</p>
+                <p className="text-xs text-zinc-600 dark:text-zinc-300 font-medium">Subtle sound cues on expense splits and actions</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !soundsEnabled;
+                  setSoundsEnabled(next);
+                  localStorage.setItem('rupaii_sounds_enabled', String(next));
+                }}
+                className={`w-12 h-7 flex items-center rounded-full p-1 transition-colors cursor-pointer shadow-inner ${
+                  soundsEnabled ? 'bg-[#16834A] dark:bg-[#22C55E]' : 'bg-zinc-300 dark:bg-zinc-700'
+                }`}
+              >
+                <div
+                  className={`bg-white w-5 h-5 rounded-full shadow-md transform transition-transform ${
+                    soundsEnabled ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {/* ========================================================================= */}
+        {/* --- SECTION 4: DATA & OFFLINE CACHE --- */}
+        {/* ========================================================================= */}
+        <section className="space-y-2.5">
+          <div className="px-1">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
+              Data &amp; Offline Sync
+            </h2>
+          </div>
+
+          <div className="glass-card rounded-2xl p-4 sm:p-5 border border-white/40 dark:border-white/10 shadow-sm space-y-1 divide-y divide-black/5 dark:divide-white/10">
+            {/* Offline Data Status */}
+            <div className="py-3.5 flex items-center justify-between px-2.5 -mx-2.5">
+              <div className="min-w-0 pr-3">
+                <p className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white">Offline Sync Status</p>
+                <p className="text-xs text-zinc-600 dark:text-zinc-300 font-medium truncate">
+                  {pendingCount} pending mutations &bull; Last sync: {formatLastSync(lastSyncedAt)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => syncNow()}
+                disabled={isSyncing}
+                className="px-3.5 py-1.5 rounded-xl bg-[#16834A]/10 text-[#16834A] dark:bg-[#22C55E]/15 dark:text-[#22C55E] text-xs font-bold hover:bg-[#16834A]/20 transition-colors cursor-pointer disabled:opacity-50 shrink-0"
+              >
+                {isSyncing ? 'Syncing...' : 'Sync Now'}
+              </button>
+            </div>
+
+            {/* Clear Offline Data */}
+            <div className="py-3.5 flex items-center justify-between px-2.5 -mx-2.5">
+              <div>
+                <p className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white">Clear Offline Cache</p>
+                <p className="text-xs text-zinc-600 dark:text-zinc-300 font-medium">Reset local IndexedDB cache safely</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsClearDataOpen(true)}
+                className="text-xs font-bold text-zinc-600 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400 transition-colors cursor-pointer px-3 py-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/5"
+              >
+                Clear
+              </button>
+            </div>
+
+            {/* Export My Data */}
+            <div className="py-3.5 flex items-center justify-between px-2.5 -mx-2.5">
+              <div>
+                <p className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white">Export Ledger History</p>
+                <p className="text-xs text-zinc-600 dark:text-zinc-300 font-medium">Download complete expense history as CSV</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleExportData}
+                disabled={exportingData}
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-[#16834A] dark:text-[#22C55E] px-3.5 py-1.5 rounded-xl bg-[#16834A]/10 dark:bg-[#22C55E]/15 hover:bg-[#16834A]/20 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {exportingData ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Exporting...</span>
+                  </>
                 ) : (
-                  avatarInitial
+                  <>
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Export CSV</span>
+                  </>
                 )}
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {/* ========================================================================= */}
+        {/* --- SECTION 5: ABOUT & LEGAL --- */}
+        {/* ========================================================================= */}
+        <section className="space-y-2.5">
+          <div className="px-1">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
+              About &amp; Legal
+            </h2>
+          </div>
+
+          <div className="glass-card rounded-2xl p-4 sm:p-5 border border-white/40 dark:border-white/10 shadow-sm space-y-1 divide-y divide-black/5 dark:divide-white/10">
+            {/* Version */}
+            <div className="py-3.5 flex items-center justify-between px-2.5 -mx-2.5">
+              <span className="text-xs sm:text-sm font-semibold text-zinc-600 dark:text-zinc-300">App Version</span>
+              <span className="text-xs font-mono font-bold text-zinc-900 dark:text-white px-2 py-0.5 rounded bg-black/5 dark:bg-white/10">
+                v1.0.0 (Production)
+              </span>
+            </div>
+
+            {/* Android App Download */}
+            <div
+              onClick={() => navigate('/download')}
+              className="py-3.5 flex items-center justify-between cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 rounded-xl px-2.5 -mx-2.5 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white">Android Application</span>
+                <span className="text-[10px] font-bold bg-[#16834A]/15 text-[#16834A] dark:text-[#22C55E] px-2 py-0.5 rounded-full">
+                  APK Available
+                </span>
               </div>
-              <div className="min-w-0 truncate">
-                <p className="text-sm font-medium truncate">{user.full_name}</p>
-                <p className="text-xs text-[#737373] dark:text-[#8E8E93] truncate">{user.email}</p>
-              </div>
+              <ChevronRight className="w-4 h-4 text-zinc-400 dark:text-zinc-500" />
             </div>
-            <div className="flex items-center gap-1.5 text-xs text-[#737373] dark:text-[#8E8E93]">
-              <span>Edit</span>
-              <ChevronRight className="w-4 h-4" />
-            </div>
-          </div>
 
-          {/* Name */}
-          <div
-            onClick={openEditProfile}
-            className="h-14 flex items-center justify-between cursor-pointer hover:opacity-80 transition-opacity"
-          >
-            <span className="text-sm font-medium">Name</span>
-            <div className="flex items-center gap-1.5 text-xs text-[#737373] dark:text-[#8E8E93]">
-              <span className="truncate max-w-[180px]">{user.full_name}</span>
-              <ChevronRight className="w-4 h-4" />
-            </div>
-          </div>
-
-          {/* Email */}
-          <div className="h-14 flex items-center justify-between">
-            <span className="text-sm font-medium">Email</span>
-            <span className="text-xs text-[#737373] dark:text-[#8E8E93] truncate max-w-[200px]">
-              {user.email}
-            </span>
-          </div>
-
-          {/* Username */}
-          <div
-            onClick={openEditProfile}
-            className="h-14 flex items-center justify-between cursor-pointer hover:opacity-80 transition-opacity"
-          >
-            <span className="text-sm font-medium">Username</span>
-            <div className="flex items-center gap-1.5 text-xs text-[#737373] dark:text-[#8E8E93]">
-              <span>{user.username ? `@${user.username}` : 'Not set'}</span>
-              <ChevronRight className="w-4 h-4" />
-            </div>
-          </div>
-
-          {/* Default Currency */}
-          <div
-            onClick={openEditProfile}
-            className="h-14 flex items-center justify-between cursor-pointer hover:opacity-80 transition-opacity"
-          >
-            <span className="text-sm font-medium">Default currency</span>
-            <div className="flex items-center gap-1.5 text-xs text-[#737373] dark:text-[#8E8E93]">
-              <span className="font-mono font-medium">{user.default_currency || 'INR'}</span>
-              <ChevronRight className="w-4 h-4" />
-            </div>
-          </div>
-
-          {/* Change Password */}
-          <div
-            onClick={() => {
-              setCurrentPassword('');
-              setNewPassword('');
-              setConfirmPassword('');
-              setPasswordError(null);
-              setPasswordSuccess(null);
-              setIsChangePasswordOpen(true);
-            }}
-            className="h-14 flex items-center justify-between cursor-pointer hover:opacity-80 transition-opacity"
-          >
-            <span className="text-sm font-medium">Change password</span>
-            <ChevronRight className="w-4 h-4 text-[#737373] dark:text-[#8E8E93]" />
-          </div>
-
-          {/* Sign Out */}
-          <div
-            onClick={logout}
-            className="h-14 flex items-center justify-between cursor-pointer hover:opacity-80 transition-opacity text-[#171717] dark:text-[#EDEDED]"
-          >
-            <span className="text-sm font-medium">Sign out</span>
-            <LogOut className="w-4 h-4 text-[#737373] dark:text-[#8E8E93]" />
-          </div>
-        </div>
-      </section>
-
-      {/* ========================================================================= */}
-      {/* --- SECTION 2: APPEARANCE --- */}
-      {/* ========================================================================= */}
-      <section className="space-y-1">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#8E8E93] pb-1">
-          Appearance
-        </h2>
-
-        <div className="divide-y divide-[#E8E8E5] dark:divide-[#262626]">
-          <div className="h-14 flex items-center justify-between">
-            <span className="text-sm font-medium">Theme</span>
-            <div className="flex bg-[#F4F4F2] dark:bg-[#1C1C1C] p-1 rounded-xl border border-[#E8E8E5] dark:border-[#2E2E2E]">
-              <button
-                type="button"
-                onClick={() => setTheme('system')}
-                className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
-                  theme === 'system'
-                    ? 'bg-white dark:bg-[#2A2A2A] text-[#171717] dark:text-[#EDEDED] shadow-xs'
-                    : 'text-[#737373] dark:text-[#8E8E93] hover:text-[#171717] dark:hover:text-[#EDEDED]'
-                }`}
-              >
-                System
-              </button>
-              <button
-                type="button"
-                onClick={() => setTheme('light')}
-                className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
-                  theme === 'light'
-                    ? 'bg-white dark:bg-[#2A2A2A] text-[#171717] dark:text-[#EDEDED] shadow-xs'
-                    : 'text-[#737373] dark:text-[#8E8E93] hover:text-[#171717] dark:hover:text-[#EDEDED]'
-                }`}
-              >
-                Light
-              </button>
-              <button
-                type="button"
-                onClick={() => setTheme('dark')}
-                className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
-                  theme === 'dark'
-                    ? 'bg-white dark:bg-[#2A2A2A] text-[#171717] dark:text-[#EDEDED] shadow-xs'
-                    : 'text-[#737373] dark:text-[#8E8E93] hover:text-[#171717] dark:hover:text-[#EDEDED]'
-                }`}
-              >
-                Dark
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ========================================================================= */}
-      {/* --- SECTION 3: NOTIFICATIONS --- */}
-      {/* ========================================================================= */}
-      <section className="space-y-1">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#8E8E93] pb-1">
-          Notifications
-        </h2>
-
-        <div className="divide-y divide-[#E8E8E5] dark:divide-[#262626]">
-          {/* Trip Activity */}
-          <div className="h-14 flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">Trip activity alerts</p>
-              <p className="text-xs text-[#737373] dark:text-[#8E8E93]">New expenses, splits, and settlements</p>
-            </div>
-            <span className="text-xs text-[#737373] dark:text-[#8E8E93] px-2 py-0.5 rounded-md bg-[#F4F4F2] dark:bg-[#1C1C1C] border border-[#E8E8E5] dark:border-[#2E2E2E]">
-              Coming soon
-            </span>
-          </div>
-
-          {/* Settlement Reminders */}
-          <div className="h-14 flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">Settlement reminders</p>
-              <p className="text-xs text-[#737373] dark:text-[#8E8E93]">Reminders for outstanding balances</p>
-            </div>
-            <span className="text-xs text-[#737373] dark:text-[#8E8E93] px-2 py-0.5 rounded-md bg-[#F4F4F2] dark:bg-[#1C1C1C] border border-[#E8E8E5] dark:border-[#2E2E2E]">
-              Coming soon
-            </span>
-          </div>
-
-          {/* In-app sound effects */}
-          <div className="h-14 flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">Sound effects</p>
-              <p className="text-xs text-[#737373] dark:text-[#8E8E93]">Subtle audio cues on split and sync</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setSoundsEnabled(!soundsEnabled)}
-              className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors cursor-pointer ${
-                soundsEnabled ? 'bg-[#16834A] dark:bg-[#22C55E]' : 'bg-[#E8E8E5] dark:bg-[#333333]'
-              }`}
+            {/* Privacy Policy */}
+            <div
+              onClick={() => setIsPrivacyOpen(true)}
+              className="py-3.5 flex items-center justify-between cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 rounded-xl px-2.5 -mx-2.5 transition-colors"
             >
-              <div
-                className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${
-                  soundsEnabled ? 'translate-x-5' : 'translate-x-0'
-                }`}
-              />
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* ========================================================================= */}
-      {/* --- SECTION 4: DATA --- */}
-      {/* ========================================================================= */}
-      <section className="space-y-1">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#8E8E93] pb-1">
-          Data
-        </h2>
-
-        <div className="divide-y divide-[#E8E8E5] dark:divide-[#262626]">
-          {/* Offline Data Status */}
-          <div className="h-14 flex items-center justify-between">
-            <div className="min-w-0 pr-3">
-              <p className="text-sm font-medium">Offline data</p>
-              <p className="text-xs text-[#737373] dark:text-[#8E8E93] truncate">
-                {pendingCount} pending changes &bull; Last sync: {formatLastSync(lastSyncedAt)}
-              </p>
+              <span className="text-xs sm:text-sm font-semibold text-zinc-600 dark:text-zinc-300">Privacy Policy</span>
+              <ChevronRight className="w-4 h-4 text-zinc-400 dark:text-zinc-500" />
             </div>
-            <button
-              type="button"
-              onClick={() => syncNow()}
-              disabled={isSyncing}
-              className="text-xs font-semibold text-[#16834A] dark:text-[#22C55E] hover:underline cursor-pointer disabled:opacity-50 shrink-0"
+
+            {/* Terms of Service */}
+            <div
+              onClick={() => setIsTermsOpen(true)}
+              className="py-3.5 flex items-center justify-between cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 rounded-xl px-2.5 -mx-2.5 transition-colors"
             >
-              {isSyncing ? 'Syncing...' : 'Sync now'}
-            </button>
-          </div>
-
-          {/* Clear Offline Data */}
-          <div className="h-14 flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">Clear offline data</p>
-              <p className="text-xs text-[#737373] dark:text-[#8E8E93]">Reset local cache and outbox store</p>
+              <span className="text-xs sm:text-sm font-semibold text-zinc-600 dark:text-zinc-300">Terms of Service</span>
+              <ChevronRight className="w-4 h-4 text-zinc-400 dark:text-zinc-500" />
             </div>
-            <button
-              type="button"
-              onClick={() => setIsClearDataOpen(true)}
-              className="text-xs font-semibold text-[#737373] dark:text-[#8E8E93] hover:text-[#171717] dark:hover:text-[#EDEDED] hover:underline cursor-pointer"
+
+            {/* Delete Account */}
+            <div
+              onClick={() => {
+                setDeleteConfirmText('');
+                setDeleteError(null);
+                setIsDeleteAccountOpen(true);
+              }}
+              className="py-3.5 flex items-center justify-between cursor-pointer hover:bg-red-500/10 rounded-xl px-2.5 -mx-2.5 transition-colors text-red-600 dark:text-red-400"
             >
-              Clear
-            </button>
-          </div>
-
-          {/* Export My Data */}
-          <div className="h-14 flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">Export my data</p>
-              <p className="text-xs text-[#737373] dark:text-[#8E8E93]">Download complete trip history as CSV</p>
+              <span className="text-xs sm:text-sm font-bold">Permanently Delete Account</span>
+              <Trash2 className="w-4 h-4" />
             </div>
-            <button
-              type="button"
-              onClick={handleExportData}
-              disabled={exportingData}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#16834A] dark:text-[#22C55E] hover:underline cursor-pointer disabled:opacity-50"
-            >
-              {exportingData ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Exporting...</span>
-                </>
-              ) : (
-                <>
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Export CSV</span>
-                </>
-              )}
-            </button>
           </div>
-        </div>
-      </section>
+        </section>
+      </div>
 
       {/* ========================================================================= */}
-      {/* --- SECTION 5: ABOUT --- */}
-      {/* ========================================================================= */}
-      <section className="space-y-1 pb-16">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#8E8E93] pb-1">
-          About
-        </h2>
-
-        <div className="divide-y divide-[#E8E8E5] dark:divide-[#262626]">
-          {/* Version */}
-          <div className="h-14 flex items-center justify-between">
-            <span className="text-sm font-medium">Version</span>
-            <span className="text-xs font-mono text-[#737373] dark:text-[#8E8E93]">v1.0.0 (Production)</span>
-          </div>
-
-          {/* Android App Download */}
-          <div
-            onClick={() => navigate('/download')}
-            className="h-14 flex items-center justify-between cursor-pointer hover:opacity-80 transition-opacity"
-          >
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">Get Android App</span>
-              <span className="text-[10px] font-semibold bg-[#16834A]/10 text-[#16834A] dark:text-[#22C55E] px-1.5 py-0.5 rounded">APK</span>
-            </div>
-            <ChevronRight className="w-4 h-4 text-[#737373] dark:text-[#8E8E93]" />
-          </div>
-
-          {/* Privacy Policy */}
-          <div
-            onClick={() => setIsPrivacyOpen(true)}
-            className="h-14 flex items-center justify-between cursor-pointer hover:opacity-80 transition-opacity"
-          >
-            <span className="text-sm font-medium">Privacy policy</span>
-            <ChevronRight className="w-4 h-4 text-[#737373] dark:text-[#8E8E93]" />
-          </div>
-
-          {/* Terms of Service */}
-          <div
-            onClick={() => setIsTermsOpen(true)}
-            className="h-14 flex items-center justify-between cursor-pointer hover:opacity-80 transition-opacity"
-          >
-            <span className="text-sm font-medium">Terms of service</span>
-            <ChevronRight className="w-4 h-4 text-[#737373] dark:text-[#8E8E93]" />
-          </div>
-
-          {/* Delete Account */}
-          <div
-            onClick={() => {
-              setDeleteConfirmText('');
-              setDeleteError(null);
-              setIsDeleteAccountOpen(true);
-            }}
-            className="h-14 flex items-center justify-between cursor-pointer hover:opacity-80 transition-opacity"
-          >
-            <span className="text-sm font-medium text-[#E11D48] dark:text-[#F43F5E]">Delete account</span>
-            <Trash2 className="w-4 h-4 text-[#E11D48] dark:text-[#F43F5E]" />
-          </div>
-        </div>
-      </section>
-
-      {/* ========================================================================= */}
-      {/* --- MODAL 1: EDIT PROFILE (BOTTOM SHEET ON MOBILE) --- */}
+      {/* --- MODAL 1: EDIT PROFILE --- */}
       {/* ========================================================================= */}
       {isEditProfileOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-white dark:bg-[#141414] text-[#171717] dark:text-[#EDEDED] rounded-t-2xl sm:rounded-2xl border-t sm:border border-[#E8E8E5] dark:border-[#262626] shadow-xl max-w-md w-full p-6 space-y-5 max-h-[90vh] overflow-y-auto">
-            {/* Mobile drag handle */}
-            <div className="sm:hidden w-12 h-1 bg-[#E8E8E5] dark:bg-[#333333] rounded-full mx-auto mb-1" />
-
-            <div className="flex items-center justify-between pb-2 border-b border-[#E8E8E5] dark:border-[#262626]">
-              <h3 className="text-base font-semibold">Edit Profile</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fadeIn">
+          <div className="glass-solid max-w-md w-full p-6 sm:p-7 space-y-5 rounded-3xl border border-white/50 dark:border-white/15 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-black/10 dark:border-white/10">
+              <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Edit Profile</h3>
               <button
                 type="button"
                 onClick={() => setIsEditProfileOpen(false)}
-                className="p-1 rounded-lg text-[#737373] hover:text-[#171717] dark:hover:text-[#EDEDED] cursor-pointer"
+                className="p-1.5 rounded-xl text-zinc-500 hover:text-zinc-900 dark:hover:text-white cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -596,7 +647,7 @@ export const SettingsPage: React.FC = () => {
 
             {/* Avatar upload */}
             <div className="flex items-center gap-4">
-              <div className="relative w-14 h-14 rounded-full bg-[#16834A] text-white flex items-center justify-center font-bold text-lg shrink-0 overflow-hidden">
+              <div className="relative w-16 h-16 rounded-2xl bg-[#16834A] text-white flex items-center justify-center font-bold text-xl shrink-0 overflow-hidden shadow-lg ring-2 ring-white/50">
                 {uploadingAvatar ? (
                   <Loader2 className="w-6 h-6 animate-spin text-white" />
                 ) : user.avatar_url ? (
@@ -617,44 +668,42 @@ export const SettingsPage: React.FC = () => {
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploadingAvatar}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-[#E8E8E5] dark:border-[#2E2E2E] rounded-xl text-xs font-semibold hover:bg-[#F4F4F2] dark:hover:bg-[#1C1C1C] cursor-pointer"
+                  className="inline-flex items-center gap-2 px-3.5 py-2 border border-zinc-300 dark:border-zinc-700 rounded-xl text-xs font-bold text-zinc-900 dark:text-white hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer shadow-xs"
                 >
-                  <Camera className="w-3.5 h-3.5" />
+                  <Camera className="w-4 h-4" />
                   <span>Change photo</span>
                 </button>
               </div>
             </div>
 
             {profileError && (
-              <p className="text-xs text-[#E11D48] dark:text-[#F43F5E] bg-[#FFE4E6] dark:bg-[#3F1118] p-2.5 rounded-lg border border-[#FDA4AF] dark:border-[#9F1239]">
+              <p className="text-xs text-red-600 dark:text-red-400 bg-red-500/10 p-3 rounded-xl border border-red-500/20 font-medium">
                 {profileError}
               </p>
             )}
 
             {profileSuccess && (
-              <p className="text-xs text-[#16834A] dark:text-[#22C55E] bg-[#DDF5E5] dark:bg-[#0E331E] p-2.5 rounded-lg border border-[#C6ECCF] dark:border-[#166534]">
+              <p className="text-xs text-[#16834A] dark:text-[#22C55E] bg-[#16834A]/10 p-3 rounded-xl border border-[#16834A]/20 font-medium">
                 {profileSuccess}
               </p>
             )}
 
             <form onSubmit={handleSaveProfile} className="space-y-4">
-              {/* Full Name */}
-              <div className="space-y-1">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#8E8E93]">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-zinc-300">
                   Full Name *
                 </label>
                 <input
                   type="text"
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
-                  className="w-full h-12 px-3.5 bg-transparent border border-[#E8E8E5] dark:border-[#2E2E2E] rounded-[10px] text-sm focus:outline-none focus:border-[#16834A] dark:focus:border-[#22C55E]"
+                  className="glass-input w-full text-sm"
                   required
                 />
               </div>
 
-              {/* Username */}
-              <div className="space-y-1">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#8E8E93]">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-zinc-300">
                   Username
                 </label>
                 <input
@@ -662,19 +711,18 @@ export const SettingsPage: React.FC = () => {
                   value={editUsername}
                   onChange={(e) => setEditUsername(e.target.value)}
                   placeholder="e.g. rahul_ride"
-                  className="w-full h-12 px-3.5 bg-transparent border border-[#E8E8E5] dark:border-[#2E2E2E] rounded-[10px] text-sm focus:outline-none focus:border-[#16834A] dark:focus:border-[#22C55E]"
+                  className="glass-input w-full text-sm"
                 />
               </div>
 
-              {/* Default Currency */}
-              <div className="space-y-1">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#8E8E93]">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-zinc-300">
                   Default Currency
                 </label>
                 <select
                   value={editCurrency}
                   onChange={(e) => setEditCurrency(e.target.value)}
-                  className="w-full h-12 px-3.5 bg-white dark:bg-[#141414] border border-[#E8E8E5] dark:border-[#2E2E2E] rounded-[10px] text-sm focus:outline-none focus:border-[#16834A] dark:focus:border-[#22C55E]"
+                  className="glass-input w-full text-sm [&>option]:bg-zinc-900 [&>option]:text-white"
                 >
                   <option value="INR">INR (₹)</option>
                   <option value="USD">USD ($)</option>
@@ -683,9 +731,8 @@ export const SettingsPage: React.FC = () => {
                 </select>
               </div>
 
-              {/* UPI ID */}
-              <div className="space-y-1">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#8E8E93]">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-zinc-300">
                   UPI ID (VPA)
                 </label>
                 <input
@@ -693,7 +740,7 @@ export const SettingsPage: React.FC = () => {
                   value={editUpi}
                   onChange={(e) => setEditUpi(e.target.value)}
                   placeholder="name@upi / 9876543210@paytm"
-                  className="w-full h-12 px-3.5 bg-transparent border border-[#E8E8E5] dark:border-[#2E2E2E] rounded-[10px] text-sm focus:outline-none focus:border-[#16834A] dark:focus:border-[#22C55E]"
+                  className="glass-input w-full text-sm"
                 />
               </div>
 
@@ -701,7 +748,7 @@ export const SettingsPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={savingProfile}
-                  className="w-full h-12 bg-[#16834A] dark:bg-[#22C55E] text-white dark:text-[#0A0A0A] font-semibold text-sm rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center cursor-pointer"
+                  className="w-full h-11 bg-[#16834A] dark:bg-[#22C55E] text-white dark:text-zinc-950 font-bold text-sm rounded-xl hover:opacity-95 transition-opacity disabled:opacity-50 flex items-center justify-center cursor-pointer shadow-md"
                 >
                   {savingProfile ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Save changes'}
                 </button>
@@ -715,36 +762,34 @@ export const SettingsPage: React.FC = () => {
       {/* --- MODAL 2: CHANGE PASSWORD --- */}
       {/* ========================================================================= */}
       {isChangePasswordOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-white dark:bg-[#141414] text-[#171717] dark:text-[#EDEDED] rounded-t-2xl sm:rounded-2xl border-t sm:border border-[#E8E8E5] dark:border-[#262626] shadow-xl max-w-md w-full p-6 space-y-5">
-            <div className="sm:hidden w-12 h-1 bg-[#E8E8E5] dark:bg-[#333333] rounded-full mx-auto mb-1" />
-
-            <div className="flex items-center justify-between pb-2 border-b border-[#E8E8E5] dark:border-[#262626]">
-              <h3 className="text-base font-semibold">Change Password</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fadeIn">
+          <div className="glass-solid max-w-md w-full p-6 sm:p-7 space-y-5 rounded-3xl border border-white/50 dark:border-white/15 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-black/10 dark:border-white/10">
+              <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Change Password</h3>
               <button
                 type="button"
                 onClick={() => setIsChangePasswordOpen(false)}
-                className="p-1 rounded-lg text-[#737373] hover:text-[#171717] dark:hover:text-[#EDEDED] cursor-pointer"
+                className="p-1.5 rounded-xl text-zinc-500 hover:text-zinc-900 dark:hover:text-white cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {passwordError && (
-              <p className="text-xs text-[#E11D48] dark:text-[#F43F5E] bg-[#FFE4E6] dark:bg-[#3F1118] p-2.5 rounded-lg border border-[#FDA4AF] dark:border-[#9F1239]">
+              <p className="text-xs text-red-600 dark:text-red-400 bg-red-500/10 p-3 rounded-xl border border-red-500/20 font-medium">
                 {passwordError}
               </p>
             )}
 
             {passwordSuccess && (
-              <p className="text-xs text-[#16834A] dark:text-[#22C55E] bg-[#DDF5E5] dark:bg-[#0E331E] p-2.5 rounded-lg border border-[#C6ECCF] dark:border-[#166534]">
+              <p className="text-xs text-[#16834A] dark:text-[#22C55E] bg-[#16834A]/10 p-3 rounded-xl border border-[#16834A]/20 font-medium">
                 {passwordSuccess}
               </p>
             )}
 
             <form onSubmit={handleSavePassword} className="space-y-4">
-              <div className="space-y-1">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#8E8E93]">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-zinc-300">
                   Current Password
                 </label>
                 <div className="relative">
@@ -752,21 +797,21 @@ export const SettingsPage: React.FC = () => {
                     type={showCurrentPass ? 'text' : 'password'}
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
-                    className="w-full h-12 px-3.5 pr-10 bg-transparent border border-[#E8E8E5] dark:border-[#2E2E2E] rounded-[10px] text-sm focus:outline-none focus:border-[#16834A] dark:focus:border-[#22C55E]"
+                    className="glass-input w-full pr-10 text-sm"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowCurrentPass(!showCurrentPass)}
-                    className="absolute right-3 top-3.5 text-[#737373] hover:text-[#171717] dark:hover:text-[#EDEDED]"
+                    className="absolute right-3 top-3.5 text-zinc-400 hover:text-white"
                   >
                     {showCurrentPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#8E8E93]">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-zinc-300">
                   New Password
                 </label>
                 <div className="relative">
@@ -774,28 +819,28 @@ export const SettingsPage: React.FC = () => {
                     type={showNewPass ? 'text' : 'password'}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full h-12 px-3.5 pr-10 bg-transparent border border-[#E8E8E5] dark:border-[#2E2E2E] rounded-[10px] text-sm focus:outline-none focus:border-[#16834A] dark:focus:border-[#22C55E]"
+                    className="glass-input w-full pr-10 text-sm"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowNewPass(!showNewPass)}
-                    className="absolute right-3 top-3.5 text-[#737373] hover:text-[#171717] dark:hover:text-[#EDEDED]"
+                    className="absolute right-3 top-3.5 text-zinc-400 hover:text-white"
                   >
                     {showNewPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#8E8E93]">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-zinc-300">
                   Confirm New Password
                 </label>
                 <input
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full h-12 px-3.5 bg-transparent border border-[#E8E8E5] dark:border-[#2E2E2E] rounded-[10px] text-sm focus:outline-none focus:border-[#16834A] dark:focus:border-[#22C55E]"
+                  className="glass-input w-full text-sm"
                   required
                 />
               </div>
@@ -804,7 +849,7 @@ export const SettingsPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={savingPassword}
-                  className="w-full h-12 bg-[#16834A] dark:bg-[#22C55E] text-white dark:text-[#0A0A0A] font-semibold text-sm rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center cursor-pointer"
+                  className="w-full h-11 bg-[#16834A] dark:bg-[#22C55E] text-white dark:text-zinc-950 font-bold text-sm rounded-xl hover:opacity-95 transition-opacity disabled:opacity-50 flex items-center justify-center cursor-pointer shadow-md"
                 >
                   {savingPassword ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Update password'}
                 </button>
@@ -815,30 +860,30 @@ export const SettingsPage: React.FC = () => {
       )}
 
       {/* ========================================================================= */}
-      {/* --- MODAL 3: CLEAR OFFLINE DATA CONFIRMATION --- */}
+      {/* --- MODAL 3: CLEAR OFFLINE DATA --- */}
       {/* ========================================================================= */}
       {isClearDataOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-white dark:bg-[#141414] text-[#171717] dark:text-[#EDEDED] rounded-2xl border border-[#E8E8E5] dark:border-[#262626] shadow-xl max-w-sm w-full p-5 space-y-4">
-            <div className="flex items-center gap-2.5 text-[#B45309] dark:text-[#FBBF24]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fadeIn">
+          <div className="glass-solid max-w-sm w-full p-6 space-y-4 rounded-3xl border border-white/50 dark:border-white/15 shadow-2xl">
+            <div className="flex items-center gap-2.5 text-amber-600 dark:text-amber-400">
               <AlertTriangle className="w-5 h-5 shrink-0" />
-              <h3 className="text-base font-semibold text-[#171717] dark:text-[#EDEDED]">Clear Offline Data?</h3>
+              <h3 className="text-base font-bold text-zinc-900 dark:text-white">Clear Offline Data?</h3>
             </div>
-            <p className="text-xs text-[#737373] dark:text-[#8E8E93] leading-relaxed">
+            <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed font-medium">
               Any unsynced offline changes will be permanently lost. Are you sure you want to clear the local database?
             </p>
 
             {clearDataSuccess && (
-              <p className="text-xs text-[#16834A] dark:text-[#22C55E] bg-[#DDF5E5] dark:bg-[#0E331E] p-2 rounded-lg">
+              <p className="text-xs text-[#16834A] dark:text-[#22C55E] bg-[#16834A]/10 p-2.5 rounded-xl font-medium">
                 {clearDataSuccess}
               </p>
             )}
 
-            <div className="flex gap-2 pt-2">
+            <div className="flex gap-2.5 pt-2">
               <button
                 type="button"
                 onClick={() => setIsClearDataOpen(false)}
-                className="flex-1 py-2.5 text-xs font-semibold border border-[#E8E8E5] dark:border-[#2E2E2E] rounded-xl hover:bg-[#F4F4F2] dark:hover:bg-[#1C1C1C] cursor-pointer"
+                className="flex-1 py-2.5 text-xs font-bold border border-zinc-300 dark:border-zinc-700 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 cursor-pointer"
               >
                 Cancel
               </button>
@@ -846,7 +891,7 @@ export const SettingsPage: React.FC = () => {
                 type="button"
                 onClick={handleClearOfflineData}
                 disabled={clearingData}
-                className="flex-1 py-2.5 text-xs font-semibold bg-[#171717] dark:bg-[#EDEDED] text-white dark:text-[#0A0A0A] rounded-xl hover:opacity-90 disabled:opacity-50 cursor-pointer flex items-center justify-center"
+                className="flex-1 py-2.5 text-xs font-bold bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 rounded-xl hover:opacity-90 disabled:opacity-50 cursor-pointer flex items-center justify-center shadow-md"
               >
                 {clearingData ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirm clear'}
               </button>
@@ -856,21 +901,21 @@ export const SettingsPage: React.FC = () => {
       )}
 
       {/* ========================================================================= */}
-      {/* --- MODAL 4: DELETE ACCOUNT CONFIRMATION --- */}
+      {/* --- MODAL 4: DELETE ACCOUNT --- */}
       {/* ========================================================================= */}
       {isDeleteAccountOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-white dark:bg-[#141414] text-[#171717] dark:text-[#EDEDED] rounded-2xl border border-[#E8E8E5] dark:border-[#262626] shadow-xl max-w-sm w-full p-5 space-y-4">
-            <div className="flex items-center gap-2.5 text-[#E11D48] dark:text-[#F43F5E]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fadeIn">
+          <div className="glass-solid max-w-sm w-full p-6 space-y-4 rounded-3xl border border-red-500/30 shadow-2xl">
+            <div className="flex items-center gap-2.5 text-red-600 dark:text-red-400">
               <Trash2 className="w-5 h-5 shrink-0" />
-              <h3 className="text-base font-semibold">Delete Account</h3>
+              <h3 className="text-base font-bold">Delete Account</h3>
             </div>
-            <p className="text-xs text-[#737373] dark:text-[#8E8E93] leading-relaxed">
+            <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed font-medium">
               This action is permanent and cannot be undone. All your trips, expense shares, and balances will be removed.
             </p>
 
-            <div className="space-y-1">
-              <label className="block text-[11px] font-semibold text-[#737373] dark:text-[#8E8E93]">
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300">
                 Type DELETE to confirm:
               </label>
               <input
@@ -878,19 +923,19 @@ export const SettingsPage: React.FC = () => {
                 value={deleteConfirmText}
                 onChange={(e) => setDeleteConfirmText(e.target.value)}
                 placeholder="DELETE"
-                className="w-full h-10 px-3 bg-transparent border border-[#E8E8E5] dark:border-[#2E2E2E] rounded-lg text-xs font-mono uppercase focus:outline-none focus:border-[#E11D48]"
+                className="w-full h-11 px-3 bg-white/80 dark:bg-zinc-900/80 border border-red-300 dark:border-red-900 rounded-xl text-xs font-mono uppercase focus:outline-none focus:border-red-500 text-zinc-900 dark:text-white"
               />
             </div>
 
             {deleteError && (
-              <p className="text-xs text-[#E11D48] dark:text-[#F43F5E]">{deleteError}</p>
+              <p className="text-xs text-red-600 dark:text-red-400 font-medium">{deleteError}</p>
             )}
 
-            <div className="flex gap-2 pt-2">
+            <div className="flex gap-2.5 pt-2">
               <button
                 type="button"
                 onClick={() => setIsDeleteAccountOpen(false)}
-                className="flex-1 py-2.5 text-xs font-semibold border border-[#E8E8E5] dark:border-[#2E2E2E] rounded-xl hover:bg-[#F4F4F2] dark:hover:bg-[#1C1C1C] cursor-pointer"
+                className="flex-1 py-2.5 text-xs font-bold border border-zinc-300 dark:border-zinc-700 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-zinc-700 dark:text-zinc-300 cursor-pointer"
               >
                 Cancel
               </button>
@@ -898,7 +943,7 @@ export const SettingsPage: React.FC = () => {
                 type="button"
                 onClick={handleDeleteAccount}
                 disabled={deletingAccount || deleteConfirmText !== 'DELETE'}
-                className="flex-1 py-2.5 text-xs font-semibold bg-[#E11D48] text-white rounded-xl hover:bg-[#BE123C] disabled:opacity-50 cursor-pointer flex items-center justify-center"
+                className="flex-1 py-2.5 text-xs font-bold bg-red-600 text-white rounded-xl hover:bg-red-700 disabled:opacity-50 cursor-pointer flex items-center justify-center shadow-md"
               >
                 {deletingAccount ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Delete forever'}
               </button>
@@ -911,19 +956,19 @@ export const SettingsPage: React.FC = () => {
       {/* --- MODAL 5: PRIVACY POLICY --- */}
       {/* ========================================================================= */}
       {isPrivacyOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-white dark:bg-[#141414] text-[#171717] dark:text-[#EDEDED] rounded-2xl border border-[#E8E8E5] dark:border-[#262626] shadow-xl max-w-lg w-full p-6 space-y-4 max-h-[80vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-2 border-b border-[#E8E8E5] dark:border-[#262626]">
-              <h3 className="text-base font-semibold">Privacy Policy</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fadeIn">
+          <div className="glass-solid max-w-lg w-full p-6 sm:p-7 space-y-4 rounded-3xl border border-white/50 dark:border-white/15 shadow-2xl max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-black/10 dark:border-white/10">
+              <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Privacy Policy</h3>
               <button
                 type="button"
                 onClick={() => setIsPrivacyOpen(false)}
-                className="p-1 rounded-lg text-[#737373] hover:text-[#171717] dark:hover:text-[#EDEDED] cursor-pointer"
+                className="p-1.5 rounded-xl text-zinc-500 hover:text-zinc-900 dark:hover:text-white cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="text-xs text-[#737373] dark:text-[#8E8E93] space-y-3 leading-relaxed">
+            <div className="text-xs text-zinc-600 dark:text-zinc-300 space-y-3 leading-relaxed font-medium">
               <p>
                 <strong>Data Minimization:</strong> ONNA-GO collects only the data necessary to coordinate group trips and accurately simplify peer-to-peer debts (name, email, default currency, and trip expenses).
               </p>
@@ -941,7 +986,7 @@ export const SettingsPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsPrivacyOpen(false)}
-                className="px-4 py-2 bg-[#171717] dark:bg-[#EDEDED] text-white dark:text-[#0A0A0A] rounded-xl text-xs font-semibold cursor-pointer"
+                className="px-5 py-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 rounded-xl text-xs font-bold cursor-pointer shadow-md"
               >
                 Close
               </button>
@@ -954,19 +999,19 @@ export const SettingsPage: React.FC = () => {
       {/* --- MODAL 6: TERMS OF SERVICE --- */}
       {/* ========================================================================= */}
       {isTermsOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-white dark:bg-[#141414] text-[#171717] dark:text-[#EDEDED] rounded-2xl border border-[#E8E8E5] dark:border-[#262626] shadow-xl max-w-lg w-full p-6 space-y-4 max-h-[80vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-2 border-b border-[#E8E8E5] dark:border-[#262626]">
-              <h3 className="text-base font-semibold">Terms of Service</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fadeIn">
+          <div className="glass-solid max-w-lg w-full p-6 sm:p-7 space-y-4 rounded-3xl border border-white/50 dark:border-white/15 shadow-2xl max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-black/10 dark:border-white/10">
+              <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Terms of Service</h3>
               <button
                 type="button"
                 onClick={() => setIsTermsOpen(false)}
-                className="p-1 rounded-lg text-[#737373] hover:text-[#171717] dark:hover:text-[#EDEDED] cursor-pointer"
+                className="p-1.5 rounded-xl text-zinc-500 hover:text-zinc-900 dark:hover:text-white cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="text-xs text-[#737373] dark:text-[#8E8E93] space-y-3 leading-relaxed">
+            <div className="text-xs text-zinc-600 dark:text-zinc-300 space-y-3 leading-relaxed font-medium">
               <p>
                 <strong>Service Usage:</strong> ONNA-GO is a collaborative group trip expense management application designed to track shared costs and simplify debt repayments.
               </p>
@@ -981,7 +1026,7 @@ export const SettingsPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsTermsOpen(false)}
-                className="px-4 py-2 bg-[#171717] dark:bg-[#EDEDED] text-white dark:text-[#0A0A0A] rounded-xl text-xs font-semibold cursor-pointer"
+                className="px-5 py-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 rounded-xl text-xs font-bold cursor-pointer shadow-md"
               >
                 Close
               </button>
@@ -989,6 +1034,12 @@ export const SettingsPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* --- MODAL 7: 5 ARTISTIC TRAVEL WALLPAPERS GALLERY --- */}
+      <ThemeGalleryModal
+        isOpen={isThemesGalleryOpen}
+        onClose={() => setIsThemesGalleryOpen(false)}
+      />
     </div>
   );
 };

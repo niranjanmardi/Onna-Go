@@ -280,10 +280,10 @@ export const TripsListPage: React.FC = () => {
 
       {/* --- PENDING TRIP INVITATIONS BANNER --- */}
       {pendingInvitations.length > 0 && (
-        <div className="bg-white dark:bg-[#141414] border border-[#E8E8E5] dark:border-[#262626] rounded-2xl p-4 sm:p-5 shadow-xs space-y-3.5 animate-fadeIn">
+        <div className="glass-card rounded-2xl p-4 sm:p-5 border border-white/40 dark:border-white/10 shadow-sm space-y-3.5 animate-fadeIn">
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-[#16834A] dark:text-[#22C55E]" />
-            <h2 className="text-xs font-medium text-[#171717] dark:text-[#EDEDED]">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-900 dark:text-white">
               Pending trip invitations ({pendingInvitations.length})
             </h2>
           </div>
@@ -292,21 +292,21 @@ export const TripsListPage: React.FC = () => {
             {pendingInvitations.map((inv) => (
               <div
                 key={inv.id}
-                className="bg-[#FAFAF8] dark:bg-[#1A1A1A] rounded-xl border border-[#E8E8E5] dark:border-[#262626] p-4 flex flex-col justify-between gap-3 shadow-2xs"
+                className="glass-card rounded-xl border border-white/30 dark:border-white/10 p-4 flex flex-col justify-between gap-3 shadow-sm"
               >
                 <div>
-                  <h3 className="font-semibold text-[#171717] dark:text-[#EDEDED] text-sm">{inv.trip_name}</h3>
-                  <p className="text-xs text-[#737373] dark:text-[#8E8E93] mt-0.5">
-                    Invited by <strong className="text-[#171717] dark:text-[#EDEDED] font-medium">{inv.inviter_name}</strong>
+                  <h3 className="font-bold text-zinc-900 dark:text-white text-sm">{inv.trip_name}</h3>
+                  <p className="text-xs text-zinc-600 dark:text-zinc-300 mt-0.5">
+                    Invited by <strong className="text-zinc-900 dark:text-white font-bold">{inv.inviter_name}</strong>
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2 pt-2 border-t border-[#E8E8E5] dark:border-[#262626]">
+                <div className="flex items-center gap-2 pt-2 border-t border-black/5 dark:border-white/10">
                   <button
                     type="button"
                     onClick={() => handleAcceptInvitation(inv.id)}
                     disabled={processingInvId === inv.id}
-                    className="flex-1 py-1.5 px-3 bg-[#16834A] hover:bg-[#136F3F] dark:bg-[#22C55E] dark:hover:bg-[#1ea951] text-white dark:text-[#0A0A0A] text-xs font-medium rounded-lg shadow-2xs transition-colors flex items-center justify-center gap-1 disabled:opacity-50 cursor-pointer"
+                    className="flex-1 py-1.5 px-3 bg-[#16834A] hover:bg-[#136F3F] dark:bg-[#22C55E] dark:hover:bg-[#1ea951] text-white dark:text-[#0A0A0A] text-xs font-bold rounded-lg shadow-sm transition-colors flex items-center justify-center gap-1 disabled:opacity-50 cursor-pointer"
                   >
                     {processingInvId === inv.id ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -320,7 +320,7 @@ export const TripsListPage: React.FC = () => {
                     type="button"
                     onClick={() => handleDeclineInvitation(inv.id)}
                     disabled={processingInvId === inv.id}
-                    className="py-1.5 px-3 bg-white dark:bg-[#141414] hover:bg-[#F4F4F2] dark:hover:bg-[#222222] text-[#737373] dark:text-[#8E8E93] text-xs font-medium rounded-lg border border-[#E8E8E5] dark:border-[#262626] transition-colors cursor-pointer"
+                    className="py-1.5 px-3 border border-white/40 dark:border-white/15 text-zinc-700 dark:text-zinc-300 text-xs font-bold rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors disabled:opacity-50 cursor-pointer"
                   >
                     Decline
                   </button>
@@ -332,16 +332,16 @@ export const TripsListPage: React.FC = () => {
       )}
 
       {/* --- TRIP HISTORY & FILTER BAR --- */}
-      <div className="bg-white dark:bg-[#141414] rounded-2xl border border-[#E8E8E5] dark:border-[#262626] p-3 shadow-xs space-y-3">
+      <div className="glass-card rounded-3xl border border-white/40 dark:border-white/10 p-4 shadow-sm space-y-3.5">
         {/* Navigation Filter Tabs */}
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#F4F4F2] dark:border-[#262626] pb-3">
           <div className="flex flex-wrap items-center gap-1">
             <button
               onClick={() => setActiveTab('all')}
-              className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                 activeTab === 'all'
-                  ? 'bg-[#171717] text-white dark:bg-[#EDEDED] dark:text-[#0A0A0A] shadow-xs'
-                  : 'text-[#737373] dark:text-[#8E8E93] hover:text-[#171717] dark:hover:text-[#EDEDED] hover:bg-[#F4F4F2] dark:hover:bg-[#1F1F1F]'
+                  ? 'bg-white dark:bg-white/20 text-zinc-900 dark:text-white shadow-sm'
+                  : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
               }`}
             >
               All trips ({counts.all})
@@ -349,10 +349,10 @@ export const TripsListPage: React.FC = () => {
 
             <button
               onClick={() => setActiveTab('active')}
-              className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                 activeTab === 'active'
-                  ? 'bg-[#16834A] text-white dark:bg-[#22C55E] dark:text-[#0A0A0A] shadow-xs'
-                  : 'text-[#737373] dark:text-[#8E8E93] hover:text-[#171717] dark:hover:text-[#EDEDED] hover:bg-[#F4F4F2] dark:hover:bg-[#1F1F1F]'
+                  ? 'bg-[#16834A] text-white dark:bg-[#22C55E] dark:text-[#0A0A0A] shadow-sm'
+                  : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
               }`}
             >
               <Clock className="w-3.5 h-3.5" />
@@ -361,10 +361,10 @@ export const TripsListPage: React.FC = () => {
 
             <button
               onClick={() => setActiveTab('history')}
-              className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                 activeTab === 'history'
-                  ? 'bg-[#171717] text-white dark:bg-[#EDEDED] dark:text-[#0A0A0A] shadow-xs'
-                  : 'text-[#737373] dark:text-[#8E8E93] hover:text-[#171717] dark:hover:text-[#EDEDED] hover:bg-[#F4F4F2] dark:hover:bg-[#1F1F1F]'
+                  ? 'bg-white dark:bg-white/20 text-zinc-900 dark:text-white shadow-sm'
+                  : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
               }`}
             >
               <History className="w-3.5 h-3.5" />
@@ -373,10 +373,10 @@ export const TripsListPage: React.FC = () => {
 
             <button
               onClick={() => setActiveTab('created')}
-              className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                 activeTab === 'created'
-                  ? 'bg-[#171717] text-white dark:bg-[#EDEDED] dark:text-[#0A0A0A] shadow-xs'
-                  : 'text-[#737373] dark:text-[#8E8E93] hover:text-[#171717] dark:hover:text-[#EDEDED] hover:bg-[#F4F4F2] dark:hover:bg-[#1F1F1F]'
+                  ? 'bg-white dark:bg-white/20 text-zinc-900 dark:text-white shadow-sm'
+                  : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
               }`}
             >
               Created by me ({counts.created})
@@ -384,10 +384,10 @@ export const TripsListPage: React.FC = () => {
 
             <button
               onClick={() => setActiveTab('joined')}
-              className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all flex items-center gap-1 ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-1 cursor-pointer ${
                 activeTab === 'joined'
-                  ? 'bg-[#171717] text-white dark:bg-[#EDEDED] dark:text-[#0A0A0A] shadow-xs'
-                  : 'text-[#737373] dark:text-[#8E8E93] hover:text-[#171717] dark:hover:text-[#EDEDED] hover:bg-[#F4F4F2] dark:hover:bg-[#1F1F1F]'
+                  ? 'bg-white dark:bg-white/20 text-zinc-900 dark:text-white shadow-sm'
+                  : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
               }`}
             >
               <UserCheck className="w-3.5 h-3.5" />
@@ -396,13 +396,13 @@ export const TripsListPage: React.FC = () => {
           </div>
 
           {/* Sort By Dropdown */}
-          <div className="flex items-center gap-1.5 text-xs text-[#737373] dark:text-[#8E8E93]">
-            <SlidersHorizontal className="w-3.5 h-3.5 text-[#A3A3A3] dark:text-[#666666]" />
+          <div className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-300">
+            <SlidersHorizontal className="w-3.5 h-3.5 text-zinc-400" />
             <select
               value={sortBy}
               aria-label="Sort trips by"
               onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="bg-[#FAFAF8] dark:bg-[#1A1A1A] border border-[#E8E8E5] dark:border-[#262626] text-[#171717] dark:text-[#EDEDED] rounded-lg px-2 py-1 text-xs font-medium focus:outline-hidden focus:border-[#16834A] dark:focus:border-[#22C55E]"
+              className="glass-input h-8 px-2.5 py-1 text-xs font-bold rounded-lg [&>option]:bg-zinc-900 [&>option]:text-white cursor-pointer"
             >
               <option value="newest">Newest first</option>
               <option value="oldest">Oldest first</option>
@@ -413,18 +413,18 @@ export const TripsListPage: React.FC = () => {
 
         {/* Search Bar */}
         <div className="relative">
-          <Search className="w-4 h-4 text-[#A3A3A3] dark:text-[#666666] absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search trips by name, destination, or description..."
-            className="w-full bg-[#FAFAF8] dark:bg-[#1A1A1A] border border-[#E8E8E5] dark:border-[#262626] text-[#171717] dark:text-[#EDEDED] placeholder-[#A3A3A3] dark:placeholder-[#666666] text-sm rounded-xl pl-9 pr-9 py-2 focus:outline-hidden focus:border-[#16834A] dark:focus:border-[#22C55E] transition-all"
+            className="glass-input w-full pl-9.5 pr-9 text-xs sm:text-sm rounded-xl"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#A3A3A3] dark:text-[#666666] hover:text-[#171717] dark:hover:text-[#EDEDED] p-0.5 rounded cursor-pointer"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white p-0.5 rounded cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -439,8 +439,8 @@ export const TripsListPage: React.FC = () => {
           <p className="text-sm text-[#737373] dark:text-[#8E8E93]">Loading your travel history...</p>
         </div>
       ) : filteredTrips.length === 0 ? (
-        <div className="bg-white dark:bg-[#141414] rounded-2xl border border-[#E8E8E5] dark:border-[#262626] p-10 sm:p-12 text-center max-w-lg mx-auto shadow-xs">
-          <div className="w-12 h-12 bg-[#FAFAF8] dark:bg-[#1A1A1A] border border-[#E8E8E5] dark:border-[#262626] text-[#737373] dark:text-[#8E8E93] rounded-xl flex items-center justify-center mx-auto mb-4">
+        <div className="glass-card rounded-3xl border border-white/40 dark:border-white/10 p-10 sm:p-12 text-center max-w-lg mx-auto shadow-md">
+          <div className="w-12 h-12 bg-white/70 dark:bg-white/10 border border-white/40 dark:border-white/10 text-zinc-600 dark:text-zinc-300 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">
             {activeTab === 'history' ? (
               <History className="w-6 h-6 text-[#16834A] dark:text-[#22C55E]" />
             ) : (
@@ -510,7 +510,7 @@ export const TripsListPage: React.FC = () => {
               <div
                 key={trip.id}
                 onClick={() => navigate(`/trips/${trip.id}`)}
-                className="bg-white dark:bg-[#141414] rounded-2xl border border-[#E8E8E5] dark:border-[#262626] p-5 shadow-xs hover:border-[#16834A]/50 dark:hover:border-[#22C55E]/50 transition-all duration-200 cursor-pointer flex flex-col justify-between group"
+                className="glass-card rounded-3xl border border-white/40 dark:border-white/10 p-5 shadow-sm hover:shadow-lg hover:border-white/60 dark:hover:border-white/20 transition-all duration-200 cursor-pointer flex flex-col justify-between group"
               >
                 <div>
                   {/* Badges Bar: Currency, Status & Ownership */}

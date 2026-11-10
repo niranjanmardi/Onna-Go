@@ -5,6 +5,7 @@ import { api, getAvatarUrl } from '@/lib/api-client';
 import { Trip, Expense, DashboardSummary } from '@/types';
 import { formatPaise } from '@/lib/currency';
 import { useAuth } from '@/features/auth/AuthContext';
+import { useTheme } from '@/context/ThemeContext';
 import { cacheTripsList, getCachedTripsList } from '@/lib/offline-db';
 
 function formatRelativeTime(dateString?: string | null): string {
@@ -28,6 +29,8 @@ function formatRelativeTime(dateString?: string | null): string {
 
 export const DashboardPage: React.FC = () => {
   const { user } = useAuth();
+  const { activeThemeId } = useTheme();
+  const hasCustomWallpaper = activeThemeId !== 'default';
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
@@ -91,6 +94,12 @@ export const DashboardPage: React.FC = () => {
     const handleOnline = () => loadDashboardData();
     window.addEventListener('online', handleOnline);
 
+    return () => {
+      window.removeEventListener('online', handleOnline);
+    };
+  }, [loadDashboardData]);
+
+  useEffect(() => {
     const handleAddAction = (e: Event) => {
       e.preventDefault();
       handleOpenAddExpense();
@@ -98,10 +107,9 @@ export const DashboardPage: React.FC = () => {
     window.addEventListener('app-add-action', handleAddAction);
 
     return () => {
-      window.removeEventListener('online', handleOnline);
       window.removeEventListener('app-add-action', handleAddAction);
     };
-  }, [loadDashboardData, trips]);
+  }, [trips]);
 
   const handleOpenAddExpense = () => {
     if (!trips || trips.length === 0) {
@@ -118,20 +126,25 @@ export const DashboardPage: React.FC = () => {
   const userInitial = user?.full_name ? user.full_name.charAt(0).toUpperCase() : 'U';
 
   return (
-    <div className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-6 md:py-8">
+    <div className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-6 md:py-8 space-y-6">
       {/* --- Top Bar: Page title & Profile avatar --- */}
-      <header className="flex items-center justify-between pb-4">
-        <h1 className="text-xl md:text-2xl font-bold tracking-tight text-[#171717] dark:text-[#EDEDED]">
-          Dashboard
-        </h1>
+      <header className="flex items-center justify-between pb-2">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-white drop-shadow-sm">
+            Dashboard
+          </h1>
+          <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 font-medium mt-0.5">
+            Your travel balances, fair shares &amp; active trip ledgers
+          </p>
+        </div>
 
         <div className="flex items-center gap-2.5">
           {trips.length > 0 && (
             <button
               onClick={handleOpenAddExpense}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-[#16834A] dark:bg-[#22C55E] dark:text-[#0A0A0A] rounded-xl hover:bg-[#157340] dark:hover:bg-[#1ea951] transition-colors cursor-pointer shadow-xs"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-[#16834A] hover:bg-[#136F3F] dark:bg-[#22C55E] dark:hover:bg-[#1ea951] dark:text-zinc-950 rounded-xl transition-all cursor-pointer shadow-md active:scale-95"
             >
-              <Plus className="w-3.5 h-3.5" />
+              <Plus className="w-4 h-4 stroke-[2.5]" />
               <span>Add expense</span>
             </button>
           )}
@@ -139,7 +152,7 @@ export const DashboardPage: React.FC = () => {
           {/* Profile Avatar */}
           <button
             onClick={() => navigate('/profile')}
-            className="cursor-pointer active:scale-95 transition-transform rounded-full focus:outline-hidden"
+            className="cursor-pointer active:scale-95 transition-transform rounded-2xl focus:outline-hidden"
             title={user?.full_name || 'Profile'}
             aria-label="Profile"
           >
@@ -147,10 +160,10 @@ export const DashboardPage: React.FC = () => {
               <img
                 src={getAvatarUrl(user.avatar_url)}
                 alt={user.full_name}
-                className="w-9 h-9 rounded-full object-cover border border-[#E8E8E5] dark:border-[#262626]"
+                className="w-10 h-10 rounded-2xl object-cover border border-white/40 dark:border-white/10 shadow-sm"
               />
             ) : (
-              <div className="w-9 h-9 rounded-full bg-[#E8E8E5] dark:bg-[#262626] text-[#171717] dark:text-[#EDEDED] flex items-center justify-center font-semibold text-xs">
+              <div className="w-10 h-10 rounded-2xl bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-white flex items-center justify-center font-bold text-xs uppercase border border-white/40 dark:border-white/10 shadow-sm">
                 {userInitial}
               </div>
             )}
@@ -209,92 +222,102 @@ export const DashboardPage: React.FC = () => {
       ) : (
         <>
           {/* --- Summary Block: 4 Clear Financial Metrics (Apple/Minimalist, Tabular) --- */}
-          <section className="py-5 border-b border-[#E8E8E5] dark:border-[#2A2A2E] grid grid-cols-2 gap-4 sm:grid-cols-4 sm:gap-6">
-            <div>
-              <span className="text-xs font-medium text-[#71717A] dark:text-[#A1A1AA] block mb-1">
-                Total Expenses
-              </span>
-              <span className="text-xl sm:text-2xl font-semibold tabular-nums font-mono tracking-tight text-[#18181B] dark:text-[#F5F5F7]">
-                {formatPaise(totalExpensesPaise)}
-              </span>
-            </div>
-            <div>
-              <span className="text-xs font-medium text-[#71717A] dark:text-[#A1A1AA] block mb-1">
-                Your Fair Share
-              </span>
-              <span className="text-xl sm:text-2xl font-semibold tabular-nums font-mono tracking-tight text-[#18181B] dark:text-[#F5F5F7]">
-                {formatPaise(totalSharePaise)}
-              </span>
-            </div>
-            <div>
-              <span className="text-xs font-medium text-[#71717A] dark:text-[#A1A1AA] block mb-1">
-                You Paid
-              </span>
-              <span className="text-xl sm:text-2xl font-semibold tabular-nums font-mono tracking-tight text-[#18181B] dark:text-[#F5F5F7]">
-                {formatPaise(totalSpentPaise)}
-              </span>
-            </div>
-            <div>
-              {totalOwePaise > totalOwedPaise ? (
-                <>
-                  <span className="text-xs font-medium text-[#DC2626] dark:text-[#EF4444] block mb-1">
-                    You Owe
-                  </span>
-                  <span className="text-xl sm:text-2xl font-semibold tabular-nums font-mono tracking-tight text-[#DC2626] dark:text-[#EF4444]">
-                    {formatPaise(totalOwePaise - totalOwedPaise)}
-                  </span>
-                </>
-              ) : totalOwedPaise > totalOwePaise ? (
-                <>
-                  <span className="text-xs font-medium text-[#16834A] dark:text-[#22C55E] block mb-1">
-                    You Get Back
-                  </span>
-                  <span className="text-xl sm:text-2xl font-semibold tabular-nums font-mono tracking-tight text-[#16834A] dark:text-[#22C55E]">
-                    {formatPaise(totalOwedPaise - totalOwePaise)}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span className="text-xs font-medium text-[#71717A] dark:text-[#A1A1AA] block mb-1">
-                    Net Balance
-                  </span>
-                  <span className="text-xl sm:text-2xl font-semibold tracking-tight text-[#71717A] dark:text-[#A1A1AA]">
-                    Settled Up
-                  </span>
-                </>
-              )}
+          {/* --- Summary Block: 4 Clear Financial Metrics (Apple Frosted Solid Glass) --- */}
+          <section className="glass-solid p-5 sm:p-6 shadow-xl border border-white/50 dark:border-white/10 rounded-3xl">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 sm:gap-6">
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 block mb-1">
+                  Total Expenses
+                </span>
+                <span className="text-xl sm:text-2xl font-bold tabular-nums font-mono tracking-tight text-zinc-900 dark:text-white">
+                  {formatPaise(totalExpensesPaise)}
+                </span>
+              </div>
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 block mb-1">
+                  Your Fair Share
+                </span>
+                <span className="text-xl sm:text-2xl font-bold tabular-nums font-mono tracking-tight text-zinc-900 dark:text-white">
+                  {formatPaise(totalSharePaise)}
+                </span>
+              </div>
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 block mb-1">
+                  You Paid
+                </span>
+                <span className="text-xl sm:text-2xl font-bold tabular-nums font-mono tracking-tight text-zinc-900 dark:text-white">
+                  {formatPaise(totalSpentPaise)}
+                </span>
+              </div>
+              <div>
+                {totalOwePaise > totalOwedPaise ? (
+                  <>
+                    <span className="text-xs font-bold uppercase tracking-wider text-red-600 dark:text-red-400 block mb-1">
+                      You Owe
+                    </span>
+                    <span className="text-xl sm:text-2xl font-bold tabular-nums font-mono tracking-tight text-red-600 dark:text-red-400">
+                      {formatPaise(totalOwePaise - totalOwedPaise)}
+                    </span>
+                  </>
+                ) : totalOwedPaise > totalOwePaise ? (
+                  <>
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#16834A] dark:text-[#22C55E] block mb-1">
+                      You Get Back
+                    </span>
+                    <span className="text-xl sm:text-2xl font-bold tabular-nums font-mono tracking-tight text-[#16834A] dark:text-[#22C55E]">
+                      {formatPaise(totalOwedPaise - totalOwePaise)}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 block mb-1">
+                      Net Balance
+                    </span>
+                    <span className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-600 dark:text-zinc-300">
+                      Settled Up
+                    </span>
+                  </>
+                )}
+              </div>
             </div>
           </section>
 
           {/* --- Trips List (Feed Rows) --- */}
-          <section className="mt-8">
-            <h2 className="text-xs font-medium text-[#737373] dark:text-[#8E8E93] mb-2">
-              Trips
-            </h2>
+          <section className="mt-8 space-y-3">
+            <div className="flex items-center justify-between px-1">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
+                Active Trips
+              </h2>
+              {trips.length > 0 && (
+                <span className="text-xs font-semibold text-[#16834A] dark:text-[#22C55E]">
+                  {trips.length} {trips.length === 1 ? 'trip' : 'trips'}
+                </span>
+              )}
+            </div>
 
             {trips.length === 0 ? (
-              <div className="py-10 px-4 text-center border border-[#E8E8E5] dark:border-[#262626] rounded-2xl bg-[#FAFAF8] dark:bg-[#141414] my-3">
-                <p className="text-sm font-medium text-[#171717] dark:text-[#EDEDED] mb-1">No trips yet</p>
-                <p className="text-xs text-[#737373] dark:text-[#8E8E93] mb-5 max-w-xs mx-auto">
-                  Create a trip to start sharing and splitting expenses with friends.
+              <div className="glass-card py-12 px-6 text-center border border-white/40 dark:border-white/10 rounded-3xl shadow-sm my-3">
+                <p className="text-base font-bold text-zinc-900 dark:text-white mb-1.5">No trips yet</p>
+                <p className="text-xs text-zinc-600 dark:text-zinc-300 mb-6 max-w-sm mx-auto font-medium">
+                  Create a journey to start sharing expenses and tracking split settlements with your group.
                 </p>
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5">
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                   <button
                     onClick={() => navigate('/trips/new')}
-                    className="w-full sm:w-auto px-4 py-2 text-xs sm:text-sm font-medium text-white bg-[#16834A] dark:bg-[#22C55E] dark:text-[#0A0A0A] rounded-xl hover:bg-[#157340] dark:hover:bg-[#1ea951] transition-colors cursor-pointer shadow-xs"
+                    className="w-full sm:w-auto px-5 py-2.5 text-xs sm:text-sm font-bold text-white bg-[#16834A] hover:bg-[#136F3F] dark:bg-[#22C55E] dark:hover:bg-[#1ea951] dark:text-zinc-950 rounded-xl transition-all cursor-pointer shadow-md active:scale-95"
                   >
                     Create your first trip
                   </button>
                   <button
                     onClick={() => navigate('/trips/join')}
-                    className="w-full sm:w-auto px-4 py-2 text-xs sm:text-sm font-medium text-[#171717] dark:text-[#EDEDED] bg-white dark:bg-[#1A1A1A] border border-[#E8E8E5] dark:border-[#262626] rounded-xl hover:bg-[#F4F4F2] dark:hover:bg-[#222222] transition-colors cursor-pointer"
+                    className="w-full sm:w-auto px-5 py-2.5 text-xs sm:text-sm font-bold text-zinc-900 dark:text-white bg-white/70 dark:bg-white/10 border border-white/40 dark:border-white/15 rounded-xl hover:bg-white/90 dark:hover:bg-white/20 transition-all cursor-pointer shadow-sm active:scale-95"
                   >
                     Join with code
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="divide-y divide-[#E8E8E5] dark:divide-[#262626]">
+              <div className="glass-card rounded-3xl p-3 sm:p-4 border border-white/40 dark:border-white/10 shadow-md divide-y divide-black/5 dark:divide-white/10">
                 {trips.map((trip) => {
                   const userOwes = trip.user_owes_paise || 0;
                   const userReceives = trip.user_receives_paise || 0;
@@ -306,22 +329,22 @@ export const DashboardPage: React.FC = () => {
                     <div
                       key={trip.id}
                       onClick={() => navigate(`/trips/${trip.id}`)}
-                      className="py-3.5 px-2 -mx-2 hover:bg-[#F4F4F2]/70 dark:hover:bg-[#1A1A1A]/70 rounded-xl transition-colors cursor-pointer flex items-center justify-between group"
+                      className="py-3.5 px-3 rounded-2xl hover:bg-black/5 dark:hover:bg-white/5 transition-all cursor-pointer flex items-center justify-between group"
                     >
                       {/* Left + Middle */}
                       <div className="flex items-center gap-3.5 min-w-0 flex-1 pr-3">
                         {/* Cover image or initial avatar */}
-                        <div className="w-11 h-11 rounded-lg bg-[#F4F4F2] dark:bg-[#1C1C1C] text-[#171717] dark:text-[#EDEDED] font-semibold text-sm flex items-center justify-center shrink-0 border border-[#E8E8E5] dark:border-[#262626]">
+                        <div className="w-12 h-12 rounded-2xl bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-white font-bold text-base flex items-center justify-center shrink-0 border border-white/40 dark:border-white/10 shadow-sm group-hover:scale-105 transition-transform">
                           {initial}
                         </div>
 
                         {/* Middle: Name and "X people · Y expenses" */}
                         <div className="min-w-0 flex-1">
-                          <h3 className="font-medium text-sm sm:text-base text-[#171717] dark:text-[#EDEDED] truncate">
+                          <h3 className="font-bold text-sm sm:text-base text-zinc-900 dark:text-white truncate">
                             {trip.name}
                           </h3>
-                          <p className="text-xs text-[#737373] dark:text-[#8E8E93] mt-0.5 truncate">
-                            {membersCount} {membersCount === 1 ? 'person' : 'people'} - {expensesCount} {expensesCount === 1 ? 'expense' : 'expenses'}
+                          <p className="text-xs text-zinc-600 dark:text-zinc-300 font-medium mt-0.5 truncate">
+                            {membersCount} {membersCount === 1 ? 'person' : 'people'} &bull; {expensesCount} {expensesCount === 1 ? 'expense' : 'expenses'}
                           </p>
                         </div>
                       </div>
@@ -330,28 +353,28 @@ export const DashboardPage: React.FC = () => {
                       <div className="text-right shrink-0 ml-3">
                         {userReceives > 0 ? (
                           <>
-                            <span className="text-sm font-semibold tabular-nums text-[#16834A] dark:text-[#22C55E] block">
+                            <span className="text-sm sm:text-base font-bold tabular-nums text-[#16834A] dark:text-[#22C55E] block">
                               +{formatPaise(userReceives, trip.currency)}
                             </span>
-                            <span className="text-[10px] text-[#16834A]/80 dark:text-[#22C55E]/80">
+                            <span className="text-[10px] font-semibold text-[#16834A] dark:text-[#22C55E]">
                               you're owed
                             </span>
                           </>
                         ) : userOwes > 0 ? (
                           <>
-                            <span className="text-sm font-semibold tabular-nums text-[#DC2626] dark:text-[#EF4444] block">
+                            <span className="text-sm sm:text-base font-bold tabular-nums text-red-600 dark:text-red-400 block">
                               -{formatPaise(userOwes, trip.currency)}
                             </span>
-                            <span className="text-[10px] text-[#DC2626]/80 dark:text-[#EF4444]/80">
+                            <span className="text-[10px] font-semibold text-red-600 dark:text-red-400">
                               you owe
                             </span>
                           </>
                         ) : (
                           <>
-                            <span className="text-sm font-medium tabular-nums text-[#737373] dark:text-[#8E8E93] block">
+                            <span className="text-sm font-semibold tabular-nums text-zinc-600 dark:text-zinc-300 block">
                               {formatPaise(0, trip.currency)}
                             </span>
-                            <span className="text-[10px] text-[#737373] dark:text-[#8E8E93]">
+                            <span className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400">
                               settled
                             </span>
                           </>
@@ -366,16 +389,16 @@ export const DashboardPage: React.FC = () => {
 
           {/* --- Recent Activity List (Feed Rows) --- */}
           <section className="mt-8 mb-24 sm:mb-12">
-            <h2 className="text-xs font-medium text-[#737373] dark:text-[#8E8E93] mb-2">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 mb-2.5 px-1">
               Recent activity
             </h2>
 
             {recentExpenses.length === 0 ? (
               <div className="py-6 text-center">
-                <p className="text-sm text-[#737373] dark:text-[#8E8E93]">No recent activity.</p>
+                <p className="text-sm text-zinc-400">No recent activity.</p>
               </div>
             ) : (
-              <div className="divide-y divide-[#E8E8E5] dark:divide-[#262626]">
+              <div className="glass-card rounded-3xl p-3 sm:p-4 border border-white/40 dark:border-white/10 shadow-sm divide-y divide-black/5 dark:divide-white/10">
                 {recentExpenses.map((exp) => {
                   const initial = exp.category ? exp.category.charAt(0).toUpperCase() : 'E';
 
@@ -383,20 +406,20 @@ export const DashboardPage: React.FC = () => {
                     <div
                       key={exp.id}
                       onClick={() => navigate(`/trips/${exp.trip_id}`)}
-                      className="py-3 px-2 -mx-2 hover:bg-[#F4F4F2]/70 dark:hover:bg-[#1A1A1A]/70 rounded-xl transition-colors cursor-pointer flex items-center justify-between"
+                      className="py-3 px-3 rounded-2xl hover:bg-black/5 dark:hover:bg-white/5 transition-all cursor-pointer flex items-center justify-between group"
                     >
                       {/* Left: Category avatar */}
                       <div className="flex items-center gap-3 min-w-0 flex-1 pr-3">
-                        <div className="w-8 h-8 rounded-lg bg-[#F4F4F2] dark:bg-[#1C1C1C] text-[#171717] dark:text-[#EDEDED] font-medium text-xs flex items-center justify-center shrink-0 border border-[#E8E8E5] dark:border-[#262626]">
+                        <div className="w-9 h-9 rounded-xl bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-white font-bold text-xs flex items-center justify-center shrink-0 border border-white/40 dark:border-white/10 shadow-xs">
                           {initial}
                         </div>
 
                         {/* Middle: One line per item with relative time */}
                         <div className="flex items-center min-w-0 flex-1 truncate">
-                          <span className="text-sm font-medium text-[#171717] dark:text-[#EDEDED] truncate">
+                          <span className="text-sm font-semibold text-zinc-900 dark:text-white truncate">
                             {exp.description}
                           </span>
-                          <span className="text-xs text-[#737373] dark:text-[#8E8E93] shrink-0 ml-1.5">
+                          <span className="text-xs text-zinc-400 shrink-0 ml-1.5">
                             &bull; {formatRelativeTime(exp.created_at || exp.date)}
                           </span>
                         </div>
@@ -404,7 +427,7 @@ export const DashboardPage: React.FC = () => {
 
                       {/* Right: Amount */}
                       <div className="text-right shrink-0 ml-3">
-                        <span className="text-sm font-medium font-mono tabular-nums text-[#171717] dark:text-[#EDEDED]">
+                        <span className="text-sm font-bold font-mono tabular-nums text-zinc-900 dark:text-white">
                           {formatPaise(exp.amount_paise, exp.currency)}
                         </span>
                       </div>
@@ -417,26 +440,24 @@ export const DashboardPage: React.FC = () => {
         </>
       )}
 
-
-
       {/* --- Trip Picker Modal (if multiple trips exist when adding expense) --- */}
       {isTripPickerOpen && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#141414] border border-[#E8E8E5] dark:border-[#262626] rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-xl animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between pb-2 border-b border-[#E8E8E5] dark:border-[#262626]">
-              <h3 className="text-base font-semibold text-[#171717] dark:text-[#EDEDED]">
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="glass-modal border border-white/30 rounded-3xl w-full max-w-sm p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-white/15">
+              <h3 className="text-base font-bold text-white">
                 Select a trip
               </h3>
               <button
                 onClick={() => setIsTripPickerOpen(false)}
-                className="p-1 rounded-lg text-[#737373] dark:text-[#8E8E93] hover:text-[#171717] dark:hover:text-[#EDEDED] cursor-pointer"
+                className="p-1 rounded-lg text-white/70 hover:text-white cursor-pointer"
                 aria-label="Close"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="divide-y divide-[#E8E8E5] dark:divide-[#262626] max-h-60 overflow-y-auto">
+            <div className="divide-y divide-white/10 max-h-60 overflow-y-auto">
               {trips.map((trip) => (
                 <button
                   key={trip.id}
@@ -444,12 +465,12 @@ export const DashboardPage: React.FC = () => {
                     setIsTripPickerOpen(false);
                     navigate(`/trips/${trip.id}?action=add-expense`);
                   }}
-                  className="w-full text-left py-3 px-2 flex items-center justify-between hover:bg-[#F4F4F2] dark:hover:bg-[#1F1F1F] rounded-lg transition-colors cursor-pointer"
+                  className="w-full text-left py-3 px-3 flex items-center justify-between hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
                 >
-                  <span className="text-sm font-medium text-[#171717] dark:text-[#EDEDED] truncate">
+                  <span className="text-sm font-semibold text-white truncate">
                     {trip.name}
                   </span>
-                  <span className="text-xs text-[#737373] dark:text-[#8E8E93] shrink-0 ml-2">
+                  <span className="text-xs text-white/70 shrink-0 ml-2">
                     {trip.members_count || 1} people
                   </span>
                 </button>
@@ -461,7 +482,7 @@ export const DashboardPage: React.FC = () => {
                 setIsTripPickerOpen(false);
                 navigate('/trips/new');
               }}
-              className="w-full py-2.5 text-xs font-semibold text-center text-[#16834A] dark:text-[#22C55E] hover:underline"
+              className="w-full py-2.5 text-xs font-bold text-center text-[#22C55E] hover:underline"
             >
               + Create a new trip
             </button>

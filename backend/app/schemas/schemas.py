@@ -477,3 +477,34 @@ class TripSummaryResponse(BaseModel):
     settlement_suggestions: List[SettlementSuggestion]
     pending_settlements: List[SettlementResponse]
     all_settlements: List[SettlementResponse]
+
+# --- Theme & Wallpaper Schemas ---
+class ThemeItemResponse(BaseModel):
+    id: str
+    name: str
+    category: str
+    category_label: str
+    description: str
+    palette: List[str]
+    tags: List[str]
+    thumbnail_url: str
+    full_url: str
+    overlay_style: str
+    default_opacity: float
+    is_featured: bool = False
+    is_travel_wallpaper: Optional[bool] = False
+
+class UserThemeResponse(BaseModel):
+    theme_id: str
+    overlay_opacity: float = 0.75
+    overlay_style: str = "dark"
+    blur_level: int = 0
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+class UserThemeUpdate(BaseModel):
+    theme_id: str = Field(..., min_length=1, max_length=64)
+    overlay_opacity: Optional[float] = Field(default=0.75, ge=0.1, le=0.99)
+    overlay_style: Optional[str] = Field(default="dark", pattern="^(dark|light|glass)$")
+    blur_level: Optional[int] = Field(default=0, ge=0, le=10)
