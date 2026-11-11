@@ -340,3 +340,78 @@ def test_trip_memories_lifecycle_and_security():
     assert len(post_check.json()) == 0
 
 
+def test_bidirectional_friends_social_feed():
+    # User 1 sends request to User 2. User 2 accepts.
+    # User 1 posts FRIENDS-only post.
+    # Both User 1 AND User 2 must see it in their feed!
+    t1, u1 = register_and_login("bidi1")
+    t2, u2 = register_and_login("bidi2")
+
+    h1 = {"Authorization": f"Bearer {t1}"}
+    h2 = {"Authorization": f"Bearer {t2}"}
+
+    # 1. User 1 sends friend request to User 2
+    req_res = client.post("/api/v1/friends/request/", json={"friend_id": u2["id"]}, headers=h1)
+    assert req_res.status_code in (200, 201)
+    req_id = req_res.json().get("id")
+
+    # 2. User 2 accepts
+    acc_res = client.post(f"/api/v1/friends/requests/{req_id}/accept/", headers=h2)
+    assert acc_res.status_code == 200
+
+    # 3. User 1 creates FRIENDS-only post
+    post_res = client.post(
+        "/api/v1/social/posts",
+        json={
+            "caption": "Friends only memory: ride through Western Ghats mist!",
+            "privacy": "FRIENDS",
+            "media_urls": ["/themes/wallpapers/thanjavur_temple.webp"]
+        },
+        headers=h1,
+    )
+    assert post_res.status_code == 200
+    post_id = post_res.json()["id"]
+
+    # 4. User 2 (the recipient of the friend request) views feed and MUST see User 1's post
+    feed_res = client.get("/api/v1/social/posts", headers=h2)
+    assert feed_res.status_code == 200
+    feed = feed_res.json()
+    assert any(p["id"] == post_id for p in feed), "User 2 cannot see accepted friend's post!"
+
+    # 5. User 3 (with only PENDING request) cannot see User 1's friends-only post
+    t3, u3 = register_and_login("bidi3")
+    h3 = {"Authorization": f"Bearer {t3}"}
+    client.post("/api/v1/friends/request/", json={"friend_id": u1["id"]}, headers=h3)
+    feed_res_3 = client.get("/api/v1/social/posts", headers=h3)
+    assert feed_res_3.status_code == 200
+    assert not any(p["id"] == post_id for p in feed_res_3.json()), "Pending requester can see friends-only post!"
+
+    # 6. User 4 (with DECLINED request) cannot see User 1's friends-only post
+    t4, u4 = register_and_login("bidi4")
+    h4 = {"Authorization": f"Bearer {t4}"}
+    req_res_4 = client.post("/api/v1/friends/request/", json={"friend_id": u4["id"]}, headers=h1)
+    req_id_4 = req_res_4.json().get("id")
+    client.post(f"/api/v1/friends/requests/{req_id_4}/decline/", headers=h4)
+    feed_res_4 = client.get("/api/v1/social/posts", headers=h4)
+    assert feed_res_4.status_code == 200
+    assert not any(p["id"] == post_id for p in feed_res_4.json()), "Declined user can see friends-only post!"
+
+    # 7. Blocked relationship: If User 1 blocks User 2, User 2 can no longer see User 1's friends-only post
+    from backend.app.core.database import get_db
+    from backend.app.models.models import UserBlock
+    db_gen = app.dependency_overrides.get(get_db, get_db)
+    db = next(db_gen())
+    try:
+        block = UserBlock(blocker_id=u1["id"], blocked_id=u2["id"])
+        db.add(block)
+        db.commit()
+    finally:
+        db.close()
+
+    feed_res_blocked = client.get("/api/v1/social/posts", headers=h2)
+    assert feed_res_blocked.status_code == 200
+    assert not any(p["id"] == post_id for p in feed_res_blocked.json()), "Blocked user can still see friends-only post!"
+
+
+
+

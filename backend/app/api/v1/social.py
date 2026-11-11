@@ -12,6 +12,7 @@ from backend.app.models.models import (
     PostLike,
     PostComment,
     Friendship,
+    UserBlock,
     Trip,
     TripMember,
     utc_now,
@@ -105,13 +106,29 @@ def get_social_feed(
         )
         return [format_post_response(p, current_user.id, db) for p in posts]
 
-    # Get friend IDs
+    # Get friend IDs (bidirectional accepted friendships)
+    friendships = db.query(Friendship).filter(
+        or_(
+            Friendship.user_id == current_user.id,
+            Friendship.friend_id == current_user.id
+        ),
+        Friendship.status == "ACCEPTED"
+    ).all()
     friend_ids = [
-        f.friend_id
-        for f in db.query(Friendship.friend_id)
-        .filter(Friendship.user_id == current_user.id, Friendship.status == "ACCEPTED")
-        .all()
+        f.friend_id if f.user_id == current_user.id else f.user_id
+        for f in friendships
     ]
+
+    # Exclude blocked users (neither can see each other's friends-only posts)
+    blocked_records = db.query(UserBlock).filter(
+        or_(
+            UserBlock.blocker_id == current_user.id,
+            UserBlock.blocked_id == current_user.id
+        )
+    ).all()
+    blocked_ids = {b.blocked_id if b.blocker_id == current_user.id else b.blocker_id for b in blocked_records}
+    if blocked_ids:
+        friend_ids = [fid for fid in friend_ids if fid not in blocked_ids]
 
     if user_id:
         if user_id == current_user.id:
