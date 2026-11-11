@@ -113,7 +113,8 @@ class FriendSearchResponse(BaseModel):
     request_id: Optional[str] = None
 
 class SendFriendRequest(BaseModel):
-    username_or_uid: str
+    username_or_uid: Optional[str] = None
+    friend_id: Optional[str] = None
 
 class FriendRequestItem(BaseModel):
     id: str
@@ -508,3 +509,89 @@ class UserThemeUpdate(BaseModel):
     overlay_opacity: Optional[float] = Field(default=0.75, ge=0.1, le=0.99)
     overlay_style: Optional[str] = Field(default="dark", pattern="^(dark|light|glass)$")
     blur_level: Optional[int] = Field(default=0, ge=0, le=10)
+
+# --- Chat & Messaging Schemas ---
+class ChatMessageCreate(BaseModel):
+    content: str = Field(..., min_length=1, max_length=2000)
+    media_url: Optional[str] = None
+    reply_to_id: Optional[str] = None
+
+class ChatSenderInfo(BaseModel):
+    id: str
+    display_name: str
+    avatar_url: Optional[str] = None
+
+class ChatMessageResponse(BaseModel):
+    id: str
+    conversation_id: str
+    sender_id: str
+    sender: Optional[ChatSenderInfo] = None
+    message_type: str = "TEXT"
+    content: Optional[str] = None
+    media_url: Optional[str] = None
+    reply_to_id: Optional[str] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+class ConversationResponse(BaseModel):
+    id: str
+    type: str  # 'DIRECT', 'TRIP_GROUP'
+    trip_id: Optional[str] = None
+    title: Optional[str] = None
+    last_message_preview: Optional[str] = None
+    last_message_at: Optional[datetime] = None
+    unread_count: int = 0
+    other_member: Optional[ChatSenderInfo] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+class DirectConversationCreate(BaseModel):
+    friend_id: str
+
+# --- Social & Trip Posts Schemas ---
+class PostCommentCreate(BaseModel):
+    content: str = Field(..., min_length=1, max_length=1000)
+
+class PostCommentResponse(BaseModel):
+    id: str
+    post_id: str
+    user_id: str
+    user_name: str
+    user_avatar: Optional[str] = None
+    comment_text: str
+    created_at: datetime
+
+class SocialPostCreate(BaseModel):
+    caption: Optional[str] = Field(default=None, max_length=2000)
+    location_name: Optional[str] = Field(default=None, max_length=255)
+    trip_id: Optional[str] = None
+    privacy: str = Field(default="FRIENDS", pattern="^(PUBLIC|FRIENDS|PRIVATE)$")
+    media_urls: List[str] = Field(default_factory=list, max_length=10)
+
+class SocialPostUpdate(BaseModel):
+    caption: Optional[str] = Field(default=None, max_length=2000)
+    location_name: Optional[str] = Field(default=None, max_length=255)
+    privacy: Optional[str] = Field(default=None, pattern="^(PUBLIC|FRIENDS|PRIVATE)$")
+
+class SocialPostResponse(BaseModel):
+    id: str
+    user_id: str
+    author_name: str
+    author_username: Optional[str] = None
+    author_avatar: Optional[str] = None
+    trip_id: Optional[str] = None
+    trip_name: Optional[str] = None
+    caption: Optional[str] = None
+    location_name: Optional[str] = None
+    trip_dates_label: Optional[str] = None
+    privacy: str = "FRIENDS"
+    media_urls: List[str] = Field(default_factory=list)
+    likes_count: int = 0
+    is_liked_by_me: bool = False
+    comments_count: int = 0
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+

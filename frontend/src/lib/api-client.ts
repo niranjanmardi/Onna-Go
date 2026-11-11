@@ -2,6 +2,17 @@ import { Capacitor } from '@capacitor/core';
 
 export const PROD_API_BASE_URL = 'https://onna-go.onrender.com/api/v1';
 
+export const getBackendHost = (): string => {
+  const envUrl = import.meta.env.VITE_API_BASE_URL;
+  if (envUrl && envUrl.trim() !== '' && envUrl !== '/api/v1') {
+    return envUrl.replace(/\/api\/v1\/?$/, '');
+  }
+  if (Capacitor.isNativePlatform()) {
+    return 'https://onna-go.onrender.com';
+  }
+  return '';
+};
+
 export const getApiBaseUrl = (): string => {
   const envUrl = import.meta.env.VITE_API_BASE_URL;
   if (envUrl && envUrl.trim() !== '' && envUrl !== '/api/v1') {

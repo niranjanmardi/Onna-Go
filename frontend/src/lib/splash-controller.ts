@@ -9,9 +9,12 @@
  * 5. Quiet background /health check when browser comes back 'online'.
  */
 
+import { getBackendHost } from './api-client';
+
 export interface SplashControllerOptions {
   isOnline?: () => boolean;
   fetchFn?: typeof fetch;
+  healthUrl?: string;
   slowThreshold?: number; // ms before "Waking things up" is triggered (default 2000)
   timeoutLimit?: number; // ms before timeout error (default 90000)
   onWakeUp?: () => void;
@@ -28,6 +31,7 @@ export class SplashController {
 
   private isOnline: () => boolean;
   private fetchFn: typeof fetch;
+  private healthUrl: string;
   private slowThreshold: number;
   private timeoutLimit: number;
   private onWakeUp?: () => void;
@@ -44,6 +48,7 @@ export class SplashController {
       options.isOnline ||
       (() => (typeof navigator !== 'undefined' ? navigator.onLine !== false : true));
     this.fetchFn = options.fetchFn || (typeof fetch !== 'undefined' ? fetch.bind(globalThis) : (async () => ({} as any)));
+    this.healthUrl = options.healthUrl || `${getBackendHost()}/health`;
     this.slowThreshold = options.slowThreshold ?? 2000;
     this.timeoutLimit = options.timeoutLimit ?? 90000;
     this.onWakeUp = options.onWakeUp;
@@ -141,7 +146,7 @@ export class SplashController {
 
     const pingStart = Date.now();
     try {
-      const res = await this.fetchFn('/health', {
+      const res = await this.fetchFn(this.healthUrl, {
         method: 'GET',
         headers: { Accept: 'application/json' },
       });

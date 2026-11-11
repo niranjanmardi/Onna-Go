@@ -17,6 +17,7 @@ from backend.app.api.v1.deps import get_current_user
 router = APIRouter(prefix="/friends", tags=["Friends"])
 
 @router.get("", response_model=List[FriendResponse])
+@router.get("/", response_model=List[FriendResponse])
 def get_my_friends(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -57,6 +58,7 @@ def get_my_friends(
     ]
 
 @router.get("/search", response_model=List[FriendSearchResponse])
+@router.get("/search/", response_model=List[FriendSearchResponse])
 def search_friends(
     q: str = Query(..., min_length=1, max_length=100),
     current_user: User = Depends(get_current_user),
@@ -67,7 +69,9 @@ def search_friends(
     Safely reveals only public details (avatar, display name, username, bio, join date, relationship status).
     Email addresses are never exposed in search responses.
     """
-    clean_q = q.strip().lower()
+    raw_ident = q.strip()
+    raw_clean = raw_ident.lstrip("@").strip()
+    clean_q = raw_clean.lower()
     search_pattern = f"%{clean_q}%"
     
     # Query by username (substring), full_name (substring), exact email, or exact UID
@@ -76,7 +80,8 @@ def search_friends(
             func.lower(User.username).ilike(search_pattern),
             User.full_name.ilike(search_pattern),
             func.lower(User.email) == clean_q,
-            User.id == q.strip()
+            User.id == raw_ident,
+            User.id == raw_clean
         ),
         User.is_active == True
     ).limit(30).all()
@@ -176,6 +181,7 @@ def get_user_profile(
     )
 
 @router.get("/requests", response_model=FriendRequestsResponse)
+@router.get("/requests/", response_model=FriendRequestsResponse)
 def get_friend_requests(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -236,20 +242,30 @@ def get_friend_requests(
     return FriendRequestsResponse(incoming=incoming, outgoing=outgoing)
 
 @router.post("/request", status_code=status.HTTP_201_CREATED)
+@router.post("/request/", status_code=status.HTTP_201_CREATED)
 def send_friend_request(
     req: SendFriendRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Sends a friend request by username or permanent UID.
+    Sends a friend request by username, permanent UID, email, or friend_id.
     Handles mutual requests gracefully (auto-accepts if target already requested).
     """
-    target_ident = req.username_or_uid.strip().lower()
+    raw_ident = (req.username_or_uid or req.friend_id or "").strip()
+    if not raw_ident:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A username, email, or user ID is required to send a friend request."
+        )
+
+    target_ident = raw_ident.lstrip("@").strip()
     target_user = db.query(User).filter(
         or_(
-            func.lower(User.username) == target_ident,
-            User.id == req.username_or_uid.strip()
+            User.id == raw_ident,
+            User.id == target_ident,
+            func.lower(User.username) == target_ident.lower(),
+            func.lower(User.email) == target_ident.lower()
         ),
         User.is_active == True
     ).first()
@@ -338,16 +354,22 @@ def send_friend_request(
     return {"message": "Friend request sent successfully.", "status": "PENDING", "id": friendship.id}
 
 @router.post("/requests/{request_id}/accept")
+@router.post("/requests/{request_id}/accept/")
+@router.put("/requests/{request_id}/accept")
+@router.put("/requests/{request_id}/accept/")
 def accept_friend_request(
     request_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Accepts an incoming friend request.
+    Accepts an incoming friend request. Supports request_id as Friendship.id or requester User.id.
     """
     friendship = db.query(Friendship).filter(
-        Friendship.id == request_id,
+        or_(
+            Friendship.id == request_id,
+            and_(Friendship.user_id == request_id, Friendship.friend_id == current_user.id)
+        ),
         Friendship.friend_id == current_user.id,
         Friendship.status == "PENDING"
     ).first()
@@ -376,16 +398,22 @@ def accept_friend_request(
     return {"message": "Friend request accepted! You are now friends."}
 
 @router.post("/requests/{request_id}/decline")
+@router.post("/requests/{request_id}/decline/")
+@router.put("/requests/{request_id}/decline")
+@router.put("/requests/{request_id}/decline/")
 def decline_friend_request(
     request_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Declines an incoming friend request.
+    Declines an incoming friend request. Supports request_id as Friendship.id or requester User.id.
     """
     friendship = db.query(Friendship).filter(
-        Friendship.id == request_id,
+        or_(
+            Friendship.id == request_id,
+            and_(Friendship.user_id == request_id, Friendship.friend_id == current_user.id)
+        ),
         Friendship.friend_id == current_user.id,
         Friendship.status == "PENDING"
     ).first()
@@ -401,18 +429,24 @@ def decline_friend_request(
     return {"message": "Friend request declined."}
 
 @router.delete("/requests/{request_id}")
+@router.delete("/requests/{request_id}/")
 @router.delete("/requests/{request_id}/cancel")
+@router.delete("/requests/{request_id}/cancel/")
 @router.post("/requests/{request_id}/cancel")
+@router.post("/requests/{request_id}/cancel/")
 def cancel_friend_request(
     request_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Cancels a pending outgoing friend request.
+    Cancels a pending outgoing friend request. Supports request_id as Friendship.id or target User.id.
     """
     friendship = db.query(Friendship).filter(
-        Friendship.id == request_id,
+        or_(
+            Friendship.id == request_id,
+            and_(Friendship.user_id == current_user.id, Friendship.friend_id == request_id)
+        ),
         Friendship.user_id == current_user.id,
         Friendship.status == "PENDING"
     ).first()
@@ -428,6 +462,7 @@ def cancel_friend_request(
     return {"message": "Friend request cancelled."}
 
 @router.delete("/{friend_id}")
+@router.delete("/{friend_id}/")
 def unfriend(
     friend_id: str,
     current_user: User = Depends(get_current_user),

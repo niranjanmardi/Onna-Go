@@ -201,6 +201,21 @@ THEMES_CATALOG_DATA: List[Dict[str, Any]] = [
         "is_featured": False,
         "is_travel_wallpaper": True,
     },
+    {
+        "id": "jodhpur_blue_city",
+        "name": "Jodhpur — The Blue City",
+        "category": "rajasthan",
+        "category_label": "Rajasthan",
+        "description": "Vibrant cerulean, cobalt, and indigo cubic Brahmin facades with ornate sandstone jharokhas and sunlit stone steps in the historic old city below Mehrangarh.",
+        "palette": ["#1E3A8A", "#2563EB", "#60A5FA", "#D97706", "#F8FAFC"],
+        "tags": ["jodhpur", "blue city", "rajasthan", "mehrangarh", "jharokha", "brahmin", "heritage", "street", "oil painting", "impressionist"],
+        "thumbnail_url": "/themes/thumbnails/jodhpur_blue_city.webp",
+        "full_url": "/themes/wallpapers/jodhpur_blue_city.webp",
+        "overlay_style": "dark",
+        "default_opacity": 0.65,
+        "is_featured": False,
+        "is_travel_wallpaper": True,
+    },
 ]
 
 VALID_THEME_IDS: Set[str] = {t["id"] for t in THEMES_CATALOG_DATA} | {

@@ -16,6 +16,8 @@ import {
   MapPin,
   Calendar,
   Users,
+  MessageSquare,
+  Camera,
 } from 'lucide-react';
 import { api, getAvatarUrl } from '@/lib/api-client';
 import {
@@ -26,6 +28,7 @@ import {
   SettlementSuggestion,
   Settlement,
   Friend,
+  SocialPostItem,
 } from '@/types';
 import { formatPaise, formatDate } from '@/lib/currency';
 import { useAuth } from '@/features/auth/AuthContext';
@@ -33,9 +36,20 @@ import { useTheme } from '@/context/ThemeContext';
 import { AddExpenseModal } from '@/features/expenses/AddExpenseModal';
 import { RecordSettlementModal } from '@/features/settlements/RecordSettlementModal';
 import { TripSummaryModal } from '@/features/trips/TripSummaryModal';
+import { ChatConversationModal } from '@/features/chat/ChatConversationModal';
+import { SocialPostCard } from '@/features/social/SocialPostCard';
+import { CreatePostModal } from '@/features/social/CreatePostModal';
 import { useFeedback } from '@/context/FeedbackContext';
 import { playSound } from '@/lib/sounds';
 import { downloadTripPdf, downloadTripCsv } from '@/lib/export-utils';
+import {
+  GlassPrimary,
+  GlassSecondary,
+  GlassInteractive,
+  GlassSolid,
+  GlassButton,
+  GlassModal,
+} from '@/components/glass';
 import {
   cacheTripDetails,
   getCachedTripDetails,
@@ -119,12 +133,30 @@ export const TripDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Active Tab: Expenses | Balances | Members
-  const [activeTab, setActiveTab] = useState<'expenses' | 'balances' | 'members'>(() => {
+  // Active Tab: Expenses | Balances | Members | Memories
+  const [activeTab, setActiveTab] = useState<'expenses' | 'balances' | 'members' | 'memories'>(() => {
     const tabParam = searchParams.get('tab');
-    if (tabParam === 'balances' || tabParam === 'members') return tabParam;
+    if (tabParam === 'balances' || tabParam === 'members' || tabParam === 'memories') return tabParam;
     return 'expenses';
   });
+
+  // Trip Memories state
+  const [memories, setMemories] = useState<SocialPostItem[]>([]);
+  const [loadingMemories, setLoadingMemories] = useState(false);
+  const [isCreateMemoryOpen, setIsCreateMemoryOpen] = useState(false);
+
+  const loadTripMemories = async () => {
+    if (!id) return;
+    setLoadingMemories(true);
+    try {
+      const data = await api.get<SocialPostItem[]>(`/social/trips/${id}/memories`);
+      setMemories(data || []);
+    } catch (err) {
+      console.error('Failed to load trip memories', err);
+    } finally {
+      setLoadingMemories(false);
+    }
+  };
 
   // Top bar dropdown menu
   const [menuOpen, setMenuOpen] = useState(false);
@@ -132,6 +164,8 @@ export const TripDetailPage: React.FC = () => {
 
   // Modals
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(() => searchParams.get('action') === 'add-expense');
+  const [isChatOpen, setIsChatOpen] = useState(() => searchParams.get('action') === 'chat');
+  const [unreadChatCount, setUnreadChatCount] = useState<number>(0);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [selectedExpenseForAction, setSelectedExpenseForAction] = useState<Expense | null>(null);
   const [isRecordSettlementOpen, setIsRecordSettlementOpen] = useState(false);
@@ -192,6 +226,22 @@ export const TripDetailPage: React.FC = () => {
         bData = resB;
         sData = resS?.suggestions || [];
         stData = resSt;
+
+        // Fetch unread trip chat count asynchronously
+        api.get<{ unread_count?: number }>(`/chat/trips/${id}/conversation`)
+          .then((conv) => {
+            if (typeof conv?.unread_count === 'number') {
+              setUnreadChatCount(conv.unread_count);
+            }
+          })
+          .catch(() => {});
+
+        // Fetch trip memories asynchronously
+        api.get<SocialPostItem[]>(`/social/trips/${id}/memories`)
+          .then((mems) => {
+            if (Array.isArray(mems)) setMemories(mems);
+          })
+          .catch(() => {});
 
         // Cache fresh trip details for offline use
         cacheTripDetails(id, tData, eData, stData, mData).catch(console.error);
@@ -624,57 +674,91 @@ export const TripDetailPage: React.FC = () => {
   }
 
   return (
-    <div className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-6 md:py-8">
+    <div className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-6 md:py-8 space-y-5">
       {/* --- Top Bar: Back arrow, Trip name, "..." menu --- */}
-      <header className="flex items-center justify-between pb-3">
+      <header className="flex items-center justify-between pb-2">
         <div className="flex items-center gap-3 min-w-0 flex-1 pr-3">
           <button
             onClick={() => navigate('/trips')}
-            className="p-1.5 -ml-1.5 text-[#737373] dark:text-[#8E8E93] hover:text-[#171717] dark:hover:text-[#EDEDED] rounded-lg hover:bg-[#F4F4F2] dark:hover:bg-[#1C1C1C] transition-colors cursor-pointer shrink-0"
+            className="p-2 -ml-2 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white rounded-xl hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer shrink-0"
             aria-label="Back to Trips"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="text-lg sm:text-xl font-bold tracking-tight text-[#171717] dark:text-[#EDEDED] truncate">
+          <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-zinc-900 dark:text-white truncate drop-shadow-xs">
             {trip.name}
           </h1>
         </div>
 
-        {/* Right Actions: Add Expense (Desktop) & "..." Dropdown Menu */}
+        {/* Right Actions: Trip Chat, Add Expense & "..." Dropdown Menu */}
         <div className="flex items-center gap-2 shrink-0">
+          <GlassButton
+            variant="secondary"
+            size="sm"
+            onClick={() => navigate(`/messages?tripId=${id}`)}
+            className="gap-1.5 relative cursor-pointer"
+            aria-label="Trip Chat"
+          >
+            <MessageSquare className="w-4 h-4 text-blue-400" />
+            <span className="hidden sm:inline">Trip Chat</span>
+            {unreadChatCount > 0 && (
+              <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+            )}
+          </GlassButton>
+
           {!isTripCompleted && (
-            <button
+            <GlassButton
+              variant="primary"
+              size="sm"
               onClick={() => {
                 setEditingExpense(null);
                 setIsAddExpenseOpen(true);
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#16834A] dark:bg-[#22C55E] hover:bg-[#136F3F] dark:hover:bg-[#16A34A] text-white dark:text-[#0A0A0A] font-medium text-xs rounded-xl shadow-xs transition-all active:scale-[0.98] cursor-pointer"
+              className="gap-1.5"
             >
               <Plus className="w-4 h-4 stroke-[2.5]" />
               <span>Add expense</span>
-            </button>
+            </GlassButton>
           )}
 
           {/* "..." Menu */}
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setMenuOpen(!menuOpen)}
-              className="p-2 text-[#737373] dark:text-[#8E8E93] hover:text-[#171717] dark:hover:text-[#EDEDED] rounded-xl hover:bg-[#F4F4F2] dark:hover:bg-[#1C1C1C] transition-colors cursor-pointer"
+              className="p-2 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white rounded-xl hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
               aria-label="Trip actions"
             >
               <MoreHorizontal className="w-5 h-5" />
             </button>
 
             {menuOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-[#1A1A1A] border border-[#E8E8E5] dark:border-[#2E2E2E] rounded-xl shadow-lg py-1.5 z-40 text-xs sm:text-sm">
+              <div className="absolute right-0 mt-2 w-52 glass-solid rounded-2xl border border-white/50 dark:border-white/15 shadow-xl py-1.5 z-40 text-xs sm:text-sm animate-scaleUp">
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    navigate(`/messages?tripId=${id}`);
+                  }}
+                  className="w-full text-left px-3.5 py-2 hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-between text-zinc-900 dark:text-white font-medium cursor-pointer"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <MessageSquare className="w-4 h-4 text-blue-400" />
+                    <span>Trip Chat</span>
+                  </div>
+                  {unreadChatCount > 0 && (
+                    <span className="px-1.5 py-0.5 rounded-full bg-blue-500 text-[10px] font-bold text-white">
+                      {unreadChatCount}
+                    </span>
+                  )}
+                </button>
+                <div className="border-t border-black/5 dark:border-white/10 my-1" />
                 <button
                   onClick={() => {
                     setMenuOpen(false);
                     handleOpenInviteFriends();
                   }}
-                  className="w-full text-left px-3.5 py-2 hover:bg-[#F4F4F2] dark:hover:bg-[#262626] flex items-center gap-2.5 text-[#171717] dark:text-[#EDEDED] cursor-pointer"
+                  className="w-full text-left px-3.5 py-2 hover:bg-black/5 dark:hover:bg-white/10 flex items-center gap-2.5 text-zinc-900 dark:text-white font-medium cursor-pointer"
                 >
-                  <UserPlus className="w-4 h-4 text-[#737373] dark:text-[#8E8E93]" />
+                  <UserPlus className="w-4 h-4 text-zinc-400" />
                   <span>Invite Friends</span>
                 </button>
                 <button
@@ -682,9 +766,9 @@ export const TripDetailPage: React.FC = () => {
                     setMenuOpen(false);
                     handleCopyCode();
                   }}
-                  className="w-full text-left px-3.5 py-2 hover:bg-[#F4F4F2] dark:hover:bg-[#262626] flex items-center gap-2.5 text-[#171717] dark:text-[#EDEDED] cursor-pointer"
+                  className="w-full text-left px-3.5 py-2 hover:bg-black/5 dark:hover:bg-white/10 flex items-center gap-2.5 text-zinc-900 dark:text-white font-medium cursor-pointer"
                 >
-                  <Users className="w-4 h-4 text-[#737373] dark:text-[#8E8E93]" />
+                  <Users className="w-4 h-4 text-zinc-400" />
                   <span>Copy Invite Code</span>
                 </button>
                 <button
@@ -692,20 +776,20 @@ export const TripDetailPage: React.FC = () => {
                     setMenuOpen(false);
                     handleShareLocation();
                   }}
-                  className="w-full text-left px-3.5 py-2 hover:bg-[#F4F4F2] dark:hover:bg-[#262626] flex items-center gap-2.5 text-[#171717] dark:text-[#EDEDED] cursor-pointer"
+                  className="w-full text-left px-3.5 py-2 hover:bg-black/5 dark:hover:bg-white/10 flex items-center gap-2.5 text-zinc-900 dark:text-white font-medium cursor-pointer"
                 >
-                  <MapPin className="w-4 h-4 text-[#737373] dark:text-[#8E8E93]" />
+                  <MapPin className="w-4 h-4 text-zinc-400" />
                   <span>Share Location</span>
                 </button>
-                <div className="border-t border-[#E8E8E5] dark:border-[#2E2E2E] my-1" />
+                <div className="border-t border-black/5 dark:border-white/10 my-1" />
                 <button
                   onClick={() => {
                     setMenuOpen(false);
                     downloadTripPdf(trip.id, trip.name);
                   }}
-                  className="w-full text-left px-3.5 py-2 hover:bg-[#F4F4F2] dark:hover:bg-[#262626] flex items-center gap-2.5 text-[#171717] dark:text-[#EDEDED] cursor-pointer"
+                  className="w-full text-left px-3.5 py-2 hover:bg-black/5 dark:hover:bg-white/10 flex items-center gap-2.5 text-zinc-900 dark:text-white font-medium cursor-pointer"
                 >
-                  <Download className="w-4 h-4 text-[#737373] dark:text-[#8E8E93]" />
+                  <Download className="w-4 h-4 text-zinc-400" />
                   <span>Export PDF</span>
                 </button>
                 <button
@@ -713,19 +797,19 @@ export const TripDetailPage: React.FC = () => {
                     setMenuOpen(false);
                     downloadTripCsv(trip.id, trip.name);
                   }}
-                  className="w-full text-left px-3.5 py-2 hover:bg-[#F4F4F2] dark:hover:bg-[#262626] flex items-center gap-2.5 text-[#171717] dark:text-[#EDEDED] cursor-pointer"
+                  className="w-full text-left px-3.5 py-2 hover:bg-black/5 dark:hover:bg-white/10 flex items-center gap-2.5 text-zinc-900 dark:text-white font-medium cursor-pointer"
                 >
-                  <FileSpreadsheet className="w-4 h-4 text-[#737373] dark:text-[#8E8E93]" />
+                  <FileSpreadsheet className="w-4 h-4 text-zinc-400" />
                   <span>Export CSV</span>
                 </button>
                 {isOwnerOrAdmin && !isTripCompleted && (
-                  <div className="border-t border-[#E8E8E5] dark:border-[#2E2E2E] my-1 pt-1">
+                  <div className="border-t border-black/5 dark:border-white/10 my-1 pt-1">
                     <button
                       onClick={() => {
                         setMenuOpen(false);
                         setIsEndTripModalOpen(true);
                       }}
-                      className="w-full text-left px-3.5 py-2 hover:bg-[#FFE4E6]/50 dark:hover:bg-[#E11D48]/10 flex items-center gap-2.5 text-[#E11D48] dark:text-[#FB7185] cursor-pointer"
+                      className="w-full text-left px-3.5 py-2 hover:bg-red-500/10 flex items-center gap-2.5 text-red-600 dark:text-red-400 font-medium cursor-pointer"
                     >
                       <CheckCircle2 className="w-4 h-4" />
                       <span>End Trip</span>
@@ -733,13 +817,13 @@ export const TripDetailPage: React.FC = () => {
                   </div>
                 )}
                 {isTripCompleted && (
-                  <div className="border-t border-[#E8E8E5] dark:border-[#2E2E2E] my-1 pt-1">
+                  <div className="border-t border-black/5 dark:border-white/10 my-1 pt-1">
                     <button
                       onClick={() => {
                         setMenuOpen(false);
                         setIsSummaryModalOpen(true);
                       }}
-                      className="w-full text-left px-3.5 py-2 hover:bg-[#F4F4F2] dark:hover:bg-[#262626] flex items-center gap-2.5 text-[#16834A] dark:text-[#22C55E] cursor-pointer"
+                      className="w-full text-left px-3.5 py-2 hover:bg-emerald-500/10 flex items-center gap-2.5 text-[#16834A] dark:text-[#22C55E] font-medium cursor-pointer"
                     >
                       <Trophy className="w-4 h-4" />
                       <span>Trip Summary</span>
@@ -753,71 +837,101 @@ export const TripDetailPage: React.FC = () => {
       </header>
 
       {/* --- Summary Line: 4 Distinct Financial Metrics (iPhone Frosted Solid Glass) --- */}
-      <section className="glass-solid p-5 sm:p-6 shadow-xl border border-white/50 dark:border-white/10 rounded-3xl grid grid-cols-2 gap-4 sm:grid-cols-4 sm:gap-6">
+      <GlassSolid className="p-5 sm:p-6 shadow-xl grid grid-cols-2 gap-4 sm:grid-cols-4 sm:gap-6">
         <div>
-          <span className="text-xs text-[#71717A] dark:text-[#A1A1AA] block mb-0.5 font-medium">
+          <span className="text-xs text-zinc-500 dark:text-zinc-400 block mb-0.5 font-semibold uppercase tracking-wider">
             Total Expenses
           </span>
-          <span className="text-lg sm:text-xl font-semibold tabular-nums font-mono tracking-tight text-[#18181B] dark:text-[#F5F5F7]">
+          <span className="text-lg sm:text-xl font-bold tabular-nums font-mono tracking-tight text-zinc-900 dark:text-white">
             {formatPaise(totalTripExpensesPaise, trip.currency)}
           </span>
         </div>
         <div>
-          <span className="text-xs text-[#71717A] dark:text-[#A1A1AA] block mb-0.5 font-medium">
+          <span className="text-xs text-zinc-500 dark:text-zinc-400 block mb-0.5 font-semibold uppercase tracking-wider">
             Your Fair Share
           </span>
-          <span className="text-lg sm:text-xl font-semibold tabular-nums font-mono tracking-tight text-[#18181B] dark:text-[#F5F5F7]">
+          <span className="text-lg sm:text-xl font-bold tabular-nums font-mono tracking-tight text-zinc-900 dark:text-white">
             {formatPaise(userSharePaise, trip.currency)}
           </span>
         </div>
         <div>
-          <span className="text-xs text-[#71717A] dark:text-[#A1A1AA] block mb-0.5 font-medium">
+          <span className="text-xs text-zinc-500 dark:text-zinc-400 block mb-0.5 font-semibold uppercase tracking-wider">
             You Paid
           </span>
-          <span className="text-lg sm:text-xl font-semibold tabular-nums font-mono tracking-tight text-[#18181B] dark:text-[#F5F5F7]">
+          <span className="text-lg sm:text-xl font-bold tabular-nums font-mono tracking-tight text-zinc-900 dark:text-white">
             {formatPaise(userContributionPaise, trip.currency)}
           </span>
         </div>
         <div>
           {netBalancePaise < 0 ? (
             <>
-              <span className="text-xs text-[#DC2626] dark:text-[#EF4444] block mb-0.5 font-medium">
+              <span className="text-xs text-red-600 dark:text-red-400 block mb-0.5 font-semibold uppercase tracking-wider">
                 You Owe
               </span>
-              <span className="text-lg sm:text-xl font-semibold tabular-nums font-mono tracking-tight text-[#DC2626] dark:text-[#EF4444]">
+              <span className="text-lg sm:text-xl font-bold tabular-nums font-mono tracking-tight text-red-600 dark:text-red-400">
                 {formatPaise(Math.abs(netBalancePaise), trip.currency)}
               </span>
             </>
           ) : netBalancePaise > 0 ? (
             <>
-              <span className="text-xs text-[#16834A] dark:text-[#22C55E] block mb-0.5 font-medium">
+              <span className="text-xs text-[#16834A] dark:text-[#22C55E] block mb-0.5 font-semibold uppercase tracking-wider">
                 You Get Back
               </span>
-              <span className="text-lg sm:text-xl font-semibold tabular-nums font-mono tracking-tight text-[#16834A] dark:text-[#22C55E]">
+              <span className="text-lg sm:text-xl font-bold tabular-nums font-mono tracking-tight text-[#16834A] dark:text-[#22C55E]">
                 {formatPaise(netBalancePaise, trip.currency)}
               </span>
             </>
           ) : (
             <>
-              <span className="text-xs text-[#71717A] dark:text-[#A1A1AA] block mb-0.5 font-medium">
+              <span className="text-xs text-zinc-500 dark:text-zinc-400 block mb-0.5 font-semibold uppercase tracking-wider">
                 Net Balance
               </span>
-              <span className="text-lg sm:text-xl font-semibold tracking-tight text-[#71717A] dark:text-[#A1A1AA]">
+              <span className="text-lg sm:text-xl font-bold tracking-tight text-zinc-600 dark:text-zinc-400">
                 Settled Up
               </span>
             </>
           )}
         </div>
-      </section>
+      </GlassSolid>
+
+      {/* Quick Action Pill Row */}
+      <div className="flex items-center gap-2.5 overflow-x-auto pb-1 no-scrollbar">
+        <button
+          onClick={() => navigate(`/messages?tripId=${id}`)}
+          className="glass-card px-3.5 py-2 rounded-2xl flex items-center gap-2 text-xs font-bold text-zinc-900 dark:text-white hover:bg-white/20 transition-all cursor-pointer border border-white/25 shrink-0"
+        >
+          <MessageSquare className="w-4 h-4 text-blue-400" />
+          <span>Trip Chat</span>
+          {unreadChatCount > 0 && (
+            <span className="px-1.5 py-0.5 rounded-full bg-blue-500 text-[10px] font-extrabold text-white">
+              {unreadChatCount}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={handleOpenInviteFriends}
+          className="glass-card px-3.5 py-2 rounded-2xl flex items-center gap-2 text-xs font-bold text-zinc-900 dark:text-white hover:bg-white/20 transition-all cursor-pointer border border-white/25 shrink-0"
+        >
+          <UserPlus className="w-4 h-4 text-emerald-400" />
+          <span>Invite Friends</span>
+        </button>
+        <button
+          onClick={handleShareLocation}
+          className="glass-card px-3.5 py-2 rounded-2xl flex items-center gap-2 text-xs font-bold text-zinc-900 dark:text-white hover:bg-white/20 transition-all cursor-pointer border border-white/25 shrink-0"
+        >
+          <MapPin className="w-4 h-4 text-amber-400" />
+          <span>Share Location</span>
+        </button>
+      </div>
 
       {/* --- Underlined Tab Row: Expenses | Balances | Members --- */}
-      <nav className="flex items-center gap-8 border-b border-[#E8E8E5] dark:border-[#262626] mt-4 mb-4 text-sm font-medium">
+      <nav className="flex items-center gap-8 border-b border-black/5 dark:border-white/10 mt-4 mb-4 text-sm font-semibold">
         <button
           onClick={() => setActiveTab('expenses')}
           className={`pb-2.5 transition-colors cursor-pointer relative ${
             activeTab === 'expenses'
-              ? 'text-[#171717] dark:text-[#EDEDED] font-semibold border-b-2 border-[#171717] dark:border-[#EDEDED] -mb-[1px]'
-              : 'text-[#737373] dark:text-[#8E8E93] hover:text-[#171717] dark:hover:text-[#EDEDED]'
+              ? 'text-zinc-900 dark:text-white border-b-2 border-[#16834A] dark:border-[#22C55E] -mb-[1px]'
+              : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
           }`}
         >
           Expenses
@@ -827,25 +941,45 @@ export const TripDetailPage: React.FC = () => {
           onClick={() => setActiveTab('balances')}
           className={`pb-2.5 transition-colors cursor-pointer relative flex items-center gap-1.5 ${
             activeTab === 'balances'
-              ? 'text-[#171717] dark:text-[#EDEDED] font-semibold border-b-2 border-[#171717] dark:border-[#EDEDED] -mb-[1px]'
-              : 'text-[#737373] dark:text-[#8E8E93] hover:text-[#171717] dark:hover:text-[#EDEDED]'
+              ? 'text-zinc-900 dark:text-white border-b-2 border-[#16834A] dark:border-[#22C55E] -mb-[1px]'
+              : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
           }`}
         >
           <span>Balances</span>
           {pendingForMeAsReceiver.length > 0 && (
-            <span className="w-2 h-2 rounded-full bg-[#B45309] dark:bg-[#F59E0B]" />
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
           )}
         </button>
 
         <button
           onClick={() => setActiveTab('members')}
-          className={`pb-2.5 transition-colors cursor-pointer relative ${
+          className={`pb-2.5 transition-colors cursor-pointer relative shrink-0 ${
             activeTab === 'members'
-              ? 'text-[#171717] dark:text-[#EDEDED] font-semibold border-b-2 border-[#171717] dark:border-[#EDEDED] -mb-[1px]'
-              : 'text-[#737373] dark:text-[#8E8E93] hover:text-[#171717] dark:hover:text-[#EDEDED]'
+              ? 'text-zinc-900 dark:text-white border-b-2 border-[#16834A] dark:border-[#22C55E] -mb-[1px]'
+              : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
           }`}
         >
           Members ({members.length})
+        </button>
+
+        <button
+          onClick={() => {
+            setActiveTab('memories');
+            loadTripMemories();
+          }}
+          className={`pb-2.5 transition-colors cursor-pointer relative flex items-center gap-1.5 shrink-0 ${
+            activeTab === 'memories'
+              ? 'text-zinc-900 dark:text-white border-b-2 border-[#16834A] dark:border-[#22C55E] -mb-[1px]'
+              : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
+          }`}
+        >
+          <Camera className="w-3.5 h-3.5" />
+          <span>Memories</span>
+          {memories.length > 0 && (
+            <span className="px-1.5 py-0.2 rounded-full bg-black/5 dark:bg-white/10 text-[11px] font-bold">
+              {memories.length}
+            </span>
+          )}
         </button>
       </nav>
 
@@ -855,40 +989,43 @@ export const TripDetailPage: React.FC = () => {
       {activeTab === 'expenses' && (
         <section className="space-y-6 pb-24 sm:pb-8">
           {groupedExpenses.length === 0 ? (
-            <div className="py-8 text-center border-b border-[#E8E8E5] dark:border-[#262626]">
-              <p className="text-sm text-[#737373] dark:text-[#8E8E93] mb-3">
+            <GlassSecondary className="p-10 text-center space-y-3">
+              <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 font-medium">
                 No expenses recorded yet.
               </p>
               {!isTripCompleted && (
-                <button
+                <GlassButton
+                  variant="primary"
+                  size="sm"
                   onClick={() => {
                     setEditingExpense(null);
                     setIsAddExpenseOpen(true);
                   }}
-                  className="px-4 py-2 text-xs font-semibold text-[#171717] dark:text-[#EDEDED] bg-white dark:bg-[#1A1A1A] border border-[#E8E8E5] dark:border-[#262626] rounded-xl hover:bg-[#F4F4F2] dark:hover:bg-[#222222] transition-colors cursor-pointer"
+                  className="gap-1.5"
                 >
-                  Add an expense
-                </button>
+                  <Plus className="w-4 h-4" />
+                  <span>Add an expense</span>
+                </GlassButton>
               )}
-            </div>
+            </GlassSecondary>
           ) : (
             groupedExpenses.map((group) => (
-              <div key={group.dateLabel} className="space-y-1">
+              <div key={group.dateLabel} className="space-y-1.5">
                 {/* Small Section Header */}
                 <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 pt-2 pb-1 px-1">
                   {group.dateLabel}
                 </h3>
 
                 {/* Feed Rows for this date */}
-                <div className="glass-card rounded-3xl p-3 sm:p-4 border border-white/40 dark:border-white/10 shadow-sm divide-y divide-black/5 dark:divide-white/10">
+                <GlassSecondary className="p-2 sm:p-3 divide-y divide-black/5 dark:divide-white/10">
                   {group.items.map((exp) => {
                     const initial = exp.category ? exp.category.charAt(0).toUpperCase() : 'E';
 
                     return (
-                      <div
+                      <GlassInteractive
                         key={exp.id}
                         onClick={() => setSelectedExpenseForAction(exp)}
-                        className="py-3 px-3 rounded-2xl hover:bg-black/5 dark:hover:bg-white/5 transition-all cursor-pointer flex items-center justify-between group"
+                        className="py-3 px-3 flex items-center justify-between group"
                       >
                         {/* Left + Middle */}
                         <div className="flex items-center gap-3 min-w-0 flex-1 pr-3">
@@ -900,7 +1037,7 @@ export const TripDetailPage: React.FC = () => {
                           {/* Title & Subtitle */}
                           <div className="min-w-0 flex-1 truncate">
                             <div className="flex items-center gap-1.5 truncate">
-                              <span className="text-sm font-semibold text-zinc-900 dark:text-white truncate">
+                              <span className="text-sm font-bold text-zinc-900 dark:text-white truncate">
                                 {exp.description}
                               </span>
                               {exp.is_pending_sync && (
@@ -909,7 +1046,7 @@ export const TripDetailPage: React.FC = () => {
                                 </span>
                               )}
                             </div>
-                            <p className="text-xs text-zinc-400 mt-0.5 truncate font-medium">
+                            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 truncate font-medium">
                               Paid by {exp.payer_name || 'Member'} &bull; {formatRelativeTime(exp.created_at || exp.date)}
                             </p>
                           </div>
@@ -921,10 +1058,10 @@ export const TripDetailPage: React.FC = () => {
                             {formatPaise(exp.amount_paise, exp.currency)}
                           </span>
                         </div>
-                      </div>
+                      </GlassInteractive>
                     );
                   })}
-                </div>
+                </GlassSecondary>
               </div>
             ))
           )}
@@ -938,58 +1075,60 @@ export const TripDetailPage: React.FC = () => {
         <section className="space-y-6 pb-24 sm:pb-8">
           {/* Pending Confirmations if any */}
           {pendingForMeAsReceiver.length > 0 && (
-            <div className="border-b border-[#E8E8E5] dark:border-[#262626] pb-4">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-[#B45309] dark:text-[#FBBF24] mb-2">
+            <div className="space-y-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 px-1">
                 Awaiting your confirmation
               </h3>
-              <div className={hasCustomWallpaper ? 'glass-card rounded-3xl p-3 sm:p-4 border border-white/40 dark:border-white/10 shadow-sm divide-y divide-black/5 dark:divide-white/10' : 'divide-y divide-[#E8E8E5] dark:divide-[#262626]'}>
+              <GlassSecondary className="p-3 sm:p-4 divide-y divide-black/5 dark:divide-white/10">
                 {pendingForMeAsReceiver.map((st) => (
                   <div key={st.id} className="py-3 flex items-center justify-between">
                     <div className="min-w-0 flex-1 pr-3">
-                      <p className="text-sm text-[#171717] dark:text-[#EDEDED]">
-                        <span className="font-medium">{st.payer_name}</span> paid you{' '}
-                        <span className="font-mono font-semibold">
+                      <p className="text-sm text-zinc-900 dark:text-white font-medium">
+                        <span className="font-bold">{st.payer_name}</span> paid you{' '}
+                        <span className="font-mono font-bold">
                           {formatPaise(st.amount_paise, trip.currency)}
                         </span>
                       </p>
-                      <p className="text-xs text-[#737373] dark:text-[#8E8E93] mt-0.5">
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 font-medium">
                         via {st.payment_method}
                       </p>
                     </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <button
+                    <div className="flex items-center gap-2 shrink-0">
+                      <GlassButton
+                        variant="primary"
+                        size="sm"
                         onClick={() => handleConfirmReceipt(st.id)}
                         disabled={settlingActionId === st.id}
-                        className="text-xs font-semibold text-[#16834A] dark:text-[#22C55E] hover:underline cursor-pointer disabled:opacity-50"
                       >
                         Confirm
-                      </button>
-                      <button
+                      </GlassButton>
+                      <GlassButton
+                        variant="danger"
+                        size="sm"
                         onClick={() => handleRejectReceipt(st.id)}
                         disabled={settlingActionId === st.id}
-                        className="text-xs font-semibold text-[#DC2626] dark:text-[#EF4444] hover:underline cursor-pointer disabled:opacity-50"
                       >
                         Decline
-                      </button>
+                      </GlassButton>
                     </div>
                   </div>
                 ))}
-              </div>
+              </GlassSecondary>
             </div>
           )}
 
           {/* --- Section A: Who Owes Whom (Settlement Suggestions) --- */}
-          <div>
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-[#71717A] dark:text-[#A1A1AA] mb-2">
+          <div className="space-y-2">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 px-1">
               Debt Settlements (Who Owes Whom)
             </h3>
 
             {suggestions.length === 0 ? (
-              <div className="py-8 text-center border-b border-[#E8E8E5] dark:border-[#2A2A2E]">
-                <p className="text-sm text-[#71717A] dark:text-[#A1A1AA]">All debts are settled.</p>
-              </div>
+              <GlassSecondary className="p-8 text-center">
+                <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 font-medium">All debts are settled.</p>
+              </GlassSecondary>
             ) : (
-              <div className={hasCustomWallpaper ? 'glass-card rounded-3xl p-3 sm:p-4 border border-white/40 dark:border-white/10 shadow-sm divide-y divide-black/5 dark:divide-white/10' : 'divide-y divide-[#E8E8E5] dark:divide-[#2A2A2E]'}>
+              <GlassSecondary className="p-3 sm:p-4 divide-y divide-black/5 dark:divide-white/10">
                 {suggestions.map((sug, idx) => {
                   const isDebtor = sug.from_user_id === user?.id;
                   const isReceiver = sug.to_user_id === user?.id;
@@ -1003,29 +1142,29 @@ export const TripDetailPage: React.FC = () => {
                     >
                       {/* Avatar & Directional Wording */}
                       <div className="flex items-center gap-3 min-w-0 flex-1 pr-3">
-                        <div className="w-8 h-8 rounded-full bg-[#F0F0F2] dark:bg-[#1B1B1E] text-[#18181B] dark:text-[#F5F5F7] font-semibold text-xs flex items-center justify-center shrink-0 border border-[#E4E4E7] dark:border-[#2A2A2E]">
+                        <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-white font-bold text-xs flex items-center justify-center shrink-0 border border-white/40 dark:border-white/10">
                           {initial}
                         </div>
                         <div className="min-w-0 truncate">
                           {isDebtor ? (
-                            <p className="text-sm font-medium text-[#18181B] dark:text-[#F5F5F7] truncate">
-                              You owe <span className="font-semibold">{sug.to_user_name}</span>{' '}
-                              <span className="font-mono font-semibold tabular-nums text-[#DC2626] dark:text-[#EF4444]">
+                            <p className="text-sm font-medium text-zinc-900 dark:text-white truncate">
+                              You owe <span className="font-bold">{sug.to_user_name}</span>{' '}
+                              <span className="font-mono font-bold tabular-nums text-red-600 dark:text-red-400">
                                 {formatPaise(sug.amount_paise, trip.currency)}
                               </span>
                             </p>
                           ) : isReceiver ? (
-                            <p className="text-sm font-medium text-[#18181B] dark:text-[#F5F5F7] truncate">
-                              <span className="font-semibold">{sug.from_user_name}</span> owes you{' '}
-                              <span className="font-mono font-semibold tabular-nums text-[#16834A] dark:text-[#22C55E]">
+                            <p className="text-sm font-medium text-zinc-900 dark:text-white truncate">
+                              <span className="font-bold">{sug.from_user_name}</span> owes you{' '}
+                              <span className="font-mono font-bold tabular-nums text-[#16834A] dark:text-[#22C55E]">
                                 {formatPaise(sug.amount_paise, trip.currency)}
                               </span>
                             </p>
                           ) : (
-                            <p className="text-sm font-medium text-[#18181B] dark:text-[#F5F5F7] truncate">
-                              <span className="font-semibold">{sug.from_user_name}</span> owes{' '}
-                              <span className="font-semibold">{sug.to_user_name}</span>{' '}
-                              <span className="font-mono font-semibold tabular-nums text-[#18181B] dark:text-[#F5F5F7]">
+                            <p className="text-sm font-medium text-zinc-900 dark:text-white truncate">
+                              <span className="font-bold">{sug.from_user_name}</span> owes{' '}
+                              <span className="font-bold">{sug.to_user_name}</span>{' '}
+                              <span className="font-mono font-bold tabular-nums text-zinc-900 dark:text-white">
                                 {formatPaise(sug.amount_paise, trip.currency)}
                               </span>
                             </p>
@@ -1036,20 +1175,21 @@ export const TripDetailPage: React.FC = () => {
                       {/* Action: Clear Settle Up Button */}
                       <div className="flex items-center gap-3 shrink-0">
                         {!isTripCompleted && (isDebtor || isOwnerOrAdmin) && (
-                          <button
+                          <GlassButton
+                            variant="primary"
+                            size="sm"
                             onClick={() => {
                               setSettlePayer(sug.from_user_id);
                               setSettlePayee(sug.to_user_id);
                               setSettleAmount(sug.amount_paise);
                               setIsRecordSettlementOpen(true);
                             }}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#16834A] dark:bg-[#22C55E] hover:bg-[#136F3F] dark:hover:bg-[#16A34A] text-white dark:text-[#0A0A0A] font-semibold text-xs rounded-xl shadow-xs transition-all active:scale-[0.98] cursor-pointer"
                           >
-                            <span>Settle Up</span>
-                          </button>
+                            Settle Up
+                          </GlassButton>
                         )}
                         {!isTripCompleted && isReceiver && !isOwnerOrAdmin && (
-                          <span className="text-[11px] font-medium text-[#16834A] dark:text-[#22C55E] bg-[#DDF5E5] dark:bg-[#22C55E]/10 px-2.5 py-1 rounded-lg border border-[#16834A]/20 dark:border-[#22C55E]/30">
+                          <span className="text-[11px] font-semibold text-[#16834A] dark:text-[#22C55E] bg-emerald-500/15 px-2.5 py-1 rounded-lg border border-emerald-500/30">
                             Awaiting payment
                           </span>
                         )}
@@ -1057,17 +1197,17 @@ export const TripDetailPage: React.FC = () => {
                     </div>
                   );
                 })}
-              </div>
+              </GlassSecondary>
             )}
           </div>
 
           {/* --- Section B: Member Balances Breakdown --- */}
-          <div className="pt-4 border-t border-[#E8E8E5] dark:border-[#2A2A2E]">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-[#71717A] dark:text-[#A1A1AA] mb-2">
+          <div className="space-y-2 pt-2">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 px-1">
               Member Balances
             </h3>
 
-            <div className={hasCustomWallpaper ? 'glass-card rounded-3xl p-3 sm:p-4 border border-white/40 dark:border-white/10 shadow-sm divide-y divide-black/5 dark:divide-white/10' : 'divide-y divide-[#E8E8E5] dark:divide-[#2A2A2E]'}>
+            <GlassSecondary className="p-3 sm:p-4 divide-y divide-black/5 dark:divide-white/10">
               {(balances?.balances || []).map((mb) => {
                 const isCurrentUser = mb.user_id === user?.id;
                 const initial = mb.user_name ? mb.user_name.charAt(0).toUpperCase() : 'M';
@@ -1082,28 +1222,28 @@ export const TripDetailPage: React.FC = () => {
                         <img
                           src={getAvatarUrl(mb.avatar_url)}
                           alt={mb.user_name}
-                          className="w-9 h-9 rounded-full object-cover border border-[#E8E8E5] dark:border-[#2A2A2E] shrink-0"
+                          className="w-9 h-9 rounded-full object-cover border border-white/40 dark:border-white/10 shrink-0"
                         />
                       ) : (
-                        <div className="w-9 h-9 rounded-full bg-[#F0F0F2] dark:bg-[#1B1B1E] text-[#18181B] dark:text-[#F5F5F7] font-semibold text-xs flex items-center justify-center shrink-0 border border-[#E8E8E5] dark:border-[#2A2A2E]">
+                        <div className="w-9 h-9 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-white font-bold text-xs flex items-center justify-center shrink-0 border border-white/40 dark:border-white/10">
                           {initial}
                         </div>
                       )}
                       <div className="min-w-0 truncate">
                         <div className="flex items-center gap-1.5 truncate">
-                          <span className="text-sm font-medium text-[#18181B] dark:text-[#F5F5F7] truncate">
+                          <span className="text-sm font-bold text-zinc-900 dark:text-white truncate">
                             {mb.user_name}
                           </span>
                           {isCurrentUser && (
-                            <span className="text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded bg-[#F0F0F2] dark:bg-[#1B1B1E] text-[#71717A] dark:text-[#A1A1AA] border border-[#E8E8E5] dark:border-[#2A2A2E]">
+                            <span className="text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-zinc-600 dark:text-zinc-300 border border-black/5 dark:border-white/10">
                               You
                             </span>
                           )}
                         </div>
-                        <div className="text-xs text-[#71717A] dark:text-[#A1A1AA] flex items-center gap-3 mt-0.5">
-                          <span>Paid: <strong className="font-mono tabular-nums text-[#18181B] dark:text-[#F5F5F7]">{formatPaise(mb.total_spent_paise, trip.currency)}</strong></span>
-                          <span>•</span>
-                          <span>Share: <strong className="font-mono tabular-nums text-[#18181B] dark:text-[#F5F5F7]">{formatPaise(mb.total_share_paise, trip.currency)}</strong></span>
+                        <div className="text-xs text-zinc-500 dark:text-zinc-400 flex items-center gap-3 mt-0.5 font-medium">
+                          <span>Paid: <strong className="font-mono tabular-nums text-zinc-900 dark:text-white">{formatPaise(mb.total_spent_paise, trip.currency)}</strong></span>
+                          <span>&bull;</span>
+                          <span>Share: <strong className="font-mono tabular-nums text-zinc-900 dark:text-white">{formatPaise(mb.total_share_paise, trip.currency)}</strong></span>
                         </div>
                       </div>
                     </div>
@@ -1111,12 +1251,12 @@ export const TripDetailPage: React.FC = () => {
                     {/* Right: Net Balance & Status Badge */}
                     <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 ml-12 sm:ml-0">
                       <span
-                        className={`text-sm font-semibold font-mono tabular-nums ${
+                        className={`text-sm font-bold font-mono tabular-nums ${
                           isCreditor
                             ? 'text-[#16834A] dark:text-[#22C55E]'
                             : isDebtor
-                            ? 'text-[#DC2626] dark:text-[#EF4444]'
-                            : 'text-[#71717A] dark:text-[#A1A1AA]'
+                            ? 'text-red-600 dark:text-red-400'
+                            : 'text-zinc-500'
                         }`}
                       >
                         {isCreditor
@@ -1126,12 +1266,12 @@ export const TripDetailPage: React.FC = () => {
                           : formatPaise(0, trip.currency)}
                       </span>
                       <span
-                        className={`text-[11px] font-medium px-2 py-0.5 rounded-md border ${
+                        className={`text-[11px] font-semibold px-2 py-0.5 rounded-md border ${
                           isCreditor
-                            ? 'bg-[#DDF5E5] dark:bg-[#22C55E]/10 text-[#16834A] dark:text-[#22C55E] border-[#16834A]/20 dark:border-[#22C55E]/30'
+                            ? 'bg-emerald-500/15 text-[#16834A] dark:text-[#22C55E] border-emerald-500/30'
                             : isDebtor
-                            ? 'bg-[#FFE4E6] dark:bg-[#EF4444]/10 text-[#DC2626] dark:text-[#EF4444] border-[#DC2626]/20 dark:border-[#EF4444]/30'
-                            : 'bg-[#F0F0F2] dark:bg-[#1B1B1E] text-[#71717A] dark:text-[#A1A1AA] border-[#E8E8E5] dark:border-[#2A2A2E]'
+                            ? 'bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30'
+                            : 'bg-black/5 dark:bg-white/10 text-zinc-600 dark:text-zinc-300 border-black/5 dark:border-white/10'
                         }`}
                       >
                         {isCreditor ? 'Gets back' : isDebtor ? 'Owes' : 'Settled up'}
@@ -1140,7 +1280,7 @@ export const TripDetailPage: React.FC = () => {
                   </div>
                 );
               })}
-            </div>
+            </GlassSecondary>
           </div>
         </section>
       )}
@@ -1149,20 +1289,21 @@ export const TripDetailPage: React.FC = () => {
       {/* --- TAB 3: MEMBERS --- */}
       {/* ========================================================================= */}
       {activeTab === 'members' && (
-        <section className="space-y-6 pb-24 sm:pb-8">
-          <div className="flex items-center justify-between pb-1">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-[#737373] dark:text-[#8E8E93]">
+        <section className="space-y-4 pb-24 sm:pb-8">
+          <div className="flex items-center justify-between px-1">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
               Trip members ({members.length})
             </h3>
-            <button
+            <GlassButton
+              variant="secondary"
+              size="sm"
               onClick={handleOpenInviteFriends}
-              className="text-xs font-semibold text-[#16834A] dark:text-[#22C55E] hover:underline cursor-pointer"
             >
               + Invite friends
-            </button>
+            </GlassButton>
           </div>
 
-          <div className={hasCustomWallpaper ? 'glass-card rounded-3xl p-3 sm:p-4 border border-white/40 dark:border-white/10 shadow-sm divide-y divide-black/5 dark:divide-white/10' : 'divide-y divide-[#E8E8E5] dark:divide-[#262626]'}>
+          <GlassSecondary className="p-3 sm:p-4 divide-y divide-black/5 dark:divide-white/10">
             {members.map((m) => {
               const isCurrentUser = m.user_id === user?.id;
               const initial = m.user_name ? m.user_name.charAt(0).toUpperCase() : 'M';
@@ -1171,88 +1312,156 @@ export const TripDetailPage: React.FC = () => {
               return (
                 <div key={m.id || m.user_id} className="py-3.5 flex items-center justify-between">
                   <div className="flex items-center gap-3 min-w-0 flex-1 pr-3">
-                    <div className="w-8 h-8 rounded-full bg-[#E8E8E5] dark:bg-[#262626] text-[#171717] dark:text-[#EDEDED] font-semibold text-xs flex items-center justify-center shrink-0">
+                    <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-white font-bold text-xs flex items-center justify-center shrink-0 border border-white/40 dark:border-white/10">
                       {initial}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <span className="text-sm font-medium text-[#171717] dark:text-[#EDEDED] truncate block">
+                      <span className="text-sm font-bold text-zinc-900 dark:text-white truncate block">
                         {m.user_name} {isCurrentUser ? '(You)' : ''}
                       </span>
-                      <span className="text-xs text-[#737373] dark:text-[#8E8E93] truncate block">
+                      <span className="text-xs text-zinc-500 dark:text-zinc-400 truncate block font-medium">
                         {m.user_email || `@${m.user_name.toLowerCase().replace(/\s+/g, '_')}`}
                       </span>
                     </div>
                   </div>
 
-                  <span className="text-xs text-[#737373] dark:text-[#8E8E93] shrink-0 font-medium">
+                  <span className="text-xs text-zinc-600 dark:text-zinc-300 shrink-0 font-semibold px-2 py-0.5 rounded-md bg-black/5 dark:bg-white/10">
                     {roleLabel}
                   </span>
                 </div>
               );
             })}
+          </GlassSecondary>
+        </section>
+      )}
+
+      {/* ========================================================================= */}
+      {/* --- TAB 4: MEMORIES --- */}
+      {/* ========================================================================= */}
+      {activeTab === 'memories' && (
+        <section className="space-y-4 pb-24 sm:pb-8">
+          <div className="flex items-center justify-between px-1">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
+              Trip Memories ({memories.length})
+            </h3>
+            <GlassButton
+              variant="primary"
+              size="sm"
+              onClick={() => setIsCreateMemoryOpen(true)}
+              className="gap-1.5"
+            >
+              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>Capture Memory</span>
+            </GlassButton>
           </div>
+
+          {loadingMemories ? (
+            <div className="space-y-4 py-8">
+              {[1, 2].map((i) => (
+                <div key={i} className="glass-card p-4 rounded-2xl animate-pulse space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-white/20" />
+                    <div className="space-y-1.5 flex-1">
+                      <div className="h-3.5 bg-white/20 rounded w-1/4" />
+                      <div className="h-2.5 bg-white/15 rounded w-1/6" />
+                    </div>
+                  </div>
+                  <div className="h-48 bg-white/10 rounded-xl" />
+                </div>
+              ))}
+            </div>
+          ) : memories.length === 0 ? (
+            <GlassSecondary className="p-10 text-center space-y-4">
+              <div className="w-14 h-14 mx-auto rounded-3xl bg-white/15 flex items-center justify-center text-white/90 shadow-md">
+                <Camera className="w-7 h-7" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-bold text-zinc-900 dark:text-white">
+                  No memories captured for this trip yet
+                </p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-sm mx-auto">
+                  Share candid moments, trip scenery, and travel vibes with fellow trip members.
+                </p>
+              </div>
+              <GlassButton
+                variant="primary"
+                size="sm"
+                onClick={() => setIsCreateMemoryOpen(true)}
+                className="mx-auto gap-2"
+              >
+                <Camera className="w-4 h-4" />
+                <span>Capture First Memory</span>
+              </GlassButton>
+            </GlassSecondary>
+          ) : (
+            <div className="space-y-4 max-w-2xl mx-auto">
+              {memories.map((post) => (
+                <SocialPostCard
+                  key={post.id}
+                  post={post}
+                  onPostUpdated={(updated: SocialPostItem) => {
+                    setMemories((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+                  }}
+                  onPostDeleted={(postId: string) => {
+                    setMemories((prev) => prev.filter((m) => m.id !== postId));
+                  }}
+                />
+              ))}
+            </div>
+          )}
         </section>
       )}
 
       {/* --- Mobile Sticky Bottom Action Button --- */}
       {!isTripCompleted && (
         <div className="sm:hidden fixed bottom-20 right-4 z-30">
-          <button
+          <GlassButton
+            variant="primary"
+            size="md"
             onClick={() => {
               setEditingExpense(null);
               setIsAddExpenseOpen(true);
             }}
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-[#16834A] dark:bg-[#22C55E] text-white dark:text-[#0A0A0A] font-semibold text-xs shadow-lg active:scale-95 transition-transform cursor-pointer"
+            className="rounded-full shadow-lg gap-1.5"
             aria-label="Add expense"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" />
             <span>Add expense</span>
-          </button>
+          </GlassButton>
         </div>
       )}
 
-      {/* --- Expense Action Drawer / Modal (Tap for edit and void) --- */}
+      {/* --- Expense Action Modal --- */}
       {selectedExpenseForAction && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 backdrop-blur-xs">
-          <div className="bg-white dark:bg-[#141414] text-[#171717] dark:text-[#EDEDED] rounded-t-2xl sm:rounded-2xl border-t sm:border border-[#E8E8E5] dark:border-[#262626] shadow-xl max-w-sm w-full p-5 space-y-4">
-            <div className="sm:hidden w-12 h-1 bg-[#E8E8E5] dark:bg-[#333333] rounded-full mx-auto mb-2" />
-
-            <div className="flex items-start justify-between pb-2 border-b border-[#E8E8E5] dark:border-[#262626]">
-              <div className="min-w-0 flex-1 pr-2">
-                <h3 className="text-base font-bold truncate">
-                  {selectedExpenseForAction.description}
-                </h3>
-                <p className="text-xs text-[#737373] dark:text-[#8E8E93] mt-0.5">
-                  Paid by {selectedExpenseForAction.payer_name} &bull; {formatDate(selectedExpenseForAction.date)}
-                </p>
-              </div>
-              <button
-                onClick={() => setSelectedExpenseForAction(null)}
-                className="p-1 rounded-lg text-[#737373] dark:text-[#8E8E93] hover:text-[#171717] dark:hover:text-[#EDEDED] cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
+        <GlassModal
+          isOpen={Boolean(selectedExpenseForAction)}
+          onClose={() => setSelectedExpenseForAction(null)}
+          title={selectedExpenseForAction.description}
+          subtitle={`Paid by ${selectedExpenseForAction.payer_name} • ${formatDate(selectedExpenseForAction.date)}`}
+          size="sm"
+        >
+          <div className="space-y-4">
             <div className="py-2">
-              <span className="text-xs text-[#737373] dark:text-[#8E8E93] block mb-0.5">Total Amount</span>
-              <span className="text-2xl font-bold font-mono tabular-nums">
+              <span className="text-xs text-zinc-500 dark:text-zinc-400 block mb-0.5 font-semibold uppercase tracking-wider">
+                Total Amount
+              </span>
+              <span className="text-2xl font-bold font-mono tabular-nums text-zinc-900 dark:text-white">
                 {formatPaise(selectedExpenseForAction.amount_paise, selectedExpenseForAction.currency)}
               </span>
             </div>
 
             {/* Split Breakdown */}
             {selectedExpenseForAction.splits && selectedExpenseForAction.splits.length > 0 && (
-              <div className="border-t border-[#E8E8E5] dark:border-[#262626] pt-3 space-y-1.5 max-h-36 overflow-y-auto">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-[#737373] dark:text-[#8E8E93] block">
+              <div className="border-t border-black/5 dark:border-white/10 pt-3 space-y-1.5 max-h-36 overflow-y-auto">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">
                   Splits
                 </span>
                 {selectedExpenseForAction.splits.map((s) => (
                   <div key={s.id || s.user_id} className="flex items-center justify-between text-xs">
-                    <span className="text-[#737373] dark:text-[#8E8E93] truncate pr-2">
+                    <span className="text-zinc-600 dark:text-zinc-300 truncate pr-2 font-medium">
                       {s.user_name || 'Member'}
                     </span>
-                    <span className="font-mono font-medium tabular-nums">
+                    <span className="font-mono font-bold tabular-nums text-zinc-900 dark:text-white">
                       {formatPaise(s.amount_paise, selectedExpenseForAction.currency)}
                     </span>
                   </div>
@@ -1262,28 +1471,32 @@ export const TripDetailPage: React.FC = () => {
 
             {/* Action Buttons: Edit and Void */}
             {!isTripCompleted && (selectedExpenseForAction.payer_id === user?.id || isOwnerOrAdmin) && (
-              <div className="border-t border-[#E8E8E5] dark:border-[#262626] pt-3 flex gap-2">
-                <button
+              <div className="border-t border-black/5 dark:border-white/10 pt-3 flex gap-2">
+                <GlassButton
+                  variant="secondary"
+                  size="sm"
                   onClick={() => handleStartEditExpense(selectedExpenseForAction)}
-                  className="flex-1 py-2 px-3 rounded-xl border border-[#E8E8E5] dark:border-[#2E2E2E] bg-white dark:bg-[#1C1C1C] text-xs font-semibold hover:bg-[#F4F4F2] dark:hover:bg-[#262626] flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="flex-1 gap-1.5"
                 >
                   <Pencil className="w-3.5 h-3.5 text-[#16834A] dark:text-[#22C55E]" />
                   <span>Edit</span>
-                </button>
-                <button
+                </GlassButton>
+                <GlassButton
+                  variant="danger"
+                  size="sm"
                   onClick={() => handleVoidExpense(selectedExpenseForAction.id, selectedExpenseForAction.description)}
-                  className="flex-1 py-2 px-3 rounded-xl border border-[#FDA4AF] dark:border-[#E11D48]/30 bg-[#FFE4E6]/40 dark:bg-[#E11D48]/10 text-xs font-semibold text-[#DC2626] dark:text-[#EF4444] hover:bg-[#FFE4E6] flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="flex-1 gap-1.5"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>Void</span>
-                </button>
+                </GlassButton>
               </div>
             )}
           </div>
-        </div>
+        </GlassModal>
       )}
 
-      {/* --- Add / Edit Expense Modal (Bottom Sheet on Mobile) --- */}
+      {/* --- Add / Edit Expense Modal --- */}
       <AddExpenseModal
         isOpen={isAddExpenseOpen}
         onClose={() => {
@@ -1314,51 +1527,48 @@ export const TripDetailPage: React.FC = () => {
 
       {/* --- Invite Friends Modal --- */}
       {isInviteModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
-          <div className="bg-white dark:bg-[#141414] text-[#171717] dark:text-[#EDEDED] rounded-2xl border border-[#E8E8E5] dark:border-[#262626] shadow-xl max-w-sm w-full p-5 space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-[#E8E8E5] dark:border-[#262626]">
-              <h3 className="text-base font-semibold">Invite to {trip.name}</h3>
-              <button
-                onClick={() => setIsInviteModalOpen(false)}
-                className="p-1 rounded-lg text-[#737373] dark:text-[#8E8E93] hover:text-[#171717] dark:hover:text-[#EDEDED] cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
+        <GlassModal
+          isOpen={isInviteModalOpen}
+          onClose={() => setIsInviteModalOpen(false)}
+          title={`Invite to ${trip.name}`}
+          subtitle="Share code or invite existing friends"
+          size="sm"
+        >
+          <div className="space-y-4">
             {/* Invite code block */}
-            <div className="p-3 bg-[#FAFAF8] dark:bg-[#1C1C1C] rounded-xl border border-[#E8E8E5] dark:border-[#2E2E2E] flex items-center justify-between">
+            <div className="p-3 bg-black/5 dark:bg-white/5 rounded-xl border border-black/5 dark:border-white/10 flex items-center justify-between">
               <div>
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-[#737373] dark:text-[#8E8E93] block">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">
                   Trip Invite Code
                 </span>
-                <span className="text-base font-mono font-bold tracking-wider">
+                <span className="text-base font-mono font-bold tracking-wider text-zinc-900 dark:text-white">
                   {trip.invite_code}
                 </span>
               </div>
-              <button
+              <GlassButton
+                variant="primary"
+                size="sm"
                 onClick={handleCopyCode}
-                className="px-3 py-1.5 bg-[#16834A] dark:bg-[#22C55E] text-white dark:text-[#0A0A0A] text-xs font-semibold rounded-lg hover:opacity-90 cursor-pointer"
               >
                 {copiedCode ? 'Copied' : 'Copy'}
-              </button>
+              </GlassButton>
             </div>
 
             {/* Select friends list */}
             <div className="space-y-2">
-              <span className="text-xs font-medium text-[#737373] dark:text-[#8E8E93] block">
+              <span className="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">
                 Or select friends to invite:
               </span>
               {loadingFriends ? (
-                <div className="py-4 text-center text-xs text-[#737373] dark:text-[#8E8E93]">
+                <div className="py-4 text-center text-xs text-zinc-500">
                   Loading friends...
                 </div>
               ) : friends.length === 0 ? (
-                <p className="text-xs text-[#737373] dark:text-[#8E8E93] py-2">
+                <p className="text-xs text-zinc-500 py-2">
                   All your friends are already in this trip!
                 </p>
               ) : (
-                <div className="divide-y divide-[#E8E8E5] dark:divide-[#262626] max-h-48 overflow-y-auto">
+                <div className="divide-y divide-black/5 dark:divide-white/10 max-h-48 overflow-y-auto">
                   {friends.map((f) => {
                     const isSelected = selectedFriendsToInvite.includes(f.id);
                     return (
@@ -1369,9 +1579,11 @@ export const TripDetailPage: React.FC = () => {
                             isSelected ? prev.filter((x) => x !== f.id) : [...prev, f.id]
                           );
                         }}
-                        className="py-2.5 px-2 flex items-center justify-between hover:bg-[#FAFAF8] dark:hover:bg-[#1C1C1C] rounded-lg cursor-pointer"
+                        className="py-2.5 px-2 flex items-center justify-between hover:bg-black/5 dark:hover:bg-white/5 rounded-lg cursor-pointer"
                       >
-                        <span className="text-xs font-medium truncate">{f.display_name || f.username || 'Friend'}</span>
+                        <span className="text-xs font-semibold text-zinc-900 dark:text-white truncate">
+                          {f.display_name || f.username || 'Friend'}
+                        </span>
                         <input
                           type="checkbox"
                           checked={isSelected}
@@ -1386,43 +1598,54 @@ export const TripDetailPage: React.FC = () => {
             </div>
 
             {friends.length > 0 && (
-              <button
+              <GlassButton
+                variant="primary"
+                size="md"
                 onClick={handleSendInvitations}
                 disabled={sendingInvites || selectedFriendsToInvite.length === 0}
-                className="w-full py-2.5 bg-[#16834A] dark:bg-[#22C55E] text-white dark:text-[#0A0A0A] rounded-xl text-xs font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer"
+                className="w-full"
               >
                 {sendingInvites ? 'Sending...' : `Send Invites (${selectedFriendsToInvite.length})`}
-              </button>
+              </GlassButton>
             )}
           </div>
-        </div>
+        </GlassModal>
       )}
 
       {/* --- End Trip Modal --- */}
       {isEndTripModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
-          <div className="bg-white dark:bg-[#141414] text-[#171717] dark:text-[#EDEDED] rounded-2xl border border-[#E8E8E5] dark:border-[#262626] shadow-xl max-w-sm w-full p-5 space-y-4">
-            <h3 className="text-base font-semibold">End &amp; Finalize Trip</h3>
-            <p className="text-xs text-[#737373] dark:text-[#8E8E93] leading-relaxed">
+        <GlassModal
+          isOpen={isEndTripModalOpen}
+          onClose={() => setIsEndTripModalOpen(false)}
+          title="End & Finalize Trip"
+          subtitle="Finalize and archive this journey"
+          size="sm"
+        >
+          <div className="space-y-4">
+            <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed font-medium">
               Ending this trip will mark it completed and archive it. No further expenses can be added.
             </p>
-            <div className="flex gap-2 pt-2">
-              <button
+            <div className="flex gap-2.5 pt-2">
+              <GlassButton
+                variant="secondary"
+                size="sm"
                 onClick={() => setIsEndTripModalOpen(false)}
-                className="flex-1 py-2 text-xs font-semibold border border-[#E8E8E5] dark:border-[#2E2E2E] rounded-xl hover:bg-[#F4F4F2] dark:hover:bg-[#1C1C1C] cursor-pointer"
+                className="flex-1"
               >
                 Cancel
-              </button>
-              <button
+              </GlassButton>
+              <GlassButton
+                variant="primary"
+                size="sm"
                 onClick={handleFinalizeTrip}
                 disabled={completingTrip}
-                className="flex-1 py-2 text-xs font-semibold bg-[#171717] dark:bg-[#EDEDED] text-white dark:text-[#0A0A0A] rounded-xl hover:opacity-90 cursor-pointer disabled:opacity-50"
+                className="flex-1"
               >
                 {completingTrip ? 'Ending...' : 'Confirm End Trip'}
-              </button>
+              </GlassButton>
             </div>
           </div>
-        </div>
+        </GlassModal>
       )}
 
       {/* --- Trip Summary Modal --- */}
@@ -1430,6 +1653,33 @@ export const TripDetailPage: React.FC = () => {
         isOpen={isSummaryModalOpen}
         onClose={() => setIsSummaryModalOpen(false)}
         tripId={trip.id}
+      />
+
+      {/* --- Trip Group Chat Modal --- */}
+      <ChatConversationModal
+        isOpen={isChatOpen}
+        onClose={() => {
+          setIsChatOpen(false);
+          if (searchParams.get('action') === 'chat') {
+            searchParams.delete('action');
+            setSearchParams(searchParams, { replace: true });
+          }
+        }}
+        tripId={trip.id}
+        tripName={trip.name}
+        memberCount={members.length}
+        onUnreadCountChange={(count) => setUnreadChatCount(count)}
+      />
+
+      {/* --- Create Trip Memory Modal --- */}
+      <CreatePostModal
+        isOpen={isCreateMemoryOpen}
+        onClose={() => setIsCreateMemoryOpen(false)}
+        defaultTripId={trip.id}
+        defaultTripName={trip.name}
+        onPostCreated={(newPost) => {
+          setMemories((prev) => [newPost, ...prev]);
+        }}
       />
     </div>
   );

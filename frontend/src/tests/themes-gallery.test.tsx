@@ -16,14 +16,14 @@ import { ThemeGalleryModal } from '../components/themes/ThemeGalleryModal';
 import { ThemeProvider } from '../context/ThemeContext';
 import { FeedbackProvider } from '../context/FeedbackContext';
 
-describe('ONNA-GO 13 Impressionist Travel Themes Specification', () => {
-  it('contains exactly 13 unique artistic travel themes', () => {
-    expect(THEMES_CATALOG).toHaveLength(13);
+describe('ONNA-GO Impressionist Travel Themes Specification', () => {
+  it('contains unique artistic travel themes', () => {
+    expect(THEMES_CATALOG.length).toBeGreaterThanOrEqual(13);
     const ids = new Set(THEMES_CATALOG.map((t) => t.id));
-    expect(ids.size).toBe(13);
+    expect(ids.size).toBe(THEMES_CATALOG.length);
   });
 
-  it('verifies the exact 13 canonical theme IDs', () => {
+  it('verifies the canonical theme IDs including temples and expansion themes', () => {
     const expectedIds = [
       'howrah_bridge',
       'chennai_central',
@@ -38,6 +38,7 @@ describe('ONNA-GO 13 Impressionist Travel Themes Specification', () => {
       'konark_sun_temple',
       'punjab_heritage',
       'konkan_railway',
+      'jodhpur_blue_city',
     ];
     const actualIds = THEMES_CATALOG.map((t) => t.id);
     expect(actualIds).toEqual(expectedIds);
@@ -88,7 +89,11 @@ describe('ONNA-GO 13 Impressionist Travel Themes Specification', () => {
     expect(mumbai.map((t) => t.id)).toEqual(['mumbai_gateway', 'mumbai_csmt']);
 
     const all = searchThemes('', 'all');
-    expect(all).toHaveLength(13);
+    expect(all).toHaveLength(14);
+
+    const rajasthan = searchThemes('', 'rajasthan');
+    expect(rajasthan).toHaveLength(1);
+    expect(rajasthan[0].id).toBe('jodhpur_blue_city');
   });
 
   it('searches case-insensitively across name, category, and keywords', () => {
@@ -174,11 +179,12 @@ describe('ThemeGalleryModal UI Component', () => {
     expect(searchInput).toBeTruthy();
 
     // Check category tabs
-    expect(screen.getByRole('button', { name: 'All Themes (13)' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /All Themes/i })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Chennai' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Mumbai' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Kochi' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Kanyakumari' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Rajasthan' })).toBeTruthy();
   });
 
   it('renders the featured Howrah Bridge card and the 13 themes', () => {

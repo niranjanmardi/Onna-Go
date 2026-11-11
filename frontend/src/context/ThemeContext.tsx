@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { syncNativeStatusBarTheme } from '../lib/capacitor-init';
-import { ThemeItem, DEFAULT_THEME, getThemeById } from '../config/themes';
+import { ThemeItem, DEFAULT_THEME, getThemeById, ThemeColorTokens, applyThemeTokens } from '../config/themes';
 import { api } from '../lib/api-client';
 
 export type Theme = 'light' | 'dark' | 'system';
@@ -21,6 +21,7 @@ interface ThemeContextType {
   // Artistic Wallpaper theme
   activeThemeId: string;
   activeTheme: ThemeItem;
+  tokens: ThemeColorTokens;
   overlayOpacity: number;
   overlayStyle: 'dark' | 'light' | 'glass';
   blurLevel: number;
@@ -84,6 +85,11 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Active theme object from catalog
   const activeTheme = getThemeById(wallpaperPrefs.themeId);
+
+  // Synchronize adaptive theme color tokens whenever active wallpaper changes
+  useEffect(() => {
+    applyThemeTokens(activeTheme.tokens);
+  }, [activeTheme]);
 
   // Synchronize base Light/Dark mode
   useEffect(() => {
@@ -255,6 +261,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setTheme,
         activeThemeId: wallpaperPrefs.themeId,
         activeTheme,
+        tokens: activeTheme.tokens,
         overlayOpacity: wallpaperPrefs.overlayOpacity,
         overlayStyle: wallpaperPrefs.overlayStyle,
         blurLevel: wallpaperPrefs.blurLevel,

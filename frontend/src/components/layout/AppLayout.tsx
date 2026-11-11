@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Plus, LogOut, X } from 'lucide-react';
+import { Plus, LogOut, X, Compass, Users } from 'lucide-react';
 import { useAuth } from '@/features/auth/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { getAvatarUrl, api } from '@/lib/api-client';
@@ -10,6 +10,8 @@ import { OfflineBanner } from '@/components/offline/OfflineBanner';
 import { Trip } from '@/types';
 import { getCachedTripsList } from '@/lib/offline-db';
 import { determineAddExpenseAction } from '@/lib/add-expense-coordinator';
+import { GlassModal, GlassButton } from '@/components/glass';
+import { UserAvatar } from '@/components/common/UserAvatar';
 
 // Custom filled and outline navigation icons
 const HomeIcon: React.FC<{ filled: boolean; className?: string }> = ({ filled, className = 'w-5 h-5' }) => {
@@ -81,6 +83,37 @@ const ProfileIcon: React.FC<{ filled: boolean; className?: string }> = ({ filled
   );
 };
 
+const MessagesIcon: React.FC<{ filled: boolean; className?: string }> = ({ filled, className = 'w-5 h-5' }) => {
+  if (filled) {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2C6.48 2 2 6.02 2 11c0 2.87 1.5 5.43 3.84 7.07L5.05 21.6c-.18.52.33.99.82.78l3.66-1.57c.78.13 1.6.19 2.47.19 5.52 0 10-4.02 10-9s-4.48-9-10-9z" />
+      </svg>
+    );
+  }
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 21a9 9 0 1 0-9-9c0 1.48.36 2.88 1 4.12L3 21l4.88-1c1.24.64 2.64 1 4.12 1z" />
+    </svg>
+  );
+};
+
+const FeedIcon: React.FC<{ filled: boolean; className?: string }> = ({ filled, className = 'w-5 h-5' }) => {
+  if (filled) {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm-7-4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2.17l-1.42-2.13A2 2 0 0 0 11.75 2h-3.5a2 2 0 0 0-1.66.87L5.17 5H5z" />
+      </svg>
+    );
+  }
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+      <circle cx="12" cy="13" r="4" />
+    </svg>
+  );
+};
+
 export const AppLayout: React.FC = () => {
   const { user, logout } = useAuth();
   const { playClick } = useFeedback();
@@ -130,13 +163,29 @@ export const AppLayout: React.FC = () => {
 
   const isHomeActive = location.pathname === '/dashboard' || location.pathname === '/';
   const isTripsActive = location.pathname.startsWith('/trips');
+  const isFeedActive = location.pathname.startsWith('/feed') || location.pathname.startsWith('/social') || location.pathname.startsWith('/memories');
+  const isMessagesActive = location.pathname.startsWith('/messages');
   const isFriendsActive = location.pathname.startsWith('/friends');
   const isProfileActive = location.pathname.startsWith('/settings') || location.pathname.startsWith('/profile');
+  const isInsideConversation =
+    (location.pathname.startsWith('/messages/') && location.pathname !== '/messages') ||
+    (location.pathname === '/messages' &&
+      (location.search.includes('tripId') || location.search.includes('friendId')));
+
+  // Listen for full-screen overlay state (e.g. Wallpaper Preview, full-screen sheets) to completely hide bottom navigation
+  const [isHideBottomNav, setIsHideBottomNav] = useState(false);
+  useEffect(() => {
+    const handleToggleNav = (e: any) => {
+      setIsHideBottomNav(Boolean(e.detail?.hide));
+    };
+    window.addEventListener('onnago_toggle_bottom_nav', handleToggleNav);
+    return () => window.removeEventListener('onnago_toggle_bottom_nav', handleToggleNav);
+  }, []);
 
   const hasCustomWallpaper = Boolean(activeTheme?.full_url);
 
   return (
-    <div className="min-h-screen bg-transparent flex flex-col md:flex-row text-white relative">
+    <div className="h-[100dvh] max-h-[100dvh] w-full bg-transparent flex flex-col md:flex-row text-white relative overflow-hidden">
 
       {/* PWA Custom Install Prompt Banner */}
       <InstallPrompt />
@@ -164,8 +213,8 @@ export const AppLayout: React.FC = () => {
               title="Home"
               className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
                 isHomeActive
-                  ? 'text-[#16834A] dark:text-[#22C55E] bg-white/95 dark:bg-white/15 border border-white/50 dark:border-white/20 shadow-md scale-105'
-                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-white/10'
+                  ? 'text-[var(--theme-accent,#22C55E)] bg-white/25 border border-white/40 shadow-lg scale-105'
+                  : 'text-white/70 hover:text-white hover:bg-white/15'
               }`}
             >
               <HomeIcon filled={isHomeActive} />
@@ -177,11 +226,37 @@ export const AppLayout: React.FC = () => {
               title="Trips"
               className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
                 isTripsActive
-                  ? 'text-[#16834A] dark:text-[#22C55E] bg-white/95 dark:bg-white/15 border border-white/50 dark:border-white/20 shadow-md scale-105'
-                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-white/10'
+                  ? 'text-[var(--theme-accent,#22C55E)] bg-white/25 border border-white/40 shadow-lg scale-105'
+                  : 'text-white/70 hover:text-white hover:bg-white/15'
               }`}
             >
               <TripsIcon filled={isTripsActive} />
+            </NavLink>
+
+            <NavLink
+              to="/feed"
+              onClick={playClick}
+              title="Moments & Feed"
+              className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
+                isFeedActive
+                  ? 'text-[var(--theme-accent,#22C55E)] bg-white/25 border border-white/40 shadow-lg scale-105'
+                  : 'text-white/70 hover:text-white hover:bg-white/15'
+              }`}
+            >
+              <FeedIcon filled={isFeedActive} />
+            </NavLink>
+
+            <NavLink
+              to="/messages"
+              onClick={playClick}
+              title="Messages"
+              className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
+                isMessagesActive
+                  ? 'text-[var(--theme-accent,#22C55E)] bg-white/25 border border-white/40 shadow-lg scale-105'
+                  : 'text-white/70 hover:text-white hover:bg-white/15'
+              }`}
+            >
+              <MessagesIcon filled={isMessagesActive} />
             </NavLink>
 
             {/* Desktop Add Action */}
@@ -189,7 +264,7 @@ export const AppLayout: React.FC = () => {
               onClick={handleAddExpenseClick}
               title="Add expense"
               aria-label="Add expense"
-              className="w-11 h-11 my-1.5 rounded-2xl bg-[#16834A] dark:bg-[#22C55E] text-white dark:text-[#0A0A0A] flex items-center justify-center hover:opacity-95 active:scale-95 transition-all shadow-md cursor-pointer"
+              className="w-11 h-11 my-1.5 rounded-2xl bg-[var(--theme-accent,#22C55E)] text-[var(--theme-accent-text,#0F172A)] flex items-center justify-center hover:opacity-95 active:scale-95 transition-all shadow-md cursor-pointer"
             >
               <Plus className="w-5 h-5 stroke-[2.5]" />
             </button>
@@ -200,21 +275,21 @@ export const AppLayout: React.FC = () => {
               title="Friends"
               className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
                 isFriendsActive
-                  ? 'text-[#16834A] dark:text-[#22C55E] bg-white/95 dark:bg-white/15 border border-white/50 dark:border-white/20 shadow-md scale-105'
-                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-white/10'
+                  ? 'text-[var(--theme-accent,#22C55E)] bg-white/25 border border-white/40 shadow-lg scale-105'
+                  : 'text-white/70 hover:text-white hover:bg-white/15'
               }`}
             >
               <FriendsIcon filled={isFriendsActive} />
             </NavLink>
 
             <NavLink
-              to="/profile"
+              to="/settings"
               onClick={playClick}
-              title="Profile"
+              title="Settings"
               className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
                 isProfileActive
-                  ? 'text-[#16834A] dark:text-[#22C55E] bg-white/95 dark:bg-white/15 border border-white/50 dark:border-white/20 shadow-md scale-105'
-                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-white/10'
+                  ? 'text-[var(--theme-accent,#22C55E)] bg-white/25 border border-white/40 shadow-lg scale-105'
+                  : 'text-white/70 hover:text-white hover:bg-white/15'
               }`}
             >
               <ProfileIcon filled={isProfileActive} />
@@ -230,25 +305,19 @@ export const AppLayout: React.FC = () => {
               navigate('/profile');
             }}
             title={user?.full_name || 'Profile'}
-            className="cursor-pointer"
+            className="cursor-pointer transition-transform hover:scale-105 active:scale-95"
           >
-            {user?.avatar_url ? (
-              <img
-                src={getAvatarUrl(user.avatar_url)}
-                alt={user.full_name}
-                className="w-9 h-9 rounded-full object-cover border border-[#E8E8E5] dark:border-[#262626]"
-              />
-            ) : (
-              <div className="w-9 h-9 rounded-full bg-[#E8E8E5] dark:bg-[#262626] text-[#171717] dark:text-[#EDEDED] flex items-center justify-center font-semibold text-xs uppercase">
-                {user?.full_name?.charAt(0) || 'U'}
-              </div>
-            )}
+            <UserAvatar
+              name={user?.full_name}
+              avatarUrl={user?.avatar_url}
+              size="sm"
+            />
           </div>
 
           <button
             onClick={handleLogout}
             title="Sign out"
-            className="p-2 text-[#737373] dark:text-[#8E8E93] hover:text-[#E11D48] dark:hover:text-[#F43F5E] rounded-lg transition-colors cursor-pointer"
+            className="p-2 text-white/60 hover:text-rose-300 hover:bg-white/15 rounded-xl transition-all cursor-pointer"
           >
             <LogOut className="w-4 h-4" />
           </button>
@@ -256,21 +325,30 @@ export const AppLayout: React.FC = () => {
       </aside>
 
       {/* --- Main Content Area --- */}
-      <main className="relative z-10 flex-1 flex flex-col min-w-0 pb-20 md:pb-0 overflow-y-auto">
+      <main
+        className={`relative z-10 flex-1 flex flex-col min-w-0 min-h-0 h-full ${
+          isInsideConversation
+            ? 'pb-0 overflow-hidden'
+            : isMessagesActive
+            ? 'pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-0 overflow-hidden'
+            : 'overflow-y-auto pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-0'
+        }`}
+      >
         <OfflineBanner />
         <Outlet />
       </main>
 
-      {/* --- Mobile Bottom Tab Bar (Apple Glass Navigation) --- */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 glass-nav border-t border-white/25 flex items-center justify-around h-16 px-1 select-none pb-safe">
+      {/* --- Mobile Bottom Tab Bar (Apple Glass Navigation: Home | Trips | Add | Chats | Profile) --- */}
+      {!isInsideConversation && !isHideBottomNav && (
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 glass-nav border-t border-white/25 flex items-center justify-around min-h-[4rem] h-[calc(4rem+env(safe-area-inset-bottom,0px))] px-1 select-none pb-safe">
         {/* Home */}
         <NavLink
           to="/dashboard"
           onClick={playClick}
           className={`flex flex-col items-center justify-center flex-1 py-1 transition-all ${
             isHomeActive
-              ? 'text-[#16834A] dark:text-[#22C55E] font-bold scale-105'
-              : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-medium'
+              ? 'text-[var(--theme-accent,#22C55E)] font-bold scale-105'
+              : 'text-white/70 hover:text-white font-medium'
           }`}
         >
           <HomeIcon filled={isHomeActive} />
@@ -283,8 +361,8 @@ export const AppLayout: React.FC = () => {
           onClick={playClick}
           className={`flex flex-col items-center justify-center flex-1 py-1 transition-all ${
             isTripsActive
-              ? 'text-[#16834A] dark:text-[#22C55E] font-bold scale-105'
-              : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-medium'
+              ? 'text-[var(--theme-accent,#22C55E)] font-bold scale-105'
+              : 'text-white/70 hover:text-white font-medium'
           }`}
         >
           <TripsIcon filled={isTripsActive} />
@@ -297,23 +375,23 @@ export const AppLayout: React.FC = () => {
           className="flex flex-col items-center justify-center flex-1 py-1 active:scale-95 transition-transform cursor-pointer"
           aria-label="Add expense"
         >
-          <div className="w-10 h-10 rounded-full bg-[#16834A] dark:bg-[#22C55E] text-white dark:text-[#0A0A0A] flex items-center justify-center shadow-lg hover:brightness-105 transition-all">
+          <div className="w-10 h-10 rounded-full bg-[var(--theme-accent,#22C55E)] text-[var(--theme-accent-text,#0F172A)] flex items-center justify-center shadow-lg hover:brightness-105 transition-all">
             <Plus className="w-5 h-5 stroke-[2.5]" />
           </div>
         </button>
 
-        {/* Friends */}
+        {/* Chats (Messages) */}
         <NavLink
-          to="/friends"
+          to="/messages"
           onClick={playClick}
           className={`flex flex-col items-center justify-center flex-1 py-1 transition-all ${
-            isFriendsActive
-              ? 'text-[#16834A] dark:text-[#22C55E] font-bold scale-105'
-              : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-medium'
+            isMessagesActive
+              ? 'text-[var(--theme-accent,#22C55E)] font-bold scale-105'
+              : 'text-white/70 hover:text-white font-medium'
           }`}
         >
-          <FriendsIcon filled={isFriendsActive} />
-          <span className="text-[10px] mt-1 font-semibold">Friends</span>
+          <MessagesIcon filled={isMessagesActive} />
+          <span className="text-[10px] mt-1 font-semibold">Chats</span>
         </NavLink>
 
         {/* Profile */}
@@ -322,98 +400,75 @@ export const AppLayout: React.FC = () => {
           onClick={playClick}
           className={`flex flex-col items-center justify-center flex-1 py-1 transition-all ${
             isProfileActive
-              ? 'text-[#16834A] dark:text-[#22C55E] font-bold scale-105'
-              : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-medium'
+              ? 'text-[var(--theme-accent,#22C55E)] font-bold scale-105'
+              : 'text-white/70 hover:text-white font-medium'
           }`}
         >
           <ProfileIcon filled={isProfileActive} />
           <span className="text-[10px] mt-1 font-semibold">Profile</span>
         </NavLink>
       </nav>
-
-      {/* --- Trip Picker Sheet (Apple Liquid Glass Modal) --- */}
-      {isTripPickerOpen && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-modal w-full max-w-sm p-5 space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between pb-2 border-b border-white/20">
-              <h3 className="text-base font-semibold text-white">
-                Select trip for expense
-              </h3>
-              <button
-                onClick={() => setIsTripPickerOpen(false)}
-                className="p-1 rounded-lg text-white/70 hover:text-white cursor-pointer"
-                aria-label="Close"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="divide-y divide-white/10 max-h-60 overflow-y-auto">
-              {activeTrips.map((trip) => (
-                <button
-                  key={trip.id}
-                  onClick={() => {
-                    setIsTripPickerOpen(false);
-                    navigate(`/trips/${trip.id}?action=add-expense`);
-                  }}
-                  className="w-full text-left py-3 px-2 flex items-center justify-between hover:bg-[#F4F4F2] dark:hover:bg-[#1F1F1F] rounded-lg transition-colors cursor-pointer"
-                >
-                  <span className="text-sm font-medium text-[#171717] dark:text-[#EDEDED] truncate">
-                    {trip.name}
-                  </span>
-                  <span className="text-xs text-[#737373] dark:text-[#8E8E93] shrink-0 ml-2">
-                    {trip.members_count || 1} {trip.members_count === 1 ? 'person' : 'people'}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
       )}
 
-      {/* --- No Active Trips Sheet --- */}
-      {isNoTripsSheetOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#141414] border border-[#E8E8E5] dark:border-[#262626] rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-xl animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between pb-2 border-b border-[#E8E8E5] dark:border-[#262626]">
-              <h3 className="text-base font-semibold text-[#171717] dark:text-[#EDEDED]">
-                Add expense
-              </h3>
-              <button
-                onClick={() => setIsNoTripsSheetOpen(false)}
-                className="p-1 rounded-lg text-[#737373] dark:text-[#8E8E93] hover:text-[#171717] dark:hover:text-[#EDEDED] cursor-pointer"
-                aria-label="Close"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <p className="text-sm text-[#737373] dark:text-[#8E8E93] leading-relaxed">
-              Create a trip to start adding expenses.
-            </p>
-
-            <div className="pt-2 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setIsNoTripsSheetOpen(false)}
-                className="px-3.5 py-2 text-xs font-medium text-[#737373] dark:text-[#8E8E93] hover:text-[#171717] dark:hover:text-[#EDEDED] rounded-xl transition-colors cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsNoTripsSheetOpen(false);
-                  navigate('/trips/new');
-                }}
-                className="px-4 py-2 bg-[#16834A] dark:bg-[#22C55E] hover:bg-[#136F3F] dark:hover:bg-[#16A34A] text-white dark:text-[#0A0A0A] text-xs font-semibold rounded-xl shadow-xs transition-colors cursor-pointer"
-              >
-                Create trip
-              </button>
-            </div>
-          </div>
+      {/* --- Trip Picker Modal (GlassModal) --- */}
+      <GlassModal
+        isOpen={isTripPickerOpen}
+        onClose={() => setIsTripPickerOpen(false)}
+        title="Select Trip for Expense"
+        maxWidth="sm"
+      >
+        <div className="divide-y divide-white/15 max-h-64 overflow-y-auto -mx-2 px-2">
+          {activeTrips.map((trip) => (
+            <button
+              key={trip.id}
+              onClick={() => {
+                setIsTripPickerOpen(false);
+                navigate(`/trips/${trip.id}?action=add-expense`);
+              }}
+              className="w-full text-left py-3 px-3 flex items-center justify-between hover:bg-white/15 rounded-xl transition-all cursor-pointer"
+            >
+              <span className="text-sm font-semibold text-white truncate drop-shadow-xs">
+                {trip.name}
+              </span>
+              <span className="text-xs text-white/75 shrink-0 ml-2 bg-white/15 px-2 py-0.5 rounded-full">
+                {trip.members_count || 1} {trip.members_count === 1 ? 'member' : 'members'}
+              </span>
+            </button>
+          ))}
         </div>
-      )}
+      </GlassModal>
+
+      {/* --- No Active Trips Modal (GlassModal) --- */}
+      <GlassModal
+        isOpen={isNoTripsSheetOpen}
+        onClose={() => setIsNoTripsSheetOpen(false)}
+        title="Create a Trip First"
+        maxWidth="sm"
+      >
+        <p className="text-sm text-white/80 leading-relaxed mb-5">
+          You need an active trip before adding and splitting expenses.
+        </p>
+
+        <div className="flex justify-end gap-2.5">
+          <GlassButton
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsNoTripsSheetOpen(false)}
+          >
+            Cancel
+          </GlassButton>
+          <GlassButton
+            variant="primary"
+            size="sm"
+            onClick={() => {
+              setIsNoTripsSheetOpen(false);
+              navigate('/trips/new');
+            }}
+          >
+            Create Trip
+          </GlassButton>
+        </div>
+      </GlassModal>
     </div>
   );
 };

@@ -19,10 +19,14 @@ import {
   UserCheck,
   ShieldCheck,
   AtSign,
+  MessageSquare,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useFeedback } from '@/context/FeedbackContext';
 import { playSound } from '@/lib/sounds';
+import { GlassPrimary, GlassSecondary, GlassInteractive, GlassModal, GlassInput, GlassButton } from '@/components/glass';
+import { UserAvatar } from '@/components/common/UserAvatar';
+import { ChatConversationModal } from '@/features/chat/ChatConversationModal';
 
 export const FriendsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -59,6 +63,9 @@ export const FriendsPage: React.FC = () => {
   // Profile Modal State
   const [viewingProfile, setViewingProfile] = useState<FriendSearchItem | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
+
+  // Active Chat State
+  const [activeChatFriend, setActiveChatFriend] = useState<Friend | null>(null);
 
   const handleOpenProfile = async (item: {
     id: string;
@@ -101,20 +108,24 @@ export const FriendsPage: React.FC = () => {
 
   const showSuccess = (msg: string) => {
     setActionSuccess(msg);
+    setActionError(null);
+    playSound('trip_success');
     setTimeout(() => setActionSuccess(null), 3500);
   };
 
   const showError = (msg: string) => {
     setActionError(msg);
-    setTimeout(() => setActionError(null), 4500);
+    setActionSuccess(null);
+    playSound('error');
+    setTimeout(() => setActionError(null), 4000);
   };
 
   // Fetch Friends
   const fetchFriends = async () => {
-    setLoadingFriends(true);
     try {
+      setLoadingFriends(true);
       const data = await api.get<Friend[]>('/friends');
-      setFriends(data);
+      setFriends(data || []);
     } catch (err: any) {
       showError(err.message || 'Failed to load friends.');
     } finally {
@@ -124,12 +135,12 @@ export const FriendsPage: React.FC = () => {
 
   // Fetch Requests
   const fetchRequests = async () => {
-    setLoadingRequests(true);
     try {
+      setLoadingRequests(true);
       const data = await api.get<FriendRequestsData>('/friends/requests');
-      setRequests(data);
+      setRequests(data || { incoming: [], outgoing: [] });
     } catch (err: any) {
-      // Graceful fallback
+      showError(err.message || 'Failed to load friend requests.');
     } finally {
       setLoadingRequests(false);
     }
@@ -140,25 +151,31 @@ export const FriendsPage: React.FC = () => {
     fetchRequests();
   }, []);
 
-  // Search User
+  useEffect(() => {
+    if (activeTab === 'requests') {
+      fetchRequests();
+    }
+  }, [activeTab]);
+
+  // Search
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanQ = searchQuery.trim();
-    if (!cleanQ) return;
+    if (!searchQuery.trim()) return;
 
     setIsSearching(true);
     setSearchError(null);
+    setSearchResults(null);
+
     try {
-      const results = await api.get<FriendSearchItem[]>(
-        `/friends/search?q=${encodeURIComponent(cleanQ)}`
+      const data = await api.get<FriendSearchItem[]>(
+        `/friends/search?q=${encodeURIComponent(searchQuery.trim())}`
       );
-      setSearchResults(results);
-      if (results.length === 0) {
-        setSearchError('No user found matching that username or UID.');
+      setSearchResults(data || []);
+      if (!data || data.length === 0) {
+        setSearchError('No matching users found.');
       }
     } catch (err: any) {
       setSearchError(err.message || 'Search failed. Please try again.');
-      setSearchResults([]);
     } finally {
       setIsSearching(false);
     }
@@ -167,81 +184,109 @@ export const FriendsPage: React.FC = () => {
   // Send Friend Request
   const handleSendRequest = async (item: FriendSearchItem) => {
     setActionInProgressId(item.id);
-    setActionError(null);
     try {
-      const res = await api.post<{ message: string; status: string }>('/friends/request', {
+      const res = await api.post<{ message: string; status: string; id?: string }>('/friends/request', {
+        friend_id: item.id,
         username_or_uid: item.username || item.id,
       });
-      showConfirmation({
-        title: res.status === 'ACCEPTED' ? 'You are now friends!' : 'Friend request sent',
-        message: res.message,
-        sound: res.status === 'ACCEPTED' ? 'trip_success' : 'notification',
-      });
 
-      // Refresh search results & requests
-      if (searchResults) {
-        setSearchResults(
-          searchResults.map((r) =>
-            r.id === item.id
-              ? {
-                  ...r,
-                  relationship_status: res.status === 'ACCEPTED' ? 'friends' : 'pending_outgoing',
-                }
-              : r
-          )
+      if (res.status === 'ACCEPTED') {
+        showSuccess(`You and ${item.display_name} are now friends!`);
+        fetchFriends();
+      } else {
+        showSuccess(res.message || 'Friend request sent!');
+      }
+
+      setSearchResults((prev) =>
+        prev
+          ? prev.map((p) =>
+              p.id === item.id
+                ? {
+                    ...p,
+                    relationship_status: res.status === 'ACCEPTED' ? 'friends' : 'pending_outgoing',
+                    request_id: res.id || p.request_id || item.id,
+                  }
+                : p
+            )
+          : null
+      );
+      if (viewingProfile && viewingProfile.id === item.id) {
+        setViewingProfile((prev) =>
+          prev
+            ? {
+                ...prev,
+                relationship_status: res.status === 'ACCEPTED' ? 'friends' : 'pending_outgoing',
+                request_id: res.id || prev.request_id || item.id,
+              }
+            : null
         );
       }
-      fetchFriends();
       fetchRequests();
     } catch (err: any) {
-      playSound('error');
       showError(err.message || 'Failed to send friend request.');
     } finally {
       setActionInProgressId(null);
     }
   };
 
-  // Accept Friend Request
+  // Accept Request
   const handleAcceptRequest = async (requestId: string) => {
     setActionInProgressId(requestId);
-    setActionError(null);
     try {
       const res = await api.post<{ message: string }>(`/friends/requests/${requestId}/accept`);
-      showConfirmation({
-        title: 'Friend request accepted!',
-        message: res.message,
-        sound: 'trip_success',
-      });
+      showSuccess(res.message || 'Friend request accepted!');
+      setRequests((prev) => ({
+        ...prev,
+        incoming: prev.incoming.filter((r) => r.id !== requestId && r.requester_id !== requestId),
+      }));
       fetchFriends();
-      fetchRequests();
       if (searchResults) {
-        setSearchResults(
-          searchResults.map((r) =>
-            r.request_id === requestId ? { ...r, relationship_status: 'friends' } : r
-          )
+        setSearchResults((prev) =>
+          prev
+            ? prev.map((p) =>
+                p.request_id === requestId || p.id === requestId
+                  ? { ...p, relationship_status: 'friends' }
+                  : p
+              )
+            : null
+        );
+      }
+      if (viewingProfile && (viewingProfile.request_id === requestId || viewingProfile.id === requestId)) {
+        setViewingProfile((prev) =>
+          prev ? { ...prev, relationship_status: 'friends' } : null
         );
       }
     } catch (err: any) {
-      playSound('error');
       showError(err.message || 'Failed to accept friend request.');
     } finally {
       setActionInProgressId(null);
     }
   };
 
-  // Decline Friend Request
+  // Decline Request
   const handleDeclineRequest = async (requestId: string) => {
     setActionInProgressId(requestId);
-    setActionError(null);
     try {
       const res = await api.post<{ message: string }>(`/friends/requests/${requestId}/decline`);
-      showSuccess(res.message);
-      fetchRequests();
+      showSuccess(res.message || 'Friend request declined.');
+      setRequests((prev) => ({
+        ...prev,
+        incoming: prev.incoming.filter((r) => r.id !== requestId && r.requester_id !== requestId),
+      }));
       if (searchResults) {
-        setSearchResults(
-          searchResults.map((r) =>
-            r.request_id === requestId ? { ...r, relationship_status: 'none' } : r
-          )
+        setSearchResults((prev) =>
+          prev
+            ? prev.map((p) =>
+                p.request_id === requestId || p.id === requestId
+                  ? { ...p, relationship_status: 'none', request_id: null }
+                  : p
+              )
+            : null
+        );
+      }
+      if (viewingProfile && (viewingProfile.request_id === requestId || viewingProfile.id === requestId)) {
+        setViewingProfile((prev) =>
+          prev ? { ...prev, relationship_status: 'none', request_id: null } : null
         );
       }
     } catch (err: any) {
@@ -254,16 +299,27 @@ export const FriendsPage: React.FC = () => {
   // Cancel Outgoing Request
   const handleCancelRequest = async (requestId: string) => {
     setActionInProgressId(requestId);
-    setActionError(null);
     try {
-      const res = await api.delete<{ message: string }>(`/friends/requests/${requestId}`);
-      showSuccess(res.message);
-      fetchRequests();
+      const res = await api.delete<{ message: string }>(`/friends/requests/${requestId}/cancel`);
+      showSuccess(res.message || 'Friend request cancelled.');
+      setRequests((prev) => ({
+        ...prev,
+        outgoing: prev.outgoing.filter((r) => r.id !== requestId && r.addressee_id !== requestId),
+      }));
       if (searchResults) {
-        setSearchResults(
-          searchResults.map((r) =>
-            r.request_id === requestId ? { ...r, relationship_status: 'none' } : r
-          )
+        setSearchResults((prev) =>
+          prev
+            ? prev.map((p) =>
+                p.request_id === requestId || p.id === requestId
+                  ? { ...p, relationship_status: 'none', request_id: null }
+                  : p
+              )
+            : null
+        );
+      }
+      if (viewingProfile && (viewingProfile.request_id === requestId || viewingProfile.id === requestId)) {
+        setViewingProfile((prev) =>
+          prev ? { ...prev, relationship_status: 'none', request_id: null } : null
         );
       }
     } catch (err: any) {
@@ -277,11 +333,10 @@ export const FriendsPage: React.FC = () => {
   const handleConfirmUnfriend = async () => {
     if (!unfriendTarget) return;
     setIsUnfriending(true);
-    setActionError(null);
     try {
       await api.delete(`/friends/${unfriendTarget.id}`);
       showSuccess(`Removed ${unfriendTarget.display_name} from friends.`);
-      setFriends(friends.filter((f) => f.id !== unfriendTarget.id));
+      setFriends((prev) => prev.filter((f) => f.id !== unfriendTarget.id));
       setUnfriendTarget(null);
     } catch (err: any) {
       showError(err.message || 'Failed to remove friend.');
@@ -300,55 +355,56 @@ export const FriendsPage: React.FC = () => {
   });
 
   return (
-    <div className="flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full space-y-6 selection:bg-[#DDF5E5] selection:text-[#16834A]">
+    <div className="flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-white drop-shadow-sm">
+          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white drop-shadow-sm">
             Friends &amp; Connections
           </h1>
-          <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 font-medium mt-1">
-            Build your permanent travel circle and invite trusted friends to trips.
+          <p className="text-xs sm:text-sm text-white/80 font-medium mt-1">
+            Build your travel circle, coordinate rides &amp; chat with group members.
           </p>
         </div>
 
-        <button
+        <GlassButton
+          variant="primary"
+          size="sm"
+          icon={<UserPlus className="w-4 h-4 stroke-[2.5]" />}
           onClick={() => setActiveTab('find')}
-          className="inline-flex items-center justify-center gap-2 bg-[#16834A] hover:bg-[#136F3F] dark:bg-[#22C55E] dark:hover:bg-[#1ea951] text-white dark:text-zinc-950 font-bold py-2.5 px-4 rounded-xl text-xs sm:text-sm shadow-md transition-all self-start sm:self-auto cursor-pointer active:scale-95"
         >
-          <UserPlus className="w-4 h-4 stroke-[2.5]" />
-          <span>Find Friends</span>
-        </button>
+          Find Friends
+        </GlassButton>
       </div>
 
       {/* Inline Feedback Alerts */}
       {actionSuccess && (
-        <div className="p-3.5 rounded-2xl bg-[#16834A]/15 border border-[#16834A]/30 text-[#16834A] dark:text-[#22C55E] text-xs font-bold flex items-center gap-2.5 animate-fadeIn">
+        <div className="p-3.5 rounded-2xl bg-emerald-500/20 border border-emerald-500/35 text-emerald-200 text-xs font-bold flex items-center gap-2.5 animate-fadeIn backdrop-blur-md">
           <Check className="w-4 h-4 stroke-[3]" />
           <span>{actionSuccess}</span>
         </div>
       )}
       {actionError && (
-        <div className="p-3.5 rounded-2xl bg-red-500/15 border border-red-500/30 text-red-600 dark:text-red-400 text-xs font-bold flex items-center gap-2.5 animate-fadeIn">
+        <div className="p-3.5 rounded-2xl bg-rose-500/20 border border-rose-500/35 text-rose-200 text-xs font-bold flex items-center gap-2.5 animate-fadeIn backdrop-blur-md">
           <AlertCircle className="w-4 h-4" />
           <span>{actionError}</span>
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="glass-card rounded-2xl p-1.5 border border-white/40 dark:border-white/10 flex gap-1.5 shadow-sm">
+      {/* Navigation Tabs (Liquid Glass Pill Bar) */}
+      <div className="glass-card rounded-2xl p-1.5 flex gap-1.5 shadow-md">
         <button
           onClick={() => setActiveTab('friends')}
           className={`flex items-center gap-2 py-2 px-3.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
             activeTab === 'friends'
-              ? 'bg-white dark:bg-white/15 text-zinc-900 dark:text-white shadow-sm'
-              : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+              ? 'bg-white/25 text-white shadow-sm border border-white/30'
+              : 'text-white/70 hover:text-white hover:bg-white/10'
           }`}
         >
           <Users className="w-4 h-4" />
           <span>My Friends</span>
           {friends.length > 0 && (
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#16834A]/15 text-[#16834A] dark:text-[#22C55E]">
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[var(--theme-accent,#22C55E)] text-[var(--theme-accent-text,#0F172A)]">
               {friends.length}
             </span>
           )}
@@ -358,8 +414,8 @@ export const FriendsPage: React.FC = () => {
           onClick={() => setActiveTab('find')}
           className={`flex items-center gap-2 py-2 px-3.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
             activeTab === 'find'
-              ? 'bg-white dark:bg-white/15 text-zinc-900 dark:text-white shadow-sm'
-              : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+              ? 'bg-white/25 text-white shadow-sm border border-white/30'
+              : 'text-white/70 hover:text-white hover:bg-white/10'
           }`}
         >
           <Search className="w-4 h-4" />
@@ -370,14 +426,14 @@ export const FriendsPage: React.FC = () => {
           onClick={() => setActiveTab('requests')}
           className={`flex items-center gap-2 py-2 px-3.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
             activeTab === 'requests'
-              ? 'bg-white dark:bg-white/15 text-zinc-900 dark:text-white shadow-sm'
-              : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+              ? 'bg-white/25 text-white shadow-sm border border-white/30'
+              : 'text-white/70 hover:text-white hover:bg-white/10'
           }`}
         >
           <Clock className="w-4 h-4" />
           <span>Requests</span>
           {requests.incoming.length > 0 && (
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#16834A] text-white">
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-500 text-white animate-pulse">
               {requests.incoming.length}
             </span>
           )}
@@ -390,43 +446,43 @@ export const FriendsPage: React.FC = () => {
           {/* Search bar inside friends */}
           {friends.length > 0 && (
             <div className="relative">
-              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#A3A3A3]" />
+              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-white/50" />
               <input
                 type="text"
                 value={friendsFilter}
                 onChange={(e) => setFriendsFilter(e.target.value)}
                 placeholder="Filter by name, @username, or city..."
-                className="w-full bg-white border border-[#E8E8E5] rounded-xl pl-10 pr-4 py-2.5 text-sm text-[#171717] focus:outline-none focus:border-[#16834A] focus:ring-2 focus:ring-[#16834A]/10"
+                className="glass-input w-full pl-10 pr-4 text-xs sm:text-sm"
               />
             </div>
           )}
 
           {loadingFriends ? (
-            <div className="p-12 text-center text-[#737373]">
-              <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-[#16834A]" />
+            <div className="p-12 text-center text-white/70">
+              <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-[var(--theme-accent,#22C55E)]" />
               <p className="text-sm">Loading your friends circle...</p>
             </div>
           ) : filteredFriends.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-[#E8E8E5] p-10 text-center space-y-4">
-              <div className="w-12 h-12 bg-[#DDF5E5] text-[#16834A] rounded-2xl flex items-center justify-center mx-auto">
+            <GlassSecondary className="p-10 text-center space-y-4 rounded-3xl">
+              <div className="w-12 h-12 bg-white/20 border border-white/30 text-white rounded-2xl flex items-center justify-center mx-auto shadow-sm">
                 <Users className="w-6 h-6" />
               </div>
-              <h3 className="text-base font-bold text-[#171717]">
+              <h3 className="text-base font-bold text-white drop-shadow-xs">
                 {friendsFilter ? 'No friends match your filter' : 'No friends added yet'}
               </h3>
-              <p className="text-xs text-[#737373] max-w-sm mx-auto leading-relaxed">
+              <p className="text-xs text-white/75 max-w-sm mx-auto leading-relaxed">
                 Connect with travel buddies by username or UID to easily invite them to trips and split ride expenses without awkward calculations.
               </p>
               {!friendsFilter && (
-                <button
+                <GlassButton
+                  variant="primary"
                   onClick={() => setActiveTab('find')}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#16834A] hover:bg-[#136F3F] text-white text-xs font-semibold rounded-xl transition-colors"
+                  icon={<UserPlus className="w-4 h-4" />}
                 >
-                  <UserPlus className="w-4 h-4" />
-                  <span>Find &amp; Add Friends</span>
-                </button>
+                  Find &amp; Add Friends
+                </GlassButton>
               )}
-            </div>
+            </GlassSecondary>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredFriends.map((friend) => {
@@ -434,36 +490,26 @@ export const FriendsPage: React.FC = () => {
                 return (
                   <div
                     key={friend.id}
-                    className="bg-white rounded-2xl border border-[#E8E8E5] p-5 shadow-xs space-y-3.5 hover:border-[#16834A]/40 transition-colors flex flex-col justify-between"
+                    className="glass-card rounded-2xl p-5 shadow-md space-y-3.5 hover:bg-white/20 transition-all flex flex-col justify-between"
                   >
                     <div className="space-y-3">
                       <div className="flex items-center gap-3">
-                        {avatarSrc ? (
-                          <img
-                            src={avatarSrc}
-                            alt={friend.display_name}
-                            className="w-12 h-12 rounded-xl object-cover border border-[#E8E8E5]"
-                          />
-                        ) : (
-                          <div className="w-12 h-12 rounded-xl bg-[#171717] text-white flex items-center justify-center font-bold text-sm">
-                            {friend.display_name
-                              .split(' ')
-                              .map((n) => n[0])
-                              .slice(0, 2)
-                              .join('')
-                              .toUpperCase()}
-                          </div>
-                        )}
+                        <UserAvatar
+                          name={friend.display_name}
+                          avatarUrl={friend.avatar_url}
+                          size="lg"
+                          shape="rounded-xl"
+                        />
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-bold text-[#171717] truncate">
+                          <p className="text-sm font-bold text-white truncate drop-shadow-xs">
                             {friend.display_name}
                           </p>
-                          <p className="text-xs text-[#16834A] font-semibold truncate">
+                          <p className="text-xs text-[var(--theme-accent,#22C55E)] font-semibold truncate">
                             @{friend.username || 'user'}
                           </p>
                           {friend.city && (
-                            <p className="text-[11px] text-[#737373] flex items-center gap-1 mt-0.5 truncate">
-                              <MapPin className="w-3 h-3 text-[#A3A3A3]" />
+                            <p className="text-[11px] text-white/70 flex items-center gap-1 mt-0.5 truncate">
+                              <MapPin className="w-3 h-3 text-white/50" />
                               <span>{friend.city}</span>
                             </p>
                           )}
@@ -471,29 +517,29 @@ export const FriendsPage: React.FC = () => {
                       </div>
 
                       {friend.bio && (
-                        <p className="text-xs text-[#737373] line-clamp-2 leading-relaxed">
+                        <p className="text-xs text-white/75 line-clamp-2 leading-relaxed">
                           {friend.bio}
                         </p>
                       )}
 
                       {/* UID with copy button */}
-                      <div className="pt-2 border-t border-[#F4F4F2] flex items-center justify-between text-[11px] text-[#737373]">
-                        <span className="font-mono">
+                      <div className="pt-2 border-t border-white/15 flex items-center justify-between text-[11px] text-white/70">
+                        <span className="font-mono text-white/60">
                           UID: {friend.id.slice(0, 8)}...
                         </span>
                         <button
                           type="button"
                           onClick={() => handleCopyUid(friend.id)}
-                          className="hover:text-[#171717] flex items-center gap-1 font-medium cursor-pointer"
+                          className="hover:text-white flex items-center gap-1 font-medium cursor-pointer"
                         >
                           {copiedUid === friend.id ? (
                             <>
-                              <CheckCheck className="w-3 h-3 text-[#16834A]" />
-                              <span className="text-[#16834A]">Copied</span>
+                              <CheckCheck className="w-3 h-3 text-emerald-300" />
+                              <span className="text-emerald-300">Copied</span>
                             </>
                           ) : (
                             <>
-                              <Copy className="w-3 h-3" />
+                              <Copy className="w-3 h-3 text-white/60" />
                               <span>Copy</span>
                             </>
                           )}
@@ -501,8 +547,18 @@ export const FriendsPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Actions */}
-                    <div className="pt-2 border-t border-[#F4F4F2] flex items-center justify-between gap-2">
+                    {/* Actions: Chat & Profile */}
+                    <div className="pt-3 border-t border-white/15 flex items-center justify-between gap-2">
+                      <GlassButton
+                        variant="secondary"
+                        size="sm"
+                        icon={<MessageSquare className="w-3.5 h-3.5" />}
+                        onClick={() => navigate(`/messages?friendId=${friend.id}`)}
+                        className="flex-1 py-1 px-2.5 text-xs"
+                      >
+                        Chat
+                      </GlassButton>
+
                       <button
                         type="button"
                         onClick={() =>
@@ -511,18 +567,9 @@ export const FriendsPage: React.FC = () => {
                             relationship_status: 'friends',
                           })
                         }
-                        className="py-1.5 px-2.5 bg-white hover:bg-[#FAFAF8] text-[#171717] text-xs font-semibold rounded-lg border border-[#E8E8E5] transition-colors cursor-pointer"
+                        className="py-1.5 px-3 bg-white/15 hover:bg-white/25 text-white text-xs font-semibold rounded-xl border border-white/25 transition-all cursor-pointer"
                       >
                         Profile
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => navigate('/trips/new')}
-                        className="flex-1 py-1.5 px-2 bg-[#FAFAF8] hover:bg-[#F4F4F2] text-[#171717] text-xs font-semibold rounded-lg border border-[#E8E8E5] transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-                      >
-                        <Compass className="w-3.5 h-3.5 text-[#16834A]" />
-                        <span>Plan Trip</span>
                       </button>
 
                       <button
@@ -530,7 +577,7 @@ export const FriendsPage: React.FC = () => {
                         onClick={() => setUnfriendTarget(friend)}
                         title="Remove Friend"
                         aria-label="Remove friend"
-                        className="p-1.5 text-[#A3A3A3] hover:text-[#E11D48] hover:bg-[#FFE4E6]/50 rounded-lg transition-colors cursor-pointer"
+                        className="p-2 text-white/50 hover:text-rose-300 hover:bg-rose-500/20 rounded-xl transition-all cursor-pointer"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -546,90 +593,80 @@ export const FriendsPage: React.FC = () => {
       {/* --- TAB 2: FIND FRIENDS --- */}
       {activeTab === 'find' && (
         <div className="space-y-6">
-          {/* Search Card */}
-          <div className="bg-white rounded-2xl border border-[#E8E8E5] p-5 sm:p-7 shadow-xs space-y-4">
-            <div>
-              <h2 className="text-base font-bold text-[#171717]">Search for Travelers</h2>
-              <p className="text-xs text-[#737373] mt-0.5">
-                Find friends by unique @username, display name, or registered email. (Email is used for matching only and is never revealed in search responses).
-              </p>
-            </div>
-
+          <GlassPrimary
+            title="Search for Travelers"
+            subtitle="Find friends by unique @username, display name, or registered email."
+          >
             <form onSubmit={handleSearch} className="flex gap-2.5">
               <div className="relative flex-1">
-                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#A3A3A3]" />
+                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-white/50" />
                 <input
                   type="text"
                   required
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="e.g. rider_alex, Alex Turner, or alex@example.com"
-                  className="w-full bg-[#FAFAF8] border border-[#E8E8E5] rounded-xl pl-10 pr-4 py-2.5 text-sm text-[#171717] focus:outline-none focus:border-[#16834A] focus:ring-2 focus:ring-[#16834A]/10"
+                  className="glass-input w-full pl-10 pr-4 text-xs sm:text-sm"
                 />
               </div>
-              <button
+              <GlassButton
                 type="submit"
+                variant="primary"
                 disabled={isSearching}
-                className="px-5 py-2.5 bg-[#16834A] hover:bg-[#136F3F] text-white text-xs sm:text-sm font-semibold rounded-xl shadow-xs transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                loading={isSearching}
+                icon={<Search className="w-4 h-4" />}
               >
-                {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                <span>Search</span>
-              </button>
+                Search
+              </GlassButton>
             </form>
-          </div>
+          </GlassPrimary>
 
           {/* Search Feedback / Results */}
           {searchError && (
-            <div className="p-4 rounded-xl bg-[#FAFAF8] border border-[#E8E8E5] text-center text-xs text-[#737373]">
+            <div className="p-4 rounded-2xl glass-card text-center text-xs text-white/70">
               {searchError}
             </div>
           )}
 
           {searchResults && searchResults.length > 0 && (
             <div className="space-y-3">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-[#737373]">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-white/80 px-1">
                 Search Results ({searchResults.length})
               </h3>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {searchResults.map((item) => {
                   const avatarSrc = getAvatarUrl(item.avatar_url);
-                  const isBusy = Boolean(actionInProgressId === item.id || (item.request_id && actionInProgressId === item.request_id));
+                  const isBusy = Boolean(
+                    actionInProgressId === item.id ||
+                      (item.request_id && actionInProgressId === item.request_id)
+                  );
 
                   return (
                     <div
                       key={item.id}
-                      className="bg-white rounded-2xl border border-[#E8E8E5] p-5 shadow-xs flex items-center justify-between gap-4"
+                      className="glass-card rounded-2xl p-5 shadow-md flex items-center justify-between gap-4"
                     >
                       <div className="flex items-center gap-3.5 min-w-0">
-                        {avatarSrc ? (
-                          <img
-                            src={avatarSrc}
-                            alt={item.display_name}
-                            className="w-12 h-12 rounded-xl object-cover border border-[#E8E8E5] flex-shrink-0"
-                          />
-                        ) : (
-                          <div className="w-12 h-12 rounded-xl bg-[#171717] text-white flex items-center justify-center font-bold text-sm flex-shrink-0">
-                            {item.display_name
-                              .split(' ')
-                              .map((n) => n[0])
-                              .slice(0, 2)
-                              .join('')
-                              .toUpperCase()}
-                          </div>
-                        )}
+                        <UserAvatar
+                          name={item.display_name}
+                          avatarUrl={item.avatar_url}
+                          size="lg"
+                          shape="rounded-xl"
+                          className="shrink-0"
+                        />
 
                         <div className="min-w-0">
-                          <p className="text-sm font-bold text-[#171717] truncate">
+                          <p className="text-sm font-bold text-white truncate drop-shadow-xs">
                             {item.display_name}
                           </p>
-                          <p className="text-xs text-[#16834A] font-semibold truncate">
+                          <p className="text-xs text-[var(--theme-accent,#22C55E)] font-semibold truncate">
                             @{item.username || 'user'}
                           </p>
                           <button
                             type="button"
                             onClick={() => handleOpenProfile(item)}
-                            className="text-[11px] text-[#16834A] hover:underline font-semibold mt-0.5 block text-left cursor-pointer"
+                            className="text-[11px] text-white/80 hover:text-white underline font-semibold mt-0.5 block text-left cursor-pointer"
                           >
                             View Profile
                           </button>
@@ -639,13 +676,13 @@ export const FriendsPage: React.FC = () => {
                       {/* State-specific button */}
                       <div className="flex-shrink-0">
                         {item.relationship_status === 'self' && (
-                          <span className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#FAFAF8] text-[#737373] border border-[#E8E8E5]">
+                          <span className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white/15 text-white/80 border border-white/25">
                             You
                           </span>
                         )}
 
                         {item.relationship_status === 'friends' && (
-                          <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#DDF5E5] text-[#16834A] border border-[#C6ECCF]">
+                          <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500/25 text-emerald-200 border border-emerald-500/40">
                             <UserCheck className="w-3.5 h-3.5" />
                             <span>Friends</span>
                           </span>
@@ -654,29 +691,30 @@ export const FriendsPage: React.FC = () => {
                         {item.relationship_status === 'pending_outgoing' && (
                           <button
                             type="button"
-                            onClick={() => item.request_id && handleCancelRequest(item.request_id)}
+                            onClick={() => handleCancelRequest(item.request_id || item.id)}
                             disabled={isBusy}
-                            className="px-3 py-1.5 rounded-lg text-xs font-medium text-[#E11D48] hover:bg-[#FFE4E6]/50 border border-[#FDA4AF] transition-colors"
+                            className="px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-300 hover:bg-rose-500/20 border border-rose-500/40 transition-all cursor-pointer"
                           >
-                            {isBusy ? 'Cancelling...' : 'Cancel Request'}
+                            {isBusy ? 'Cancelling...' : 'Cancel'}
                           </button>
                         )}
 
                         {item.relationship_status === 'pending_incoming' && (
                           <div className="flex items-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => item.request_id && handleAcceptRequest(item.request_id)}
+                            <GlassButton
+                              size="sm"
+                              variant="primary"
+                              onClick={() => handleAcceptRequest(item.request_id || item.id)}
                               disabled={isBusy}
-                              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#16834A] hover:bg-[#136F3F] text-white shadow-2xs transition-colors"
+                              loading={isBusy}
                             >
                               Accept
-                            </button>
+                            </GlassButton>
                             <button
                               type="button"
-                              onClick={() => item.request_id && handleDeclineRequest(item.request_id)}
+                              onClick={() => handleDeclineRequest(item.request_id || item.id)}
                               disabled={isBusy}
-                              className="p-1.5 text-[#737373] hover:text-[#E11D48] rounded-lg"
+                              className="p-2 text-white/60 hover:text-rose-300 hover:bg-rose-500/20 rounded-xl"
                             >
                               <X className="w-4 h-4" />
                             </button>
@@ -684,19 +722,16 @@ export const FriendsPage: React.FC = () => {
                         )}
 
                         {item.relationship_status === 'none' && (
-                          <button
-                            type="button"
+                          <GlassButton
+                            size="sm"
+                            variant="primary"
                             onClick={() => handleSendRequest(item)}
                             disabled={isBusy}
-                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#16834A] hover:bg-[#136F3F] text-white text-xs font-semibold rounded-lg shadow-2xs transition-colors disabled:opacity-50"
+                            loading={isBusy}
+                            icon={<UserPlus className="w-3.5 h-3.5" />}
                           >
-                            {isBusy ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            ) : (
-                              <UserPlus className="w-3.5 h-3.5" />
-                            )}
-                            <span>Add Friend</span>
-                          </button>
+                            Add
+                          </GlassButton>
                         )}
                       </div>
                     </div>
@@ -712,29 +747,25 @@ export const FriendsPage: React.FC = () => {
       {activeTab === 'requests' && (
         <div className="space-y-6">
           {/* Incoming Requests */}
-          <div className="bg-white rounded-2xl border border-[#E8E8E5] p-5 sm:p-7 shadow-xs space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-[#F4F4F2]">
-              <div>
-                <h2 className="text-base font-bold text-[#171717]">Incoming Requests</h2>
-                <p className="text-xs text-[#737373] mt-0.5">
-                  Riders and friends asking to connect with you
-                </p>
-              </div>
-              <span className="text-xs font-bold font-mono px-2 py-0.5 rounded-full bg-[#FAFAF8] text-[#171717] border border-[#E8E8E5]">
+          <GlassPrimary
+            title="Incoming Requests"
+            subtitle="Riders and friends asking to connect with you"
+            action={
+              <span className="text-xs font-bold font-mono px-2.5 py-0.5 rounded-full bg-white/20 text-white border border-white/30">
                 {requests.incoming.length}
               </span>
-            </div>
-
+            }
+          >
             {loadingRequests ? (
-              <div className="p-6 text-center text-[#737373]">
-                <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-[#16834A]" />
+              <div className="p-6 text-center text-white/70">
+                <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-[var(--theme-accent,#22C55E)]" />
               </div>
             ) : requests.incoming.length === 0 ? (
-              <p className="text-xs text-[#737373] text-center py-6">
+              <p className="text-xs text-white/70 text-center py-6">
                 No incoming friend requests at this time.
               </p>
             ) : (
-              <div className="divide-y divide-[#F4F4F2]">
+              <div className="divide-y divide-white/10">
                 {requests.incoming.map((req) => {
                   const avatarSrc = getAvatarUrl(req.requester_avatar);
                   const isBusy = actionInProgressId === req.id;
@@ -742,47 +773,37 @@ export const FriendsPage: React.FC = () => {
                   return (
                     <div key={req.id} className="py-3.5 flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3 min-w-0">
-                        {avatarSrc ? (
-                          <img
-                            src={avatarSrc}
-                            alt={req.requester_name}
-                            className="w-10 h-10 rounded-xl object-cover border border-[#E8E8E5]"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 rounded-xl bg-[#171717] text-white flex items-center justify-center font-bold text-xs">
-                            {req.requester_name
-                              .split(' ')
-                              .map((n) => n[0])
-                              .slice(0, 2)
-                              .join('')
-                              .toUpperCase()}
-                          </div>
-                        )}
+                        <UserAvatar
+                          name={req.requester_name}
+                          avatarUrl={req.requester_avatar}
+                          size="md"
+                          shape="rounded-xl"
+                        />
                         <div className="min-w-0">
-                          <p className="text-sm font-semibold text-[#171717] truncate">
+                          <p className="text-sm font-semibold text-white truncate drop-shadow-xs">
                             {req.requester_name}
                           </p>
-                          <p className="text-xs text-[#16834A] truncate">
+                          <p className="text-xs text-[var(--theme-accent,#22C55E)] truncate">
                             @{req.requester_username || 'user'}
                           </p>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <button
-                          type="button"
+                        <GlassButton
+                          size="sm"
+                          variant="primary"
                           onClick={() => handleAcceptRequest(req.id)}
                           disabled={isBusy}
-                          className="px-3 py-1.5 bg-[#16834A] hover:bg-[#136F3F] text-white text-xs font-semibold rounded-lg shadow-2xs transition-colors flex items-center gap-1"
+                          loading={isBusy}
                         >
-                          {isBusy && <Loader2 className="w-3 h-3 animate-spin" />}
-                          <span>Accept</span>
-                        </button>
+                          Accept
+                        </GlassButton>
                         <button
                           type="button"
                           onClick={() => handleDeclineRequest(req.id)}
                           disabled={isBusy}
-                          className="px-3 py-1.5 bg-white hover:bg-[#F4F4F2] text-[#737373] text-xs font-medium rounded-lg border border-[#E8E8E5] transition-colors"
+                          className="px-3 py-1.5 bg-white/15 hover:bg-white/25 text-white/80 text-xs font-medium rounded-xl border border-white/25 transition-all cursor-pointer"
                         >
                           Decline
                         </button>
@@ -792,251 +813,214 @@ export const FriendsPage: React.FC = () => {
                 })}
               </div>
             )}
-          </div>
+          </GlassPrimary>
 
           {/* Outgoing Requests */}
-          <div className="bg-white rounded-2xl border border-[#E8E8E5] p-5 sm:p-7 shadow-xs space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-[#F4F4F2]">
+          <GlassSecondary className="p-5 sm:p-7 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-white/15">
               <div>
-                <h2 className="text-base font-bold text-[#171717]">Pending Outgoing Requests</h2>
-                <p className="text-xs text-[#737373] mt-0.5">
-                  Requests you sent awaiting response
+                <h2 className="text-base font-bold text-white drop-shadow-xs">Outgoing Requests</h2>
+                <p className="text-xs text-white/70 mt-0.5">
+                  Pending invitations you have sent
                 </p>
               </div>
-              <span className="text-xs font-bold font-mono px-2 py-0.5 rounded-full bg-[#FAFAF8] text-[#171717] border border-[#E8E8E5]">
+              <span className="text-xs font-bold font-mono px-2.5 py-0.5 rounded-full bg-white/15 text-white border border-white/25">
                 {requests.outgoing.length}
               </span>
             </div>
 
             {requests.outgoing.length === 0 ? (
-              <p className="text-xs text-[#737373] text-center py-6">
+              <p className="text-xs text-white/70 text-center py-4">
                 No pending outgoing requests.
               </p>
             ) : (
-              <div className="divide-y divide-[#F4F4F2]">
+              <div className="divide-y divide-white/10">
                 {requests.outgoing.map((req) => {
                   const avatarSrc = getAvatarUrl(req.addressee_avatar);
                   const isBusy = actionInProgressId === req.id;
 
                   return (
-                    <div key={req.id} className="py-3.5 flex items-center justify-between gap-3">
+                    <div key={req.id} className="py-3 flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3 min-w-0">
-                        {avatarSrc ? (
-                          <img
-                            src={avatarSrc}
-                            alt={req.addressee_name}
-                            className="w-10 h-10 rounded-xl object-cover border border-[#E8E8E5]"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 rounded-xl bg-[#171717] text-white flex items-center justify-center font-bold text-xs">
-                            {req.addressee_name
-                              .split(' ')
-                              .map((n) => n[0])
-                              .slice(0, 2)
-                              .join('')
-                              .toUpperCase()}
-                          </div>
-                        )}
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-[#171717] truncate">
-                            {req.addressee_name}
-                          </p>
-                          <p className="text-xs text-[#16834A] truncate">
-                            @{req.addressee_username || 'user'}
-                          </p>
-                        </div>
+                        <UserAvatar
+                          name={req.addressee_name}
+                          avatarUrl={req.addressee_avatar}
+                          size="sm"
+                          shape="rounded-xl"
+                        />
+                        <p className="text-sm font-semibold text-white truncate drop-shadow-xs">
+                          {req.addressee_name}
+                        </p>
                       </div>
 
                       <button
                         type="button"
                         onClick={() => handleCancelRequest(req.id)}
                         disabled={isBusy}
-                        className="px-3 py-1.5 text-xs text-[#E11D48] hover:bg-[#FFE4E6]/50 border border-[#FDA4AF] rounded-lg font-medium transition-colors"
+                        className="px-3 py-1.5 text-xs text-rose-300 hover:bg-rose-500/20 border border-rose-500/40 rounded-xl font-medium transition-all cursor-pointer"
                       >
-                        {isBusy ? 'Cancelling...' : 'Cancel Request'}
+                        Cancel
                       </button>
                     </div>
                   );
                 })}
               </div>
             )}
-          </div>
+          </GlassSecondary>
         </div>
       )}
 
-      {/* Unfriend Modal Confirmation */}
-      {unfriendTarget && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-[#E8E8E5] p-6 max-w-sm w-full shadow-xl space-y-4 animate-scaleUp">
-            <h3 className="text-base font-bold text-[#171717]">
-              Remove Friend?
-            </h3>
-            <p className="text-xs text-[#737373] leading-relaxed">
-              Are you sure you want to remove <strong className="text-[#171717]">{unfriendTarget.display_name}</strong> (@{unfriendTarget.username}) from your friends circle? Past trip records will remain intact.
-            </p>
-            <div className="flex items-center justify-end gap-2.5 pt-2">
-              <button
-                type="button"
-                onClick={() => setUnfriendTarget(null)}
-                className="px-3.5 py-2 text-xs font-semibold text-[#737373] hover:text-[#171717] rounded-xl"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmUnfriend}
-                disabled={isUnfriending}
-                className="px-4 py-2 bg-[#E11D48] hover:bg-[#BE123C] text-white text-xs font-semibold rounded-xl shadow-xs disabled:opacity-50"
-              >
-                {isUnfriending ? 'Removing...' : 'Remove Friend'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* --- Profile Preview Modal (GlassModal) --- */}
+      <GlassModal
+        isOpen={Boolean(viewingProfile)}
+        onClose={() => setViewingProfile(null)}
+        title="Traveler Profile"
+        maxWidth="sm"
+      >
+        {viewingProfile && (
+          <div className="text-center space-y-4 pt-1">
+            <UserAvatar
+              name={viewingProfile.display_name}
+              avatarUrl={viewingProfile.avatar_url}
+              size="xl"
+              shape="rounded-2xl"
+              className="mx-auto shadow-md"
+            />
 
-      {/* User Profile Modal */}
-      {viewingProfile && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-[#E8E8E5] p-6 max-w-sm w-full shadow-2xl space-y-5 animate-scaleUp relative">
-            <button
-              onClick={() => setViewingProfile(null)}
-              className="absolute top-4 right-4 p-1.5 text-[#737373] hover:text-[#171717] rounded-lg hover:bg-[#F4F4F2] transition-colors cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
-
-            <div className="text-center space-y-3 pt-2">
-              {viewingProfile.avatar_url ? (
-                <img
-                  src={getAvatarUrl(viewingProfile.avatar_url) || ''}
-                  alt={viewingProfile.display_name}
-                  className="w-16 h-16 rounded-2xl object-cover border border-[#E8E8E5] mx-auto"
-                />
-              ) : (
-                <div className="w-16 h-16 rounded-2xl bg-[#171717] text-white flex items-center justify-center font-bold text-lg mx-auto">
-                  {viewingProfile.display_name
-                    .split(' ')
-                    .map((n) => n[0])
-                    .slice(0, 2)
-                    .join('')
-                    .toUpperCase()}
-                </div>
-              )}
-
-              <div>
-                <h3 className="text-base font-bold text-[#171717]">
-                  {viewingProfile.display_name}
-                </h3>
-                <p className="text-xs text-[#16834A] font-semibold">
-                  @{viewingProfile.username || 'user'}
-                </p>
-                {viewingProfile.city && (
-                  <p className="text-[11px] text-[#737373] flex items-center justify-center gap-1 mt-1">
-                    <MapPin className="w-3 h-3 text-[#A3A3A3]" />
-                    <span>{viewingProfile.city}</span>
-                  </p>
-                )}
-              </div>
-
-              {viewingProfile.bio && (
-                <p className="text-xs text-[#737373] bg-[#FAFAF8] p-3 rounded-xl border border-[#E8E8E5] text-left">
-                  {viewingProfile.bio}
+            <div>
+              <h3 className="text-lg font-bold text-white drop-shadow-xs">
+                {viewingProfile.display_name}
+              </h3>
+              <p className="text-xs text-[var(--theme-accent,#22C55E)] font-semibold">
+                @{viewingProfile.username || 'user'}
+              </p>
+              {viewingProfile.city && (
+                <p className="text-[11px] text-white/70 flex items-center justify-center gap-1 mt-1">
+                  <MapPin className="w-3 h-3 text-white/50" />
+                  <span>{viewingProfile.city}</span>
                 </p>
               )}
-
-              <div className="flex items-center justify-between text-[11px] text-[#737373] pt-2 border-t border-[#E8E8E5]">
-                <span>Status</span>
-                <span
-                  className={`font-semibold capitalize px-2 py-0.5 rounded-md ${
-                    viewingProfile.relationship_status === 'friends'
-                      ? 'bg-[#DDF5E5] text-[#16834A]'
-                      : viewingProfile.relationship_status === 'pending_outgoing'
-                      ? 'bg-[#FEF3C7] text-[#B45309]'
-                      : viewingProfile.relationship_status === 'pending_incoming'
-                      ? 'bg-[#EFF6FF] text-[#1E40AF]'
-                      : 'bg-[#FAFAF8] text-[#737373]'
-                  }`}
-                >
-                  {viewingProfile.relationship_status === 'pending_outgoing'
-                    ? 'Request Sent'
-                    : viewingProfile.relationship_status === 'pending_incoming'
-                    ? 'Incoming Request'
-                    : viewingProfile.relationship_status}
-                </span>
-              </div>
             </div>
 
-            {/* Contextual Profile Actions */}
+            {viewingProfile.bio && (
+              <p className="text-xs text-white/80 glass-secondary p-3 rounded-xl border border-white/20 text-left">
+                {viewingProfile.bio}
+              </p>
+            )}
+
+            {/* Contextual Actions */}
             <div className="pt-2">
               {viewingProfile.relationship_status === 'none' && (
-                <button
-                  type="button"
+                <GlassButton
+                  fullWidth
+                  variant="primary"
                   onClick={() => {
                     handleSendRequest(viewingProfile);
                     setViewingProfile(null);
                   }}
-                  className="w-full py-2.5 bg-[#16834A] hover:bg-[#136F3F] text-white text-xs font-semibold rounded-xl shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                  icon={<UserPlus className="w-4 h-4" />}
                 >
-                  <UserPlus className="w-4 h-4" />
-                  <span>Send Friend Request</span>
-                </button>
+                  Send Friend Request
+                </GlassButton>
               )}
 
               {viewingProfile.relationship_status === 'pending_outgoing' && (
                 <button
                   type="button"
                   onClick={() => {
-                    if (viewingProfile.request_id) handleCancelRequest(viewingProfile.request_id);
+                    handleCancelRequest(viewingProfile.request_id || viewingProfile.id);
                     setViewingProfile(null);
                   }}
-                  className="w-full py-2.5 bg-white hover:bg-[#FFE4E6]/50 text-[#E11D48] border border-[#FDA4AF] text-xs font-semibold rounded-xl cursor-pointer"
+                  className="w-full py-2.5 rounded-xl text-xs font-semibold text-rose-300 hover:bg-rose-500/20 border border-rose-500/40 transition-all cursor-pointer"
                 >
-                  Cancel Outgoing Request
+                  Cancel Friend Request
                 </button>
               )}
 
               {viewingProfile.relationship_status === 'pending_incoming' && (
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
+                <div className="flex gap-2">
+                  <GlassButton
+                    fullWidth
+                    variant="primary"
                     onClick={() => {
-                      if (viewingProfile.request_id) handleAcceptRequest(viewingProfile.request_id);
+                      handleAcceptRequest(viewingProfile.request_id || viewingProfile.id);
                       setViewingProfile(null);
                     }}
-                    className="py-2.5 bg-[#16834A] hover:bg-[#136F3F] text-white text-xs font-semibold rounded-xl shadow-xs cursor-pointer"
                   >
-                    Accept
-                  </button>
-                  <button
-                    type="button"
+                    Accept Request
+                  </GlassButton>
+                  <GlassButton
+                    fullWidth
+                    variant="secondary"
                     onClick={() => {
-                      if (viewingProfile.request_id) handleDeclineRequest(viewingProfile.request_id);
+                      handleDeclineRequest(viewingProfile.request_id || viewingProfile.id);
                       setViewingProfile(null);
                     }}
-                    className="py-2.5 bg-white text-[#737373] border border-[#E8E8E5] text-xs font-semibold rounded-xl hover:bg-[#FAFAF8] cursor-pointer"
                   >
                     Decline
-                  </button>
+                  </GlassButton>
                 </div>
               )}
 
               {viewingProfile.relationship_status === 'friends' && (
-                <button
-                  type="button"
+                <GlassButton
+                  fullWidth
+                  variant="secondary"
+                  icon={<MessageSquare className="w-4 h-4" />}
                   onClick={() => {
-                    setUnfriendTarget(viewingProfile as any);
+                    const targetId = viewingProfile.id;
                     setViewingProfile(null);
+                    navigate(`/messages?friendId=${targetId}`);
                   }}
-                  className="w-full py-2 text-xs text-[#E11D48] hover:bg-[#FFE4E6]/50 border border-[#FDA4AF] rounded-xl font-semibold cursor-pointer"
                 >
-                  Remove from Friends
-                </button>
+                  Start Chat
+                </GlassButton>
               )}
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </GlassModal>
+
+      {/* --- Unfriend Confirmation Modal (GlassModal) --- */}
+      <GlassModal
+        isOpen={Boolean(unfriendTarget)}
+        onClose={() => setUnfriendTarget(null)}
+        title="Remove Friend"
+        maxWidth="sm"
+      >
+        {unfriendTarget && (
+          <div className="space-y-4">
+            <p className="text-sm text-white/85 leading-relaxed">
+              Are you sure you want to remove <strong className="text-white font-bold">{unfriendTarget.display_name}</strong> from your travel circle?
+            </p>
+
+            <div className="flex justify-end gap-2.5 pt-2">
+              <GlassButton
+                variant="ghost"
+                size="sm"
+                onClick={() => setUnfriendTarget(null)}
+              >
+                Cancel
+              </GlassButton>
+              <GlassButton
+                variant="danger"
+                size="sm"
+                loading={isUnfriending}
+                onClick={handleConfirmUnfriend}
+              >
+                Remove
+              </GlassButton>
+            </div>
+          </div>
+        )}
+      </GlassModal>
+
+      {/* --- Integrated Direct Chat Modal --- */}
+      <ChatConversationModal
+        isOpen={Boolean(activeChatFriend)}
+        onClose={() => setActiveChatFriend(null)}
+        friend={activeChatFriend}
+      />
     </div>
   );
 };

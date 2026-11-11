@@ -23,10 +23,15 @@ import { TripMember, Activity, Expense } from '@/types';
 import { formatPaise, rupeesToPaise, getCurrencySymbol } from '@/lib/currency';
 import { useAuth } from '@/features/auth/AuthContext';
 import { BlueTick } from '@/components/common/BlueTick';
+import {
+  ExpenseCelebrationModal,
+  ExpenseCelebrationDetails,
+} from '@/components/common/ExpenseCelebrationModal';
 import { useFeedback } from '@/context/FeedbackContext';
 import { playSound } from '@/lib/sounds';
 import { queueExpenseCreation, queueExpenseUpdate, isDeviceOnline } from '@/lib/sync-manager';
 import { suggestCategoryFromTitle } from '@/lib/add-expense-coordinator';
+import { GlassModal, GlassButton } from '@/components/glass';
 
 interface AddExpenseModalProps {
   isOpen: boolean;
@@ -93,6 +98,23 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [celebrationDetails, setCelebrationDetails] = useState<ExpenseCelebrationDetails | null>(null);
+  const [isCelebrationOpen, setIsCelebrationOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setIsCelebrationOpen(false);
+      setCelebrationDetails(null);
+      setSuccess(null);
+      setError(null);
+    }
+  }, [isOpen]);
+
+  const handleCelebrationClose = () => {
+    setIsCelebrationOpen(false);
+    setCelebrationDetails(null);
+    onClose();
+  };
 
   const currencySymbol = getCurrencySymbol(currency);
 
@@ -348,9 +370,17 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
         } else {
           onExpenseAdded(updated);
         }
-        setTimeout(() => {
-          onClose();
-        }, 600);
+        setCelebrationDetails({
+          id: updated.id,
+          description: updated.description,
+          amountPaise: updated.amount_paise,
+          currency: updated.currency || currency,
+          category: updated.category,
+          payerName: payerObj?.user_name || 'You',
+          participantCount,
+          isOffline: !isDeviceOnline(),
+        });
+        setIsCelebrationOpen(true);
         return;
       }
 
@@ -400,12 +430,22 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
       }
 
       onExpenseAdded(created);
-      setTimeout(() => {
-        onClose();
-      }, 600);
+      setCelebrationDetails({
+        id: created.id,
+        description: created.description,
+        amountPaise: created.amount_paise,
+        currency: created.currency || currency,
+        category: created.category,
+        payerName: payerObj?.user_name || 'You',
+        participantCount,
+        isOffline: !isDeviceOnline(),
+      });
+      setIsCelebrationOpen(true);
     } catch (err: any) {
       playSound('error');
       setError(err.message || 'Failed to record expense.');
+      setIsCelebrationOpen(false);
+      setCelebrationDetails(null);
     } finally {
       setLoading(false);
     }
@@ -422,388 +462,385 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60">
-      <div className="bg-white dark:bg-[#141416] text-[#18181B] dark:text-[#F5F5F7] rounded-t-2xl sm:rounded-2xl border-t sm:border border-[#E4E4E7] dark:border-[#2A2A2E] shadow-2xl max-w-lg w-full p-5 sm:p-7 relative max-h-[90vh] sm:max-h-[92vh] overflow-y-auto">
-        {/* Mobile handle indicator */}
-        <div className="sm:hidden w-12 h-1 bg-[#E4E4E7] dark:bg-[#2A2A2E] rounded-full mx-auto mb-4" />
+    <>
+      <GlassModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={initialExpense ? 'Edit expense' : 'Add expense'}
+      subtitle={`Track group payment • ${currency}`}
+      size="md"
+    >
+      {/* Success Banner */}
+      {success && (
+        <div className="mb-4 p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-[#16834A] dark:text-[#4ADE80] text-xs font-semibold flex items-center gap-2.5">
+          <BlueTick size="sm" animate={true} />
+          <span>{success}</span>
+        </div>
+      )}
 
-        {/* Modal Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-[#E4E4E7] dark:border-[#2A2A2E]">
-          <h2 className="text-base sm:text-lg font-bold tracking-tight">
-            {initialExpense ? 'Edit expense' : 'Add expense'}
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-lg text-[#71717A] dark:text-[#A1A1AA] hover:text-[#18181B] dark:hover:text-[#F5F5F7] transition-colors cursor-pointer"
-            aria-label="Close"
-          >
-            <X className="w-5 h-5" />
-          </button>
+      {/* Error Banner */}
+      {error && (
+        <div className="mb-4 p-3 rounded-xl bg-red-500/15 border border-red-500/30 text-red-600 dark:text-red-400 text-xs font-semibold flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-5">
+        {/* 1. AMOUNT-FIRST (LARGE NUMERIC DISPLAY) */}
+        <div className="p-5 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/10 text-center flex flex-col items-center justify-center">
+          <label htmlFor="expense-amount" className="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-1">
+            Amount
+          </label>
+          <div className="flex items-baseline justify-center">
+            <span className="text-3xl sm:text-4xl font-bold font-mono text-zinc-500 dark:text-zinc-400 mr-2 select-none">
+              {currencySymbol}
+            </span>
+            <input
+              id="expense-amount"
+              type="number"
+              step="any"
+              min="0.01"
+              inputMode="decimal"
+              pattern="[0-9]*[.,]?[0-9]*"
+              required
+              autoFocus
+              value={amountRupees}
+              onChange={(e) => setAmountRupees(e.target.value)}
+              placeholder="0.00"
+              className="w-44 sm:w-56 text-3xl sm:text-4xl font-bold font-mono text-zinc-900 dark:text-white bg-transparent border-none focus:outline-none tabular-nums text-left placeholder-zinc-400 dark:placeholder-zinc-600"
+            />
+          </div>
+          {totalPaise > 0 && participantCount > 0 && advancedSplitMethod === 'NONE' && (
+            <p className="mt-2 text-xs font-semibold text-zinc-800 dark:text-zinc-200 bg-white/60 dark:bg-white/10 border border-black/5 dark:border-white/10 px-3 py-1 rounded-full">
+              Each participant owes {formatPaise(perPersonPaise, currency)}{' '}
+              <span className="text-zinc-500 dark:text-zinc-400">
+                ({participantCount} {participantCount === 1 ? 'member' : 'members'})
+              </span>
+              {remainderPaise > 0 && (
+                <span className="ml-1 text-[10px] text-zinc-500 dark:text-zinc-400 font-mono">
+                  (+1p adjusted)
+                </span>
+              )}
+            </p>
+          )}
         </div>
 
-        {/* Success Banner */}
-        {success && (
-          <div className="mt-4 p-3 rounded-xl bg-[#DDF5E5] dark:bg-[#16834A]/15 border border-[#BCEAC8] dark:border-[#22C55E]/30 text-[#16834A] dark:text-[#4ADE80] text-xs font-semibold flex items-center gap-2.5">
-            <BlueTick size="sm" animate={true} />
-            <span>{success}</span>
-          </div>
-        )}
-
-        {/* Error Banner */}
-        {error && (
-          <div className="mt-4 p-3 rounded-xl bg-[#FFE4E6] dark:bg-[#E11D48]/10 border border-[#FDA4AF] dark:border-[#E11D48]/30 text-[#DC2626] dark:text-[#EF4444] text-xs font-medium flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 flex-shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="mt-5 space-y-5">
-          {/* 1. AMOUNT-FIRST (LARGE NUMERIC KEYPAD) */}
-          <div className="bg-[#FAFAF8] dark:bg-[#1B1B1E] border border-[#E4E4E7] dark:border-[#2A2A2E] rounded-2xl p-5 text-center flex flex-col items-center justify-center">
-            <label htmlFor="expense-amount" className="text-xs font-medium text-[#71717A] dark:text-[#A1A1AA] mb-1">
-              Amount
-            </label>
-            <div className="flex items-baseline justify-center">
-              <span className="text-3xl sm:text-4xl font-bold font-mono text-[#737373] dark:text-[#8E8E93] mr-2 select-none">
-                {currencySymbol}
-              </span>
-              <input
-                id="expense-amount"
-                type="number"
-                step="any"
-                min="0.01"
-                inputMode="decimal"
-                pattern="[0-9]*[.,]?[0-9]*"
-                required
-                autoFocus
-                value={amountRupees}
-                onChange={(e) => setAmountRupees(e.target.value)}
-                placeholder="0.00"
-                className="w-44 sm:w-56 text-3xl sm:text-4xl font-bold font-mono text-[#18181B] dark:text-[#F5F5F7] bg-transparent border-none focus:outline-none tabular-nums text-left placeholder-[#D4D4D8] dark:placeholder-[#52525B]"
-              />
-            </div>
-            {totalPaise > 0 && participantCount > 0 && advancedSplitMethod === 'NONE' && (
-              <p className="mt-2 text-xs font-medium text-[#18181B] dark:text-[#F5F5F7] bg-[#F4F4F5] dark:bg-[#222226] border border-[#E4E4E7] dark:border-[#2A2A2E] px-3 py-1 rounded-full">
-                Each participant owes {formatPaise(perPersonPaise, currency)}{' '}
-                <span className="text-[#71717A] dark:text-[#A1A1AA]">
-                  ({participantCount} {participantCount === 1 ? 'member' : 'members'})
-                </span>
-                {remainderPaise > 0 && (
-                  <span className="ml-1 text-[10px] text-[#71717A] dark:text-[#A1A1AA] font-mono">
-                    (+1p adjusted)
-                  </span>
-                )}
-              </p>
-            )}
-          </div>
-
-          {/* 2. DESCRIPTION & SMART CATEGORY */}
-          <div className="space-y-3">
-            <div>
-              <label htmlFor="expense-title" className="block text-xs font-semibold text-[#71717A] dark:text-[#A1A1AA] mb-1.5">
-                Description
-              </label>
-              <input
-                id="expense-title"
-                type="text"
-                required
-                value={description}
-                onChange={(e) => handleDescriptionChange(e.target.value)}
-                placeholder="e.g. Petrol refill, Highway dhaba, Resort stay"
-                className="w-full bg-[#FAFAF8] dark:bg-[#1B1B1E] border border-[#E4E4E7] dark:border-[#2A2A2E] rounded-xl px-3.5 py-2.5 text-sm text-[#18181B] dark:text-[#F5F5F7] placeholder-[#A1A1AA] dark:placeholder-[#71717A] focus:outline-none focus:border-[#16834A] dark:focus:border-[#22C55E] transition-colors"
-              />
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-semibold text-[#71717A] dark:text-[#A1A1AA]">
-                  Category
-                </label>
-                <span className="text-[11px] text-[#71717A] dark:text-[#A1A1AA]">
-                  {category}
-                </span>
-              </div>
-              <div className="grid grid-cols-4 sm:grid-cols-8 gap-1.5">
-                {CATEGORIES.map((cat) => {
-                  const Icon = cat.icon;
-                  const isSelected = category === cat.name;
-                  return (
-                    <button
-                      key={cat.name}
-                      type="button"
-                      onClick={() => {
-                        setHasManuallySelectedCategory(true);
-                        setCategory(cat.name);
-                      }}
-                      className={`flex flex-col items-center justify-center p-2 rounded-xl border text-[11px] font-medium transition-all cursor-pointer ${
-                        isSelected
-                          ? 'bg-[#16834A] dark:bg-[#22C55E] text-white dark:text-[#0B0B0C] border-[#16834A] dark:border-[#22C55E] shadow-xs'
-                          : 'bg-white dark:bg-[#1B1B1E] hover:bg-[#FAFAF8] dark:hover:bg-[#222226] text-[#71717A] dark:text-[#A1A1AA] border-[#E4E4E7] dark:border-[#2A2A2E]'
-                      }`}
-                      title={cat.name}
-                    >
-                      <Icon className="w-4 h-4 mb-1" />
-                      <span className="truncate max-w-full text-[10px]">{cat.name.split(' ')[0]}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* 3. PAID BY & DATE */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label htmlFor="payer-select" className="block text-xs font-semibold text-[#71717A] dark:text-[#A1A1AA] mb-1.5">
-                Paid by
-              </label>
-              <select
-                id="payer-select"
-                value={payerId}
-                onChange={(e) => setPayerId(e.target.value)}
-                className="w-full bg-[#FAFAF8] dark:bg-[#1B1B1E] border border-[#E4E4E7] dark:border-[#2A2A2E] rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-[#18181B] dark:text-[#F5F5F7] focus:outline-none focus:border-[#16834A] dark:focus:border-[#22C55E] transition-colors"
-              >
-                {members.map((m) => (
-                  <option key={m.user_id} value={m.user_id} className="dark:bg-[#1B1B1E] dark:text-[#F5F5F7]">
-                    {m.user_name} {m.user_id === user?.id ? '(You)' : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="expense-date" className="block text-xs font-semibold text-[#737373] dark:text-[#8E8E93] mb-1.5">
-                Date
-              </label>
-              <div className="relative">
-                <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#A3A3A3] pointer-events-none" />
-                <input
-                  id="expense-date"
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="w-full bg-[#FAFAF8] dark:bg-[#1B1B1E] border border-[#E4E4E7] dark:border-[#2A2A2E] rounded-xl pl-9 pr-3 py-2 text-xs sm:text-sm text-[#18181B] dark:text-[#F5F5F7] focus:outline-none focus:border-[#16834A] dark:focus:border-[#22C55E] transition-colors"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* 4. SPLIT METHOD */}
+        {/* 2. DESCRIPTION & SMART CATEGORY */}
+        <div className="space-y-3">
           <div>
-            <label className="block text-xs font-semibold text-[#71717A] dark:text-[#A1A1AA] mb-2">
-              Split
+            <label htmlFor="expense-title" className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 mb-1.5">
+              Description
             </label>
-            <div className="grid grid-cols-2 gap-2 p-1 bg-[#F4F4F5] dark:bg-[#1B1B1E] rounded-xl border border-[#E4E4E7] dark:border-[#2A2A2E]">
-              <button
-                type="button"
-                onClick={() => {
-                  setSplitMode('EQUAL_ALL');
-                  handleSelectAll(true);
-                  setAdvancedSplitMethod('NONE');
-                }}
-                className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                  splitMode === 'EQUAL_ALL' && advancedSplitMethod === 'NONE'
-                    ? 'bg-white dark:bg-[#2A2A2E] text-[#18181B] dark:text-[#F5F5F7] shadow-xs'
-                    : 'text-[#71717A] dark:text-[#A1A1AA] hover:text-[#18181B] dark:hover:text-[#F5F5F7]'
-                }`}
-              >
-                <Users className="w-3.5 h-3.5" />
-                <span>Equal split</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setSplitMode('SELECTED_MEMBERS');
-                  setAdvancedSplitMethod('NONE');
-                }}
-                className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                  splitMode === 'SELECTED_MEMBERS' && advancedSplitMethod === 'NONE'
-                    ? 'bg-white dark:bg-[#2A2A2E] text-[#18181B] dark:text-[#F5F5F7] shadow-xs'
-                    : 'text-[#71717A] dark:text-[#A1A1AA] hover:text-[#18181B] dark:hover:text-[#F5F5F7]'
-                }`}
-              >
-                <UserCheck className="w-3.5 h-3.5" />
-                <span>Selected members</span>
-              </button>
-            </div>
-
-            {/* Split description helper */}
-            <p className="text-[11px] text-[#71717A] dark:text-[#A1A1AA] mt-2">
-              {splitMode === 'EQUAL_ALL'
-                ? `Expense is divided equally among all ${members.length} trip members.`
-                : 'Choose which trip members participated. Payer can be included or excluded.'}
-            </p>
+            <input
+              id="expense-title"
+              type="text"
+              required
+              value={description}
+              onChange={(e) => handleDescriptionChange(e.target.value)}
+              placeholder="e.g. Petrol refill, Highway dhaba, Resort stay"
+              className="glass-input w-full text-sm"
+            />
           </div>
 
-          {/* 5. PARTICIPANTS SELECTION (When Selected Members mode is active) */}
-          {splitMode === 'SELECTED_MEMBERS' && advancedSplitMethod === 'NONE' && (
-            <div className="bg-[#FAFAF8] dark:bg-[#18181B] border border-[#E4E4E7] dark:border-[#2A2A2E] rounded-2xl p-4 space-y-3">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-[#18181B] dark:text-[#F5F5F7]">
-                  Select participants ({participantCount} of {members.length})
-                </span>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleSelectAll(true)}
-                    className="text-[#16834A] dark:text-[#22C55E] font-medium hover:underline cursor-pointer"
-                  >
-                    Select all
-                  </button>
-                  <span className="text-[#A1A1AA]">•</span>
-                  <button
-                    type="button"
-                    onClick={() => handleSelectAll(false)}
-                    className="text-[#71717A] dark:text-[#A1A1AA] hover:underline cursor-pointer"
-                  >
-                    Clear all
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {members.map((m) => {
-                  const isSelected = Boolean(selectedParticipants[m.user_id]);
-                  const isPayer = m.user_id === payerId;
-                  return (
-                    <button
-                      key={m.user_id}
-                      type="button"
-                      onClick={() => toggleParticipant(m.user_id)}
-                      className={`flex items-center justify-between p-2.5 rounded-xl border text-left text-xs transition-colors cursor-pointer ${
-                        isSelected
-                          ? 'bg-white dark:bg-[#222226] border-[#16834A] dark:border-[#22C55E] text-[#18181B] dark:text-[#F5F5F7]'
-                          : 'bg-[#F4F4F5]/60 dark:bg-[#1B1B1E] border-transparent text-[#71717A] dark:text-[#A1A1AA] hover:bg-white dark:hover:bg-[#222226]'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 truncate">
-                        <div
-                          className={`w-6 h-6 rounded-md flex items-center justify-center font-bold text-[10px] ${
-                            isSelected
-                              ? 'bg-[#16834A] dark:bg-[#22C55E] text-white dark:text-[#0B0B0C]'
-                              : 'bg-[#E4E4E7] dark:bg-[#2A2A2E] text-[#71717A] dark:text-[#A1A1AA]'
-                          }`}
-                        >
-                          {m.user_name.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="truncate min-w-0">
-                          <p className="font-semibold truncate">
-                            {m.user_name} {m.user_id === user?.id ? '(You)' : ''}
-                          </p>
-                          {isPayer && (
-                            <span className="text-[10px] text-[#16834A] dark:text-[#22C55E] font-medium">
-                              Payer
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="text-right flex items-center gap-1.5 shrink-0">
-                        {isSelected && totalPaise > 0 && participantCount > 0 && (
-                          <span className="text-[11px] font-mono font-medium text-[#16834A] dark:text-[#22C55E]">
-                            {formatPaise(perPersonPaise, currency)}
-                          </span>
-                        )}
-                        <div
-                          className={`w-4 h-4 rounded flex items-center justify-center border ${
-                            isSelected
-                              ? 'bg-[#16834A] dark:bg-[#22C55E] border-[#16834A] dark:border-[#22C55E] text-white dark:text-[#0B0B0C]'
-                              : 'border-[#D4D4D8] dark:border-[#3F3F46] bg-white dark:bg-[#1B1B1E]'
-                          }`}
-                        >
-                          {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Payer exclusion indicator */}
-              {!selectedParticipants[payerId] && (
-                <div className="p-2.5 rounded-xl bg-[#FEF3C7] dark:bg-[#B45309]/15 border border-[#FDE68A] dark:border-[#B45309]/30 text-[#92400E] dark:text-[#FBBF24] text-[11px] flex items-center gap-2">
-                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                  <span>
-                    Payer ({members.find((m) => m.user_id === payerId)?.user_name || 'Member'}) is excluded and will be reimbursed the full expense amount.
-                  </span>
-                </div>
-              )}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
+                Category
+              </label>
+              <span className="text-[11px] text-zinc-400 font-medium">
+                {category}
+              </span>
             </div>
-          )}
+            <div className="grid grid-cols-4 sm:grid-cols-8 gap-1.5">
+              {CATEGORIES.map((cat) => {
+                const Icon = cat.icon;
+                const isSelected = category === cat.name;
+                return (
+                  <button
+                    key={cat.name}
+                    type="button"
+                    onClick={() => {
+                      setHasManuallySelectedCategory(true);
+                      setCategory(cat.name);
+                    }}
+                    className={`flex flex-col items-center justify-center p-2 rounded-xl border text-[11px] font-semibold transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-[#16834A] dark:bg-[#22C55E] text-white dark:text-[#0B0B0C] border-[#16834A] dark:border-[#22C55E] shadow-xs'
+                        : 'bg-white/40 dark:bg-white/5 hover:bg-white/70 dark:hover:bg-white/10 text-zinc-600 dark:text-zinc-300 border-black/5 dark:border-white/10'
+                    }`}
+                    title={cat.name}
+                  >
+                    <Icon className="w-4 h-4 mb-1" />
+                    <span className="truncate max-w-full text-[10px]">{cat.name.split(' ')[0]}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
 
-          {/* 6. OPTIONAL COLLAPSIBLE: NOTES & RECEIPT PHOTO */}
-          <div className="border border-[#E4E4E7] dark:border-[#2A2A2E] rounded-2xl overflow-hidden bg-white dark:bg-[#141416]">
+        {/* 3. PAID BY & DATE */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label htmlFor="payer-select" className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 mb-1.5">
+              Paid by
+            </label>
+            <select
+              id="payer-select"
+              value={payerId}
+              onChange={(e) => setPayerId(e.target.value)}
+              className="glass-input w-full text-xs sm:text-sm [&>option]:bg-zinc-900 [&>option]:text-white cursor-pointer"
+            >
+              {members.map((m) => (
+                <option key={m.user_id} value={m.user_id}>
+                  {m.user_name} {m.user_id === user?.id ? '(You)' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="expense-date" className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 mb-1.5">
+              Date
+            </label>
+            <div className="relative">
+              <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
+              <input
+                id="expense-date"
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="glass-input w-full pl-9 pr-3 text-xs sm:text-sm"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* 4. SPLIT METHOD */}
+        <div>
+          <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 mb-2">
+            Split
+          </label>
+          <div className="grid grid-cols-2 gap-2 p-1 bg-black/5 dark:bg-white/5 rounded-xl border border-black/5 dark:border-white/10">
             <button
               type="button"
-              onClick={() => setShowAdvanced(!showAdvanced)}
-              className="w-full flex items-center justify-between p-3.5 text-xs font-medium text-[#71717A] dark:text-[#A1A1AA] hover:text-[#18181B] dark:hover:text-[#F5F5F7] bg-[#FAFAF8] dark:bg-[#18181B] transition-colors cursor-pointer"
+              onClick={() => {
+                setSplitMode('EQUAL_ALL');
+                handleSelectAll(true);
+                setAdvancedSplitMethod('NONE');
+              }}
+              className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                splitMode === 'EQUAL_ALL' && advancedSplitMethod === 'NONE'
+                  ? 'bg-white/90 dark:bg-white/20 text-zinc-900 dark:text-white shadow-xs'
+                  : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white'
+              }`}
             >
-              <span>Additional options (Notes, receipt photo, custom ratios)</span>
-              {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              <Users className="w-3.5 h-3.5" />
+              <span>Equal split</span>
             </button>
 
-            {showAdvanced && (
-              <div className="p-4 space-y-4 border-t border-[#E4E4E7] dark:border-[#2A2A2E]">
-                {/* Notes */}
-                <div>
-                  <label htmlFor="expense-notes" className="block text-xs font-semibold text-[#71717A] dark:text-[#A1A1AA] mb-1">
-                    Notes
-                  </label>
-                  <textarea
-                    id="expense-notes"
-                    rows={2}
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Optional notes or breakdown"
-                    className="w-full bg-[#FAFAF8] dark:bg-[#1B1B1E] border border-[#E4E4E7] dark:border-[#2A2A2E] rounded-xl p-2.5 text-xs text-[#18181B] dark:text-[#F5F5F7] focus:outline-none focus:border-[#16834A] dark:focus:border-[#22C55E] transition-colors"
-                  />
-                </div>
+            <button
+              type="button"
+              onClick={() => {
+                setSplitMode('SELECTED_MEMBERS');
+                setAdvancedSplitMethod('NONE');
+              }}
+              className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                splitMode === 'SELECTED_MEMBERS' && advancedSplitMethod === 'NONE'
+                  ? 'bg-white/90 dark:bg-white/20 text-zinc-900 dark:text-white shadow-xs'
+                  : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white'
+              }`}
+            >
+              <UserCheck className="w-3.5 h-3.5" />
+              <span>Selected members</span>
+            </button>
+          </div>
 
-                {/* Receipt Upload */}
-                <div>
-                  <label className="block text-xs font-semibold text-[#71717A] dark:text-[#A1A1AA] mb-1">
-                    Receipt photo
-                  </label>
-                  <label className="flex items-center justify-center gap-2 p-3 rounded-xl border border-dashed border-[#E4E4E7] dark:border-[#2A2A2E] bg-[#FAFAF8] dark:bg-[#1B1B1E] hover:bg-white dark:hover:bg-[#222226] text-xs text-[#71717A] dark:text-[#A1A1AA] cursor-pointer transition-colors">
-                    <Upload className="w-4 h-4 text-[#A1A1AA]" />
-                    <span>{receiptFile ? receiptFile.name : 'Choose receipt image (JPG, PNG, PDF)'}</span>
-                    <input
-                      type="file"
-                      accept="image/*,application/pdf"
-                      onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
-                      className="hidden"
-                    />
-                  </label>
-                </div>
+          <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-2 font-medium">
+            {splitMode === 'EQUAL_ALL'
+              ? `Expense is divided equally among all ${members.length} trip members.`
+              : 'Choose which trip members participated. Payer can be included or excluded.'}
+          </p>
+        </div>
+
+        {/* 5. PARTICIPANTS SELECTION */}
+        {splitMode === 'SELECTED_MEMBERS' && advancedSplitMethod === 'NONE' && (
+          <div className="bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/10 rounded-2xl p-4 space-y-3">
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span className="text-zinc-900 dark:text-white">
+                Select participants ({participantCount} of {members.length})
+              </span>
+              <div className="flex items-center gap-2 font-semibold">
+                <button
+                  type="button"
+                  onClick={() => handleSelectAll(true)}
+                  className="text-[#16834A] dark:text-[#22C55E] hover:underline cursor-pointer"
+                >
+                  Select all
+                </button>
+                <span className="text-zinc-400">&bull;</span>
+                <button
+                  type="button"
+                  onClick={() => handleSelectAll(false)}
+                  className="text-zinc-500 dark:text-zinc-400 hover:underline cursor-pointer"
+                >
+                  Clear all
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {members.map((m) => {
+                const isSelected = Boolean(selectedParticipants[m.user_id]);
+                const isPayer = m.user_id === payerId;
+                return (
+                  <button
+                    key={m.user_id}
+                    type="button"
+                    onClick={() => toggleParticipant(m.user_id)}
+                    className={`flex items-center justify-between p-2.5 rounded-xl border text-left text-xs transition-colors cursor-pointer ${
+                      isSelected
+                        ? 'bg-white/80 dark:bg-white/10 border-emerald-500/40 text-zinc-900 dark:text-white'
+                        : 'bg-white/20 dark:bg-white/5 border-transparent text-zinc-500 dark:text-zinc-400 hover:bg-white/40'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <div
+                        className={`w-6 h-6 rounded-md flex items-center justify-center font-bold text-[10px] ${
+                          isSelected
+                            ? 'bg-[#16834A] dark:bg-[#22C55E] text-white dark:text-[#0B0B0C]'
+                            : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300'
+                        }`}
+                      >
+                        {m.user_name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="truncate min-w-0">
+                        <p className="font-semibold truncate">
+                          {m.user_name} {m.user_id === user?.id ? '(You)' : ''}
+                        </p>
+                        {isPayer && (
+                          <span className="text-[10px] text-[#16834A] dark:text-[#22C55E] font-medium">
+                            Payer
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="text-right flex items-center gap-1.5 shrink-0">
+                      {isSelected && totalPaise > 0 && participantCount > 0 && (
+                        <span className="text-[11px] font-mono font-bold text-[#16834A] dark:text-[#22C55E]">
+                          {formatPaise(perPersonPaise, currency)}
+                        </span>
+                      )}
+                      <div
+                        className={`w-4 h-4 rounded flex items-center justify-center border ${
+                          isSelected
+                            ? 'bg-[#16834A] dark:bg-[#22C55E] border-[#16834A] dark:border-[#22C55E] text-white dark:text-[#0B0B0C]'
+                            : 'border-zinc-400 dark:border-zinc-600 bg-transparent'
+                        }`}
+                      >
+                        {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Payer exclusion indicator */}
+            {!selectedParticipants[payerId] && (
+              <div className="p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-[11px] flex items-center gap-2 font-medium">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                <span>
+                  Payer ({members.find((m) => m.user_id === payerId)?.user_name || 'Member'}) is excluded and will be reimbursed the full expense amount.
+                </span>
               </div>
             )}
           </div>
+        )}
 
-          {/* PRIMARY SUBMIT BUTTON */}
-          <div className="pt-2">
-            <button
-              type="submit"
-              disabled={loading || Boolean(success)}
-              className="w-full flex items-center justify-center gap-2 bg-[#16834A] dark:bg-[#22C55E] hover:bg-[#136F3F] dark:hover:bg-[#16A34A] text-white dark:text-[#0A0A0A] font-medium py-3 px-6 rounded-xl shadow-xs active:scale-[0.99] transition-all disabled:opacity-50 cursor-pointer text-sm"
-            >
-              {loading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>{initialExpense ? 'Saving changes...' : 'Recording expense...'}</span>
-                </>
-              ) : success ? (
-                <>
-                  <Check className="w-4 h-4" />
-                  <span>{initialExpense ? 'Changes saved' : 'Expense saved'}</span>
-                </>
-              ) : (
-                <span>{initialExpense ? 'Save changes' : 'Record expense'}</span>
-              )}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        {/* 6. OPTIONAL COLLAPSIBLE: NOTES & RECEIPT PHOTO */}
+        <div className="border border-black/5 dark:border-white/10 rounded-2xl overflow-hidden bg-black/5 dark:bg-white/5">
+          <button
+            type="button"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="w-full flex items-center justify-between p-3.5 text-xs font-semibold text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer"
+          >
+            <span>Additional options (Notes, receipt photo, custom ratios)</span>
+            {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
+
+          {showAdvanced && (
+            <div className="p-4 space-y-4 border-t border-black/5 dark:border-white/10">
+              {/* Notes */}
+              <div>
+                <label htmlFor="expense-notes" className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 mb-1">
+                  Notes
+                </label>
+                <textarea
+                  id="expense-notes"
+                  rows={2}
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Optional notes or breakdown"
+                  className="glass-input w-full text-xs resize-none"
+                />
+              </div>
+
+              {/* Receipt Upload */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 mb-1">
+                  Receipt photo
+                </label>
+                <label className="flex items-center justify-center gap-2 p-3 rounded-xl border border-dashed border-black/20 dark:border-white/20 hover:bg-white/20 text-xs text-zinc-600 dark:text-zinc-300 cursor-pointer transition-colors font-medium">
+                  <Upload className="w-4 h-4" />
+                  <span>{receiptFile ? receiptFile.name : 'Choose receipt image (JPG, PNG, PDF)'}</span>
+                  <input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* PRIMARY SUBMIT BUTTON */}
+        <div className="pt-2">
+          <GlassButton
+            type="submit"
+            variant="primary"
+            size="md"
+            disabled={loading || Boolean(success)}
+            className="w-full h-12 text-sm font-bold gap-2"
+          >
+            {loading ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <span>{initialExpense ? 'Saving changes...' : 'Recording expense...'}</span>
+              </>
+            ) : success ? (
+              <>
+                <Check className="w-4 h-4" />
+                <span>{initialExpense ? 'Changes saved' : 'Expense saved'}</span>
+              </>
+            ) : (
+              <span>{initialExpense ? 'Save changes' : 'Record expense'}</span>
+            )}
+          </GlassButton>
+        </div>
+      </form>
+    </GlassModal>
+
+    <ExpenseCelebrationModal
+      isOpen={isCelebrationOpen}
+      expense={celebrationDetails}
+      onClose={handleCelebrationClose}
+      autoDismissMs={2800}
+    />
+  </>
   );
 };

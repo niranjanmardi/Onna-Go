@@ -278,3 +278,90 @@ def test_full_friends_and_trip_invitations_flow():
     search_after_cancel = client.get(f"/api/v1/friends/search?q={userB['username']}", headers=headersA).json()
     assert search_after_cancel[0]["relationship_status"] == "none"
 
+def test_friend_request_comprehensive_edge_cases():
+    import uuid
+    suffix = uuid.uuid4().hex[:6]
+
+    uA = client.post("/api/v1/auth/register", json={
+        "username": f"user_a_{suffix}",
+        "full_name": "User Alpha",
+        "email": f"user_a_{suffix}@example.com",
+        "password": "Password123!",
+    }).json()
+    headersA = {"Authorization": f"Bearer {uA['access_token']}"}
+    userA = uA["user"]
+
+    uB = client.post("/api/v1/auth/register", json={
+        "username": f"user_b_{suffix}",
+        "full_name": "User Beta",
+        "email": f"user_b_{suffix}@example.com",
+        "password": "Password123!",
+    }).json()
+    headersB = {"Authorization": f"Bearer {uB['access_token']}"}
+    userB = uB["user"]
+
+    # 1. Search with leading '@' symbol
+    search_at = client.get(f"/api/v1/friends/search?q=@{userB['username']}", headers=headersA)
+    assert search_at.status_code == 200
+    assert len(search_at.json()) == 1
+    assert search_at.json()[0]["id"] == userB["id"]
+
+    # 2. Prevent sending friend request to oneself
+    self_req = client.post("/api/v1/friends/request", headers=headersA, json={
+        "username_or_uid": userA["username"]
+    })
+    assert self_req.status_code == 400
+    assert "yourself" in self_req.json()["detail"].lower()
+
+    self_req_id = client.post("/api/v1/friends/request", headers=headersA, json={
+        "friend_id": userA["id"]
+    })
+    assert self_req_id.status_code == 400
+
+    # 3. Send friend request using friend_id payload (frontend format)
+    req_by_fid = client.post("/api/v1/friends/request", headers=headersA, json={
+        "friend_id": userB["id"]
+    })
+    assert req_by_fid.status_code == 201
+    assert req_by_fid.json()["status"] == "PENDING"
+    req_id = req_by_fid.json()["id"]
+    assert req_id is not None
+
+    # 4. Prevent duplicate friend request
+    dup_req = client.post("/api/v1/friends/request", headers=headersA, json={
+        "username_or_uid": userB["username"]
+    })
+    assert dup_req.status_code == 400
+    assert "already pending" in dup_req.json()["detail"].lower()
+
+    # 5. Outgoing and incoming list via both /requests and /requests/
+    reqs_slash = client.get("/api/v1/friends/requests/", headers=headersB)
+    assert reqs_slash.status_code == 200
+    assert len(reqs_slash.json()["incoming"]) == 1
+    assert reqs_slash.json()["incoming"][0]["id"] == req_id
+
+    # 6. Decline request using userA id or request_id
+    decline_res = client.post(f"/api/v1/friends/requests/{req_id}/decline", headers=headersB)
+    assert decline_res.status_code == 200
+
+    # 7. Re-send friend request using @username
+    resend_req = client.post("/api/v1/friends/request", headers=headersA, json={
+        "username_or_uid": f"@{userB['username']}"
+    })
+    assert resend_req.status_code == 201
+
+    # 8. Accept request using counterparty user id (flexible resolution)
+    accept_flexible = client.post(f"/api/v1/friends/requests/{userA['id']}/accept", headers=headersB)
+    assert accept_flexible.status_code == 200
+    assert "accepted" in accept_flexible.json()["message"].lower()
+
+    # 9. Verify both users show friendship via both /friends and /friends/
+    friends_slash = client.get("/api/v1/friends/", headers=headersA)
+    assert friends_slash.status_code == 200
+    assert any(f["id"] == userB["id"] for f in friends_slash.json())
+
+    friends_noslash = client.get("/api/v1/friends", headers=headersB)
+    assert friends_noslash.status_code == 200
+    assert any(f["id"] == userA["id"] for f in friends_noslash.json())
+
+

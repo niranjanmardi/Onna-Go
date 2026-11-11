@@ -40,6 +40,20 @@ export function initCapacitorMobile(): () => void {
   // 3. Android Hardware Back Button Handling
   let backListenerRemove: (() => void) | null = null;
   CapApp.addListener('backButton', ({ canGoBack }) => {
+    // A. Priority 1: Dismiss active modal/dialog if open
+    const isModalOpen =
+      document.body.style.overflow === 'hidden' ||
+      document.querySelector('[role="dialog"]') !== null ||
+      document.querySelector('.fixed.inset-0') !== null;
+
+    if (isModalOpen) {
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true })
+      );
+      return;
+    }
+
+    // B. Priority 2: Route navigation / Exit App
     const currentPath = window.location.pathname;
     const isRootPage =
       currentPath === '/' ||

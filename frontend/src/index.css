@@ -9,29 +9,29 @@
 
     /* Base Surfaces */
     --bg-canvas: transparent;
-    --bg-surface: rgba(255, 255, 255, 0.18);
-    --bg-surface-elevated: rgba(255, 255, 255, 0.24);
+    --bg-surface: var(--theme-glass-secondary-bg, rgba(255, 255, 255, 0.18));
+    --bg-surface-elevated: var(--theme-glass-primary-bg, rgba(255, 255, 255, 0.24));
     --bg-muted: rgba(255, 255, 255, 0.10);
 
     /* Text on Frosted Glass */
-    --text-primary: #FFFFFF;
-    --text-secondary: rgba(255, 255, 255, 0.85);
-    --text-muted: rgba(255, 255, 255, 0.60);
+    --text-primary: var(--theme-text-primary, #FFFFFF);
+    --text-secondary: var(--theme-text-secondary, rgba(255, 255, 255, 0.90));
+    --text-muted: var(--theme-text-muted, rgba(255, 255, 255, 0.70));
 
     /* Borders */
-    --border-subtle: rgba(255, 255, 255, 0.22);
+    --border-subtle: var(--theme-glass-secondary-border, rgba(255, 255, 255, 0.25));
     --border-hover: rgba(255, 255, 255, 0.40);
     --border-strong: rgba(255, 255, 255, 0.55);
 
     /* Apple-style Accents */
-    --accent-primary: #22C55E;
-    --accent-hover: #16A34A;
-    --accent-soft: rgba(34, 197, 94, 0.18);
+    --accent-primary: var(--theme-accent, #22C55E);
+    --accent-hover: var(--theme-accent-hover, #16A34A);
+    --accent-soft: var(--theme-accent-soft, rgba(34, 197, 94, 0.20));
 
     /* Financial Indicators */
-    --money-positive: #22C55E;
-    --money-owed: #EF4444;
-    --money-neutral: rgba(255, 255, 255, 0.75);
+    --money-positive: var(--theme-money-positive, #22C55E);
+    --money-owed: var(--theme-money-owed, #EF4444);
+    --money-neutral: var(--theme-money-neutral, rgba(255, 255, 255, 0.85));
 
     /* Transitions */
     --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -39,80 +39,87 @@
     --duration-normal: 250ms;
 
     /* Apple Liquid Glass: Pure Translucent Frosted Glass (Unified Light/Dark) */
-    --glass-primary-bg: rgba(255, 255, 255, 0.20);
+    --glass-primary-bg: var(--theme-glass-primary-bg, rgba(255, 255, 255, 0.20));
     --glass-primary-blur: 28px;
     --glass-primary-saturate: 180%;
-    --glass-primary-border: rgba(255, 255, 255, 0.32);
-    --glass-primary-highlight: inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.55);
-    --glass-primary-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.25), 0 4px 12px -2px rgba(0, 0, 0, 0.12);
+    --glass-primary-border: var(--theme-glass-primary-border, rgba(255, 255, 255, 0.34));
+    --glass-primary-highlight: var(--theme-glass-primary-highlight, inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.55));
+    --glass-primary-shadow: var(--theme-glass-primary-shadow, 0 16px 40px -8px rgba(0, 0, 0, 0.28));
 
-    --glass-secondary-bg: rgba(255, 255, 255, 0.14);
+    --glass-secondary-bg: var(--theme-glass-secondary-bg, rgba(255, 255, 255, 0.15));
     --glass-secondary-blur: 22px;
     --glass-secondary-saturate: 170%;
-    --glass-secondary-border: rgba(255, 255, 255, 0.24);
-    --glass-secondary-highlight: inset 0 1px 1px 0 rgba(255, 255, 255, 0.38);
-    --glass-secondary-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.18);
+    --glass-secondary-border: var(--theme-glass-secondary-border, rgba(255, 255, 255, 0.25));
+    --glass-secondary-highlight: var(--theme-glass-secondary-highlight, inset 0 1px 1px 0 rgba(255, 255, 255, 0.40));
+    --glass-secondary-shadow: var(--theme-glass-secondary-shadow, 0 8px 24px -4px rgba(0, 0, 0, 0.18));
 
-    --glass-interactive-bg: rgba(255, 255, 255, 0.16);
-    --glass-interactive-hover: rgba(255, 255, 255, 0.28);
-    --glass-interactive-border: rgba(255, 255, 255, 0.30);
+    --glass-interactive-bg: var(--theme-glass-interactive-bg, rgba(255, 255, 255, 0.18));
+    --glass-interactive-hover: var(--theme-glass-interactive-hover, rgba(255, 255, 255, 0.28));
+    --glass-interactive-border: var(--theme-glass-interactive-border, rgba(255, 255, 255, 0.32));
 
-    --glass-nav-bg: rgba(255, 255, 255, 0.22);
-    --glass-nav-border: rgba(255, 255, 255, 0.32);
+    --glass-nav-bg: var(--theme-glass-nav-bg, rgba(255, 255, 255, 0.24));
+    --glass-nav-border: var(--theme-glass-nav-border, rgba(255, 255, 255, 0.36));
 
-    --glass-modal-bg: rgba(255, 255, 255, 0.28);
-    --glass-modal-border: rgba(255, 255, 255, 0.40);
+    --glass-modal-bg: var(--theme-glass-modal-bg, rgba(255, 255, 255, 0.29));
+    --glass-modal-border: var(--theme-glass-modal-border, rgba(255, 255, 255, 0.42));
 
-    --glass-solid-bg: rgba(255, 255, 255, 0.32);
-    --glass-solid-border: rgba(255, 255, 255, 0.44);
+    --glass-solid-bg: var(--theme-glass-solid-bg, rgba(255, 255, 255, 0.34));
+    --glass-solid-border: var(--theme-glass-solid-border, rgba(255, 255, 255, 0.48));
 
-    --glass-text-primary: #FFFFFF;
-    --glass-text-secondary: rgba(255, 255, 255, 0.90);
-    --glass-text-muted: rgba(255, 255, 255, 0.70);
+    --glass-text-primary: var(--theme-text-primary, #FFFFFF);
+    --glass-text-secondary: var(--theme-text-secondary, rgba(255, 255, 255, 0.90));
+    --glass-text-muted: var(--theme-text-muted, rgba(255, 255, 255, 0.70));
   }
 
   html.dark,
   body.dark {
     /* Apple Liquid Glass: Unified Translucent Glass — Never Opaque Black */
     --bg-canvas: transparent;
-    --bg-surface: rgba(255, 255, 255, 0.18);
-    --bg-surface-elevated: rgba(255, 255, 255, 0.25);
+    --bg-surface: var(--theme-glass-secondary-bg, rgba(255, 255, 255, 0.18));
+    --bg-surface-elevated: var(--theme-glass-primary-bg, rgba(255, 255, 255, 0.25));
     --bg-muted: rgba(255, 255, 255, 0.10);
 
-    --text-primary: #FFFFFF;
-    --text-secondary: rgba(255, 255, 255, 0.90);
-    --text-muted: rgba(255, 255, 255, 0.70);
+    --text-primary: var(--theme-text-primary, #FFFFFF);
+    --text-secondary: var(--theme-text-secondary, rgba(255, 255, 255, 0.90));
+    --text-muted: var(--theme-text-muted, rgba(255, 255, 255, 0.70));
 
-    --border-subtle: rgba(255, 255, 255, 0.22);
+    --border-subtle: var(--theme-glass-secondary-border, rgba(255, 255, 255, 0.25));
     --border-hover: rgba(255, 255, 255, 0.36);
     --border-strong: rgba(255, 255, 255, 0.50);
 
-    --glass-primary-bg: rgba(255, 255, 255, 0.20);
-    --glass-primary-border: rgba(255, 255, 255, 0.32);
-    --glass-primary-highlight: inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.55);
-    --glass-primary-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.28);
+    --glass-primary-bg: var(--theme-glass-primary-bg, rgba(255, 255, 255, 0.20));
+    --glass-primary-border: var(--theme-glass-primary-border, rgba(255, 255, 255, 0.34));
+    --glass-primary-highlight: var(--theme-glass-primary-highlight, inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.55));
+    --glass-primary-shadow: var(--theme-glass-primary-shadow, 0 16px 40px -8px rgba(0, 0, 0, 0.28));
 
-    --glass-secondary-bg: rgba(255, 255, 255, 0.14);
-    --glass-secondary-border: rgba(255, 255, 255, 0.24);
-    --glass-secondary-highlight: inset 0 1px 1px 0 rgba(255, 255, 255, 0.38);
-    --glass-secondary-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.20);
+    --glass-secondary-bg: var(--theme-glass-secondary-bg, rgba(255, 255, 255, 0.15));
+    --glass-secondary-border: var(--theme-glass-secondary-border, rgba(255, 255, 255, 0.25));
+    --glass-secondary-highlight: var(--theme-glass-secondary-highlight, inset 0 1px 1px 0 rgba(255, 255, 255, 0.40));
+    --glass-secondary-shadow: var(--theme-glass-secondary-shadow, 0 8px 24px -4px rgba(0, 0, 0, 0.20));
 
-    --glass-interactive-bg: rgba(255, 255, 255, 0.16);
-    --glass-interactive-hover: rgba(255, 255, 255, 0.28);
-    --glass-interactive-border: rgba(255, 255, 255, 0.30);
+    --glass-interactive-bg: var(--theme-glass-interactive-bg, rgba(255, 255, 255, 0.18));
+    --glass-interactive-hover: var(--theme-glass-interactive-hover, rgba(255, 255, 255, 0.28));
+    --glass-interactive-border: var(--theme-glass-interactive-border, rgba(255, 255, 255, 0.32));
 
-    --glass-nav-bg: rgba(255, 255, 255, 0.22);
-    --glass-nav-border: rgba(255, 255, 255, 0.32);
+    --glass-nav-bg: var(--theme-glass-nav-bg, rgba(255, 255, 255, 0.24));
+    --glass-nav-border: var(--theme-glass-nav-border, rgba(255, 255, 255, 0.36));
 
-    --glass-modal-bg: rgba(255, 255, 255, 0.28);
-    --glass-modal-border: rgba(255, 255, 255, 0.40);
+    --glass-modal-bg: var(--theme-glass-modal-bg, rgba(255, 255, 255, 0.29));
+    --glass-modal-border: var(--theme-glass-modal-border, rgba(255, 255, 255, 0.42));
 
-    --glass-solid-bg: rgba(255, 255, 255, 0.32);
-    --glass-solid-border: rgba(255, 255, 255, 0.44);
+    --glass-solid-bg: var(--theme-glass-solid-bg, rgba(255, 255, 255, 0.34));
+    --glass-solid-border: var(--theme-glass-solid-border, rgba(255, 255, 255, 0.48));
 
-    --glass-text-primary: #FFFFFF;
-    --glass-text-secondary: rgba(255, 255, 255, 0.90);
-    --glass-text-muted: rgba(255, 255, 255, 0.70);
+    --glass-text-primary: var(--theme-text-primary, #FFFFFF);
+    --glass-text-secondary: var(--theme-text-secondary, rgba(255, 255, 255, 0.90));
+    --glass-text-muted: var(--theme-text-muted, rgba(255, 255, 255, 0.70));
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    min-height: 100%;
   }
 
   body {
@@ -271,12 +278,67 @@
 
 /* Text glow for maximum readability over varied oil painting brushstrokes */
 .glass-text-glow {
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.65), 0 0 1px rgba(0, 0, 0, 0.85);
+  text-shadow: var(--theme-text-shadow, 0 1px 3px rgba(0, 0, 0, 0.65), 0 0 1px rgba(0, 0, 0, 0.85));
 }
 
 .glass-subtext {
-  color: rgba(255, 255, 255, 0.78) !important;
+  color: var(--theme-text-secondary, rgba(255, 255, 255, 0.90)) !important;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.40);
+}
+
+/* Theme Adaptive Typography & Accent Utilities */
+.theme-text-primary {
+  color: var(--theme-text-primary, #FFFFFF) !important;
+  text-shadow: var(--theme-text-shadow, 0 1px 3px rgba(0, 0, 0, 0.65)) !important;
+}
+
+.theme-text-secondary {
+  color: var(--theme-text-secondary, rgba(255, 255, 255, 0.90)) !important;
+}
+
+.theme-text-muted {
+  color: var(--theme-text-muted, rgba(255, 255, 255, 0.70)) !important;
+}
+
+.theme-icon {
+  color: var(--theme-icon, var(--theme-accent, #22C55E)) !important;
+}
+
+.theme-accent-bg {
+  background-color: var(--theme-accent, #22C55E) !important;
+  color: var(--theme-accent-text, #FFFFFF) !important;
+}
+
+.theme-accent-bg:hover {
+  background-color: var(--theme-accent-hover, #16A34A) !important;
+}
+
+/* Non-backdrop-filter fallback for low-power or legacy engines */
+@supports not (backdrop-filter: blur(1px)) {
+  .glass-panel,
+  .glass-primary {
+    background: rgba(20, 24, 33, 0.88) !important;
+  }
+  .glass-card,
+  .glass-secondary {
+    background: rgba(24, 28, 38, 0.82) !important;
+  }
+  .glass-interactive {
+    background: rgba(28, 32, 44, 0.85) !important;
+  }
+  .glass-nav,
+  .glass-navigation {
+    background: rgba(18, 22, 30, 0.92) !important;
+  }
+  .glass-modal {
+    background: rgba(15, 18, 26, 0.96) !important;
+  }
+  .glass-solid {
+    background: rgba(22, 26, 36, 0.92) !important;
+  }
+  .glass-input {
+    background: rgba(30, 35, 48, 0.88) !important;
+  }
 }
 
 /* Custom Minimal Scrollbar */
@@ -334,5 +396,49 @@
 @keyframes skeleton-shimmer {
   100% {
     transform: translateX(100%);
+  }
+}
+
+/* Animated Blue Verification Tick (Payment-App Grade) */
+@keyframes blue-tick-pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes blue-check-draw {
+  0% {
+    stroke-dashoffset: 48;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-blue-tick-pop {
+  animation: blue-tick-pop 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-blue-check-draw {
+  animation: blue-check-draw 0.4s cubic-bezier(0.65, 0, 0.45, 1) 0.15s forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-blue-tick-pop {
+    animation: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+  .animate-blue-check-draw {
+    animation: none !important;
+    stroke-dashoffset: 0 !important;
   }
 }

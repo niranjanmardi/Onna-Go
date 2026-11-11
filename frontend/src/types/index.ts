@@ -230,6 +230,7 @@ export interface TripReport {
 export interface TripSummary {
   trip_id: string;
   trip_name: string;
+  currency?: string;
   status: string;
   is_completed: boolean;
   completed_at?: string | null;
@@ -241,6 +242,36 @@ export interface TripSummary {
   settlement_suggestions: SettlementSuggestion[];
   pending_settlements: Settlement[];
   all_settlements: Settlement[];
+}
+
+export interface ChatSenderInfo {
+  id: string;
+  display_name: string;
+  avatar_url?: string | null;
+}
+
+export interface ChatMessageItem {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  sender?: ChatSenderInfo | null;
+  message_type: string;
+  content: string;
+  media_url?: string | null;
+  reply_to_id?: string | null;
+  created_at: string;
+}
+
+export interface ConversationItem {
+  id: string;
+  type: 'DIRECT' | 'TRIP_GROUP';
+  trip_id?: string | null;
+  title?: string | null;
+  last_message_preview?: string | null;
+  last_message_at?: string | null;
+  unread_count: number;
+  other_member?: ChatSenderInfo | null;
+  created_at: string;
 }
 
 export interface Friend {
@@ -298,31 +329,45 @@ export interface TripInvitation {
   created_at: string;
 }
 
-export interface ParticipantSpending {
+export interface SocialPostItem {
+  id: string;
   user_id: string;
-  user_name: string;
-  amount_spent_paise: number;
-  amount_consumed_paise: number;
-  net_balance_paise: number;
+  author_name: string;
+  author_username?: string | null;
+  author_avatar?: string | null;
+  trip_id?: string | null;
+  trip_name?: string | null;
+  caption?: string | null;
+  location_name?: string | null;
+  trip_dates_label?: string | null;
+  privacy: 'PUBLIC' | 'FRIENDS' | 'PRIVATE';
+  media_urls: string[];
+  likes_count: number;
+  is_liked_by_me: boolean;
+  comments_count: number;
+  created_at: string;
 }
 
-export interface TripSummary {
-  trip_id: string;
-  trip_name: string;
-  currency?: string;
-  status: string;
-  is_completed: boolean;
-  completed_at?: string | null;
-  total_expenses_paise: number;
-  total_settled_paise: number;
-  is_fully_settled: boolean;
-  category_breakdown: {
-    category: string;
-    amount_paise: number;
-    percentage: number;
-  }[];
-  participant_breakdown: ParticipantSpending[];
-  settlement_suggestions: SettlementSuggestion[];
-  pending_settlements: Settlement[];
-  all_settlements: Settlement[];
+export interface PostCommentItem {
+  id: string;
+  post_id: string;
+  user_id: string;
+  user_name: string;
+  user_avatar?: string | null;
+  comment_text: string;
+  created_at: string;
+}
+
+export interface CreatePostPayload {
+  caption?: string;
+  location_name?: string;
+  trip_id?: string | null;
+  privacy: 'PUBLIC' | 'FRIENDS' | 'PRIVATE';
+  media_urls: string[];
+}
+
+export interface UpdatePostPayload {
+  caption?: string;
+  location_name?: string;
+  privacy?: 'PUBLIC' | 'FRIENDS' | 'PRIVATE';
 }

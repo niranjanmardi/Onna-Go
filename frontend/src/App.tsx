@@ -21,6 +21,8 @@ const NotificationsPage = React.lazy(() => import('./features/notifications/Noti
 const SettingsPage = React.lazy(() => import('./features/settings/SettingsPage').then(m => ({ default: m.SettingsPage })));
 const ThemesPage = React.lazy(() => import('./features/themes/ThemesPage').then(m => ({ default: m.ThemesPage })));
 const FriendsPage = React.lazy(() => import('./features/friends/FriendsPage').then(m => ({ default: m.FriendsPage })));
+const MessagesPage = React.lazy(() => import('./features/messages/MessagesPage').then(m => ({ default: m.MessagesPage })));
+const SocialFeedPage = React.lazy(() => import('./features/social/SocialFeedPage').then(m => ({ default: m.SocialFeedPage })));
 const DownloadPage = React.lazy(() => import('./features/download/DownloadPage').then(m => ({ default: m.DownloadPage })));
 
 const RouteLoadingFallback: React.FC = () => (
@@ -149,6 +151,11 @@ export const App: React.FC = () => {
                     <Route path="/trips/:id" element={<TripDetailPage />} />
                     <Route path="/notifications" element={<NotificationsPage />} />
                     <Route path="/friends" element={<FriendsPage />} />
+                    <Route path="/messages" element={<MessagesPage />} />
+                    <Route path="/messages/:conversationId" element={<MessagesPage />} />
+                    <Route path="/feed" element={<SocialFeedPage />} />
+                    <Route path="/social" element={<SocialFeedPage />} />
+                    <Route path="/memories" element={<SocialFeedPage />} />
                     <Route path="/settings" element={<SettingsPage />} />
                     <Route path="/profile" element={<SettingsPage />} />
                     <Route path="/themes" element={<ThemesPage />} />

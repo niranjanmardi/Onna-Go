@@ -13,12 +13,11 @@ import {
   Loader2,
   Sparkles,
   Search,
-  Filter,
   History,
   Clock,
   UserCheck,
   SlidersHorizontal,
-  X
+  X,
 } from 'lucide-react';
 import { api } from '@/lib/api-client';
 import { cacheTripsList, getCachedTripsList } from '@/lib/offline-db';
@@ -30,6 +29,12 @@ import { TripCelebrationModal } from '@/components/common/TripCelebrationModal';
 import { useFeedback } from '@/context/FeedbackContext';
 import { useAuth } from '@/features/auth/AuthContext';
 import { playSound } from '@/lib/sounds';
+import {
+  GlassPrimary,
+  GlassSecondary,
+  GlassInteractive,
+  GlassButton,
+} from '@/components/glass';
 
 type FilterTab = 'all' | 'active' | 'history' | 'created' | 'joined';
 type SortOption = 'newest' | 'oldest' | 'expenses_desc';
@@ -242,37 +247,41 @@ export const TripsListPage: React.FC = () => {
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-[#171717] dark:text-[#EDEDED]">
+          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-white drop-shadow-xs">
             Trips
           </h1>
-          <p className="text-sm text-[#737373] dark:text-[#8E8E93] mt-1">
+          <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 mt-1 font-medium">
             Manage your journeys, explore historical rides, invite friends, and split travel expenses.
           </p>
         </div>
 
         {trips.length > 0 && (
           <div className="flex items-center gap-2">
-            <button
+            <GlassButton
+              variant="secondary"
+              size="sm"
               onClick={() => setIsJoinOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#737373] dark:text-[#8E8E93] hover:text-[#171717] dark:hover:text-[#EDEDED] border border-[#E8E8E5] dark:border-[#262626] rounded-xl hover:bg-[#F4F4F2] dark:hover:bg-[#1A1A1A] transition-colors cursor-pointer"
+              className="gap-1.5"
             >
               <KeyRound className="w-3.5 h-3.5" />
               <span>Join with code</span>
-            </button>
+            </GlassButton>
 
-            <button
+            <GlassButton
+              variant="primary"
+              size="sm"
               onClick={() => setIsCreateOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#737373] dark:text-[#8E8E93] hover:text-[#171717] dark:hover:text-[#EDEDED] border border-[#E8E8E5] dark:border-[#262626] rounded-xl hover:bg-[#F4F4F2] dark:hover:bg-[#1A1A1A] transition-colors cursor-pointer"
+              className="gap-1.5"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>New trip</span>
-            </button>
+            </GlassButton>
           </div>
         )}
       </div>
 
       {error && (
-        <div className="p-4 rounded-xl bg-[#FFE4E6] dark:bg-[#3D1418] border border-[#FDA4AF] dark:border-[#881337] text-[#E11D48] dark:text-[#FB7185] text-sm flex items-center gap-3 animate-fadeIn">
+        <div className="p-4 rounded-2xl bg-red-500/15 border border-red-500/30 text-red-600 dark:text-red-300 text-xs sm:text-sm flex items-center gap-3 animate-fadeIn">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           <span>{error}</span>
         </div>
@@ -280,7 +289,7 @@ export const TripsListPage: React.FC = () => {
 
       {/* --- PENDING TRIP INVITATIONS BANNER --- */}
       {pendingInvitations.length > 0 && (
-        <div className="glass-card rounded-2xl p-4 sm:p-5 border border-white/40 dark:border-white/10 shadow-sm space-y-3.5 animate-fadeIn">
+        <GlassSecondary className="p-4 sm:p-5 space-y-3.5 animate-fadeIn">
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-[#16834A] dark:text-[#22C55E]" />
             <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-900 dark:text-white">
@@ -290,9 +299,9 @@ export const TripsListPage: React.FC = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {pendingInvitations.map((inv) => (
-              <div
+              <GlassInteractive
                 key={inv.id}
-                className="glass-card rounded-xl border border-white/30 dark:border-white/10 p-4 flex flex-col justify-between gap-3 shadow-sm"
+                className="p-4 flex flex-col justify-between gap-3"
               >
                 <div>
                   <h3 className="font-bold text-zinc-900 dark:text-white text-sm">{inv.trip_name}</h3>
@@ -325,22 +334,22 @@ export const TripsListPage: React.FC = () => {
                     Decline
                   </button>
                 </div>
-              </div>
+              </GlassInteractive>
             ))}
           </div>
-        </div>
+        </GlassSecondary>
       )}
 
       {/* --- TRIP HISTORY & FILTER BAR --- */}
-      <div className="glass-card rounded-3xl border border-white/40 dark:border-white/10 p-4 shadow-sm space-y-3.5">
+      <GlassPrimary className="p-4 space-y-3.5">
         {/* Navigation Filter Tabs */}
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#F4F4F2] dark:border-[#262626] pb-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-black/5 dark:border-white/10 pb-3">
           <div className="flex flex-wrap items-center gap-1">
             <button
               onClick={() => setActiveTab('all')}
               className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                 activeTab === 'all'
-                  ? 'bg-white dark:bg-white/20 text-zinc-900 dark:text-white shadow-sm'
+                  ? 'bg-white/90 dark:bg-white/20 text-zinc-900 dark:text-white shadow-sm'
                   : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
               }`}
             >
@@ -363,7 +372,7 @@ export const TripsListPage: React.FC = () => {
               onClick={() => setActiveTab('history')}
               className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                 activeTab === 'history'
-                  ? 'bg-white dark:bg-white/20 text-zinc-900 dark:text-white shadow-sm'
+                  ? 'bg-white/90 dark:bg-white/20 text-zinc-900 dark:text-white shadow-sm'
                   : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
               }`}
             >
@@ -375,7 +384,7 @@ export const TripsListPage: React.FC = () => {
               onClick={() => setActiveTab('created')}
               className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                 activeTab === 'created'
-                  ? 'bg-white dark:bg-white/20 text-zinc-900 dark:text-white shadow-sm'
+                  ? 'bg-white/90 dark:bg-white/20 text-zinc-900 dark:text-white shadow-sm'
                   : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
               }`}
             >
@@ -386,7 +395,7 @@ export const TripsListPage: React.FC = () => {
               onClick={() => setActiveTab('joined')}
               className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-1 cursor-pointer ${
                 activeTab === 'joined'
-                  ? 'bg-white dark:bg-white/20 text-zinc-900 dark:text-white shadow-sm'
+                  ? 'bg-white/90 dark:bg-white/20 text-zinc-900 dark:text-white shadow-sm'
                   : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
               }`}
             >
@@ -430,16 +439,16 @@ export const TripsListPage: React.FC = () => {
             </button>
           )}
         </div>
-      </div>
+      </GlassPrimary>
 
       {/* --- CONTENT AREA --- */}
       {loading ? (
         <div className="py-20 flex flex-col items-center justify-center">
-          <div className="w-8 h-8 border-2 border-[#E8E8E5] dark:border-[#262626] border-t-[#16834A] dark:border-t-[#22C55E] rounded-full animate-spin mb-3" />
-          <p className="text-sm text-[#737373] dark:text-[#8E8E93]">Loading your travel history...</p>
+          <div className="w-8 h-8 border-2 border-white/30 border-t-[#16834A] dark:border-t-[#22C55E] rounded-full animate-spin mb-3" />
+          <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 font-medium">Loading your travel history...</p>
         </div>
       ) : filteredTrips.length === 0 ? (
-        <div className="glass-card rounded-3xl border border-white/40 dark:border-white/10 p-10 sm:p-12 text-center max-w-lg mx-auto shadow-md">
+        <GlassSecondary className="p-10 sm:p-12 text-center max-w-lg mx-auto">
           <div className="w-12 h-12 bg-white/70 dark:bg-white/10 border border-white/40 dark:border-white/10 text-zinc-600 dark:text-zinc-300 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">
             {activeTab === 'history' ? (
               <History className="w-6 h-6 text-[#16834A] dark:text-[#22C55E]" />
@@ -448,7 +457,7 @@ export const TripsListPage: React.FC = () => {
             )}
           </div>
 
-          <h2 className="text-lg font-semibold text-[#171717] dark:text-[#EDEDED]">
+          <h2 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-white">
             {searchQuery
               ? 'No matching trips found'
               : activeTab === 'history'
@@ -462,7 +471,7 @@ export const TripsListPage: React.FC = () => {
               : 'No trips yet'}
           </h2>
 
-          <p className="text-sm text-[#737373] dark:text-[#8E8E93] mt-1.5 leading-relaxed">
+          <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 mt-1.5 leading-relaxed font-medium">
             {searchQuery
               ? `We couldn't find any trips matching "${searchQuery}". Try searching for another destination or trip name.`
               : activeTab === 'history'
@@ -474,32 +483,37 @@ export const TripsListPage: React.FC = () => {
 
           <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
             {searchQuery ? (
-              <button
+              <GlassButton
+                variant="secondary"
+                size="sm"
                 onClick={() => setSearchQuery('')}
-                className="inline-flex items-center justify-center gap-2 bg-[#FAFAF8] dark:bg-[#1A1A1A] border border-[#E8E8E5] dark:border-[#262626] text-[#171717] dark:text-[#EDEDED] hover:bg-[#F4F4F2] dark:hover:bg-[#222222] px-4 py-2 rounded-xl font-medium text-sm transition-colors cursor-pointer"
               >
                 Clear search
-              </button>
+              </GlassButton>
             ) : (
               <>
-                <button
+                <GlassButton
+                  variant="primary"
+                  size="md"
                   onClick={() => setIsCreateOpen(true)}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-[#16834A] hover:bg-[#136F3F] dark:bg-[#22C55E] dark:hover:bg-[#1ea951] text-white dark:text-[#0A0A0A] px-5 py-2.5 rounded-xl font-medium text-sm transition-colors shadow-xs cursor-pointer"
+                  className="w-full sm:w-auto gap-2"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Create your first trip</span>
-                </button>
-                <button
+                </GlassButton>
+                <GlassButton
+                  variant="secondary"
+                  size="md"
                   onClick={() => setIsJoinOpen(true)}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-white dark:bg-[#1A1A1A] border border-[#E8E8E5] dark:border-[#262626] text-[#171717] dark:text-[#EDEDED] hover:bg-[#F4F4F2] dark:hover:bg-[#222222] px-5 py-2.5 rounded-xl font-medium text-sm transition-colors cursor-pointer"
+                  className="w-full sm:w-auto gap-2"
                 >
-                  <KeyRound className="w-4 h-4 text-[#737373] dark:text-[#8E8E93]" />
+                  <KeyRound className="w-4 h-4 text-zinc-500" />
                   <span>Join with code</span>
-                </button>
+                </GlassButton>
               </>
             )}
           </div>
-        </div>
+        </GlassSecondary>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {filteredTrips.map((trip) => {
@@ -507,10 +521,10 @@ export const TripsListPage: React.FC = () => {
             const owner = isTripOwner(trip);
 
             return (
-              <div
+              <GlassInteractive
                 key={trip.id}
                 onClick={() => navigate(`/trips/${trip.id}`)}
-                className="glass-card rounded-3xl border border-white/40 dark:border-white/10 p-5 shadow-sm hover:shadow-lg hover:border-white/60 dark:hover:border-white/20 transition-all duration-200 cursor-pointer flex flex-col justify-between group"
+                className="p-5 flex flex-col justify-between group"
               >
                 <div>
                   {/* Badges Bar: Currency, Status & Ownership */}
@@ -518,12 +532,12 @@ export const TripsListPage: React.FC = () => {
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {/* Active vs Completed Status Badge */}
                       {completed ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-[#222222] text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-[#333333]">
-                          <Check className="w-3 h-3 text-neutral-500" />
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md bg-black/5 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 border border-black/10 dark:border-white/10">
+                          <Check className="w-3 h-3 text-zinc-500" />
                           <span>History</span>
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/60">
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                           <span>Active</span>
                         </span>
@@ -531,39 +545,39 @@ export const TripsListPage: React.FC = () => {
 
                       {/* Owner vs Member Badge */}
                       {owner ? (
-                        <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-[#FAFAF8] dark:bg-[#1B1B1E] text-[#18181B] dark:text-[#F5F5F7] border border-[#E4E4E7] dark:border-[#2A2A2E]">
+                        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-white/40 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 border border-white/30 dark:border-white/15">
                           Owner
                         </span>
                       ) : (
-                        <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-neutral-50 dark:bg-[#1B1B1E] text-neutral-600 dark:text-[#A1A1AA] border border-neutral-200 dark:border-[#2A2A2E]">
+                        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-white/20 dark:bg-white/5 text-zinc-600 dark:text-zinc-300 border border-white/20 dark:border-white/10">
                           Member
                         </span>
                       )}
                     </div>
 
-                    <span className="text-xs text-[#737373] dark:text-[#8E8E93] flex items-center gap-1 shrink-0">
-                      <Users className="w-3.5 h-3.5 text-[#A3A3A3] dark:text-[#666666]" />
+                    <span className="text-xs text-zinc-600 dark:text-zinc-300 flex items-center gap-1 shrink-0 font-medium">
+                      <Users className="w-3.5 h-3.5 text-zinc-400" />
                       <span>{trip.members_count}</span>
                     </span>
                   </div>
 
                   {/* Trip Title */}
-                  <h3 className="text-base font-semibold text-[#171717] dark:text-[#EDEDED] group-hover:text-[#16834A] dark:group-hover:text-[#22C55E] transition-colors tracking-tight line-clamp-1">
+                  <h3 className="text-base font-bold text-zinc-900 dark:text-white group-hover:text-[#16834A] dark:group-hover:text-[#22C55E] transition-colors tracking-tight line-clamp-1">
                     {trip.name}
                   </h3>
 
                   {/* Destination */}
                   {trip.destination && (
-                    <p className="text-xs text-[#737373] dark:text-[#8E8E93] flex items-center gap-1.5 mt-1.5">
+                    <p className="text-xs text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5 mt-1.5 font-medium">
                       <MapPin className="w-3.5 h-3.5 text-[#16834A] dark:text-[#22C55E] shrink-0" />
-                      <span className="font-medium text-neutral-800 dark:text-neutral-200 truncate">{trip.destination}</span>
+                      <span className="truncate">{trip.destination}</span>
                     </p>
                   )}
 
                   {/* Dates */}
                   {trip.start_date && (
-                    <p className="text-xs text-[#737373] dark:text-[#8E8E93] flex items-center gap-1.5 mt-1">
-                      <Calendar className="w-3.5 h-3.5 text-[#737373] dark:text-[#8E8E93] shrink-0" />
+                    <p className="text-xs text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5 mt-1 font-medium">
+                      <Calendar className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
                       <span>
                         {formatDate(trip.start_date)}
                         {trip.end_date ? ` – ${formatDate(trip.end_date)}` : ''}
@@ -573,29 +587,29 @@ export const TripsListPage: React.FC = () => {
 
                   {/* Description */}
                   {trip.description && (
-                    <p className="text-xs text-[#737373] dark:text-[#8E8E93] mt-2 line-clamp-2 leading-relaxed">
+                    <p className="text-xs text-zinc-600 dark:text-zinc-300 mt-2 line-clamp-2 leading-relaxed font-normal">
                       {trip.description}
                     </p>
                   )}
                 </div>
 
                 {/* Card Footer */}
-                <div className="mt-5 pt-3 border-t border-[#F4F4F2] dark:border-[#262626] flex items-center justify-between">
+                <div className="mt-5 pt-3 border-t border-black/5 dark:border-white/10 flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] font-medium text-[#737373] dark:text-[#8E8E93] block">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">
                       Total spent
                     </span>
-                    <span className="text-sm font-semibold font-mono text-[#171717] dark:text-[#EDEDED] tabular-nums">
+                    <span className="text-sm font-bold font-mono text-zinc-900 dark:text-white tabular-nums">
                       {formatPaise(trip.total_expenses_paise, trip.currency)}
                     </span>
                   </div>
 
-                  <div className="flex items-center text-xs font-medium text-[#16834A] dark:text-[#22C55E] gap-0.5 group-hover:translate-x-0.5 transition-transform">
+                  <div className="flex items-center text-xs font-bold text-[#16834A] dark:text-[#22C55E] gap-0.5 group-hover:translate-x-0.5 transition-transform">
                     <span>View trip</span>
                     <ChevronRight className="w-4 h-4" />
                   </div>
                 </div>
-              </div>
+              </GlassInteractive>
             );
           })}
         </div>
